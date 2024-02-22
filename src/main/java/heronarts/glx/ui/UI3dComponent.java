@@ -87,7 +87,23 @@ public abstract class UI3dComponent extends UIObject {
     }
   }
 
+  /**
+   * Subclasses should override this method with specific drawing routings
+   *
+   * @param ui UI
+   * @param view View to draw into
+   */
   protected void onDraw(UI ui, View view) {
+    // subclasses may override
+  }
+
+  /**
+   * Invoked when the camera position of the parent context has changed
+   *
+   * @param ui UI
+   * @param context Context being rendered into
+   */
+  protected void onCameraChanged(UI ui, UI3dContext context) {
     // subclasses may override
   }
 }

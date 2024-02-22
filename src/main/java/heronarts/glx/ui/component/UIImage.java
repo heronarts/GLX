@@ -20,6 +20,7 @@ package heronarts.glx.ui.component;
 
 import heronarts.glx.ui.UI;
 import heronarts.glx.ui.UI2dComponent;
+import heronarts.glx.ui.UIColor;
 import heronarts.glx.ui.vg.VGraphics;
 
 public class UIImage extends UI2dComponent {
@@ -28,7 +29,7 @@ public class UIImage extends UI2dComponent {
 
   private boolean hasTint = false;
 
-  private int tint = UI.WHITE;
+  private UIColor tint = UIColor.WHITE;
 
   public UIImage(VGraphics.Image image) {
     this(image, 0, 0);
@@ -48,6 +49,10 @@ public class UIImage extends UI2dComponent {
   }
 
   public UIImage setTintColor(int tint) {
+    return setTintColor(new UIColor(tint));
+  }
+
+  public UIImage setTintColor(UIColor tint) {
     if (!this.hasTint || (this.tint != tint)) {
       this.hasTint = true;
       this.tint = tint;

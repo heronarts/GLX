@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
+import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.bgfx.BGFX;
 
@@ -124,9 +125,11 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   /**
    * Perspective of view
    */
-  public final BoundedParameter perspective = new BoundedParameter("Perspective", 60, 15, 150)
-  .setExponent(2)
-  .setDescription("Camera perspective factor");
+  public final BoundedParameter perspective =
+    new BoundedParameter("Perspective", 60, 15, 150)
+    .setExponent(2)
+    .setUnits(BoundedParameter.Units.DEGREES)
+    .setDescription("Camera lens perspective in degrees");
 
   /**
    * Depth of perspective field, exponential factor of radius by exp(10, Depth)
@@ -134,17 +137,6 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   public final BoundedParameter depth =
     new BoundedParameter("Depth", 2, 0, 10)
     .setDescription("Camera's depth of perspective field");
-
-  /**
-   * Phi lock prevents crazy vertical rotations
-   */
-  public final BooleanParameter phiLock =
-    new BooleanParameter("PhiLock", true)
-    .setDescription("Locks phi to reasonable bounds");
-
-  public final BooleanParameter showCenterPoint =
-    new BooleanParameter("ShowCenter", false)
-    .setDescription("Shows the center point of the scene");
 
   /**
    * Whether to animate between camera positions
@@ -156,7 +148,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   /**
    * Animation time
    */
-  public final BoundedParameter animationTime = (BoundedParameter)
+  public final BoundedParameter animationTime =
     new BoundedParameter("Animation Time", 1000, 100, 300000)
     .setExponent(2)
     .setUnits(LXParameter.Units.MILLISECONDS)
@@ -175,7 +167,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   /**
    * Max velocity used to damp changes to rotation (theta/phi)
    */
-  public final MutableParameter rotationVelocity = new MutableParameter("RVel", 16*Math.PI);
+  public final MutableParameter rotationVelocity = new MutableParameter("RVel", 16*180);
 
   /**
    * Acceleration used to change rotation (theta/phi)
@@ -204,17 +196,49 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
   public class Camera implements LXSerializable {
 
-    public final BooleanParameter active = new BooleanParameter("Active", false);
+    private static final double RANGE_LIMIT = 100000000;
 
-    public final MutableParameter theta = new MutableParameter("Theta", 0);
-    public final MutableParameter phi = new MutableParameter("Phi", 0);
-    public final MutableParameter radius = new MutableParameter("Radius", 120);
+    public final BooleanParameter active =
+      new BooleanParameter("Active", false)
+      .setDescription("Whether this camera view is active");
 
-    private final MutableParameter x = new MutableParameter();
-    private final MutableParameter y = new MutableParameter();
-    private final MutableParameter z = new MutableParameter();
+    public final BoundedParameter theta =
+      new BoundedParameter("Theta", 0, 360)
+      .setWrappable(true)
+      .setUnits(BoundedParameter.Units.DEGREES)
+      .setDescription("Camera azimuth about the Y-axis");
+
+    public final BoundedParameter phi =
+      new BoundedParameter("Phi", 0, -89, 89)
+      .setUnits(BoundedParameter.Units.DEGREES)
+      .setDescription("Camera elevation from the XZ plane");
+
+    public final BoundedParameter radius =
+      new BoundedParameter("Radius", 120, 0, RANGE_LIMIT)
+      .setDescription("Camera radius");
+
+    public final BoundedParameter x =
+      new BoundedParameter("X", 0, -RANGE_LIMIT, RANGE_LIMIT)
+      .setDescription("Camera X position");
+
+    public final BoundedParameter y =
+      new BoundedParameter("Y", 0, -RANGE_LIMIT, RANGE_LIMIT)
+      .setDescription("Camera Y position");
+
+    public final BoundedParameter z =
+      new BoundedParameter("Z", 0, -RANGE_LIMIT, RANGE_LIMIT)
+      .setDescription("Camera Z position");
 
     private Camera() {}
+
+    private void reset() {
+      this.theta.reset();
+      this.phi.reset();
+      this.radius.reset();
+      this.x.reset();
+      this.y.reset();
+      this.z.reset();
+    }
 
     private void set(Camera that) {
       set(that, true);
@@ -233,7 +257,16 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     }
 
     private void lerp(Camera one, Camera two, double amt) {
-      this.theta.setValue(LXUtils.lerp(one.theta.getValue(), two.theta.getValue(), amt));
+      double thetaOne = one.theta.getValue();
+      double thetaTwo = two.theta.getValue();
+      if (Math.abs(thetaOne - thetaTwo) > 180) {
+        if (thetaOne < thetaTwo) {
+          thetaOne += 360;
+        } else {
+          thetaTwo += 360;
+        }
+      }
+      this.theta.setValue(LXUtils.lerp(thetaOne, thetaTwo, amt) % 360.);
       this.phi.setValue(LXUtils.lerp(one.phi.getValue(), two.phi.getValue(), amt));
       this.radius.setValue(LXUtils.lerp(one.radius.getValue(), two.radius.getValue(), amt));
       this.x.setValue(LXUtils.lerp(one.x.getValue(), two.x.getValue(), amt));
@@ -276,7 +309,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
   public final ObjectParameter<Camera> focusCamera;
 
-  private Camera camera = new Camera();
+  public final Camera camera = new Camera();
 
   private Camera prevCamera = null;
   private Camera cameraFrom = new Camera();
@@ -299,7 +332,8 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   };
 
   private final DampedParameter thetaDamped =
-    new DampedParameter(this.camera.theta, this.rotationVelocity, this.rotationAcceleration);
+    new DampedParameter(this.camera.theta, this.rotationVelocity, this.rotationAcceleration)
+    .setModulus(360);
 
   private final DampedParameter phiDamped =
     new DampedParameter(this.camera.phi, this.rotationVelocity, this.rotationAcceleration);
@@ -329,8 +363,6 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   // Radius bounds
   private float minRadius = 1, maxRadius = Float.MAX_VALUE;
 
-  private static final float MAX_PHI = (float) LX.HALF_PI * .9f;
-
   protected final View view;
   private float x;
   private float y;
@@ -351,7 +383,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     }
 
     this.focusCamera = new ObjectParameter<Camera>("Camera", this.cue);
-    this.focusCamera.addListener((p) -> {
+    addListener(this.focusCamera, p -> {
       Camera selectCamera = this.focusCamera.getObject();
       if (!selectCamera.active.isOn()) {
         // Store state into the camera
@@ -395,19 +427,10 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
     computeCamera(true);
 
-    this.camera.radius.addListener((p) -> {
+    addListener(this.camera.radius, p -> {
       double value = this.camera.radius.getValue();
       if (value < this.minRadius || value > this.maxRadius) {
         this.camera.radius.setValue(LXUtils.constrain(value, this.minRadius, this.maxRadius));
-      }
-    });
-
-    this.camera.phi.addListener((p) -> {
-      if (this.phiLock.isOn()) {
-        double value = this.camera.phi.getValue();
-        if (value < -MAX_PHI || value > MAX_PHI) {
-          this.camera.phi.setValue(LXUtils.constrain(value, -MAX_PHI, MAX_PHI));
-        }
       }
     });
   }
@@ -472,8 +495,8 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       this.view.setRect(
         (int) (this.x * this.ui.getContentScaleX()),
         (int) (this.y * this.ui.getContentScaleY()),
-        (int) (this.width * this.ui.getContentScaleX()),
-        (int) (this.height * this.ui.getContentScaleY())
+        (int) Math.ceil(this.width * this.ui.getContentScaleX()),
+        (int) Math.ceil(this.height * this.ui.getContentScaleY())
       );
     }
   }
@@ -692,14 +715,20 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     return this.eye;
   }
 
+  private final LXParameter.MultiMonitor cameraMonitor =
+    new LXParameter.MultiMonitor(
+      this.radiusDamped, this.thetaDamped, this.phiDamped,
+      this.xDamped, this.yDamped, this.zDamped
+    );
+
   private void computeCamera(boolean initialize) {
     if (this.animating.isRunning() || this.animating.finished()) {
       this.camera.lerp(this.cameraFrom, this.cameraTo, this.animating.getBasis());
     }
 
-    float rv = this.radiusDamped.getValuef();
-    double tv = this.thetaDamped.getValue();
-    double pv = this.phiDamped.getValue();
+    final float rv = this.radiusDamped.getValuef();
+    final double tv = Math.toRadians(this.thetaDamped.getValue());
+    final double pv = Math.toRadians(this.phiDamped.getValue());
 
     float sintheta = (float) Math.sin(tv);
     float costheta = (float) Math.cos(tv);
@@ -720,19 +749,27 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       pz - rv * cosphi * costheta
     );
     this.eye.set(this.eyeDamped);
-
   }
+
+  private boolean needsClear = false;
 
   public final void draw(UI ui, View view) {
     if (view != this.view) {
       throw new IllegalArgumentException("Not currently supported to draw a 3dContext into a different view");
     }
 
+    // If the view has drawn before and is now invisible,
+    // need to touch to clear it
     if (!isVisible()) {
-      this.view.bind();
-      BGFX.bgfx_touch(this.view.getId());
+      if (this.needsClear) {
+        this.view.bind();
+        BGFX.bgfx_touch(this.view.getId());
+        this.needsClear = false;
+      }
       return;
     }
+
+    this.needsClear = true;
 
     // Set the camera view matrix
     computeCamera(false);
@@ -761,10 +798,25 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     this.view.bind();
     BGFX.bgfx_touch(this.view.getId());
 
+    // Check if view has changed
+    if (this.cameraMonitor.changed()) {
+      for (UIObject child : this.mutableChildren) {
+        ((UI3dComponent) child).onCameraChanged(ui, this);
+      }
+    }
+
     // Draw all the components in the scene
     for (UIObject child : this.mutableChildren) {
       ((UI3dComponent) child).draw(ui, this.view);
     }
+  }
+
+  public Matrix4f getViewMatrix() {
+    return this.view.getViewMatrix();
+  }
+
+  public Matrix4f getProjectionMatrix() {
+    return this.view.getProjectionMatrix();
   }
 
   @Override
@@ -791,11 +843,11 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   private MouseInteraction getInteraction(MouseEvent mouseEvent) {
     switch (this.mouseMode.getEnum()) {
     case OBJECT:
-     if (mouseEvent.isShiftDown()) {
-       if (mouseEvent.isMetaDown() || mouseEvent.isControlDown()) {
+      if (mouseEvent.isShiftDown()) {
+        if (mouseEvent.isMetaDown() || mouseEvent.isControlDown()) {
          return MouseInteraction.ROTATE_VIEW;
-       }
-       return MouseInteraction.TRANSLATE_Z;
+        }
+        return MouseInteraction.TRANSLATE_Z;
       } else if (mouseEvent.isMetaDown() || mouseEvent.isControlDown()) {
         return MouseInteraction.ROTATE_OBJECT;
       }
@@ -822,8 +874,8 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       // to height, as we're almost always in a non-square aspect ratio and want horizontal rotation
       // to feel consistent with vertical, in terms of same number of pixels mouse-movement should
       // yield same number of degrees rotation independent of the plane
-      float rt = -dx / getHeight() * 1.5f * (float) Math.PI;
-      float rp = dy / getHeight() * 1.5f * (float) Math.PI;
+      float rt = -dx / getHeight() * 1.5f * 180f;
+      float rp = dy / getHeight() * 1.5f * 180f;
       if (interaction == MouseInteraction.ROTATE_VIEW) {
         this.camera.theta.incrementValue(rt);
         this.camera.phi.incrementValue(rp);
@@ -842,17 +894,21 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
     case TRANSLATE_XY:
     case TRANSLATE_Z:
-      float tanPerspective = (float) Math.tan(.5 * this.perspective.getValue() * Math.PI / 180.);
-      float sinTheta = (float) Math.sin(this.thetaDamped.getValue());
-      float cosTheta = (float) Math.cos(this.thetaDamped.getValue());
-      float sinPhi = (float) Math.sin(this.phiDamped.getValue());
-      float cosPhi = (float) Math.cos(this.phiDamped.getValue());
+      final double thetaDampedRadians = Math.toRadians(this.thetaDamped.getValue());
+      final double phiDampedRadians = Math.toRadians(this.phiDamped.getValue());
+
+      final float tanPerspective = (float) Math.tan(.5 * Math.toRadians(this.perspective.getValue()));
+      float sinTheta = (float) Math.sin(thetaDampedRadians);
+      float cosTheta = (float) Math.cos(thetaDampedRadians);
+      float sinPhi = (float) Math.sin(phiDampedRadians);
+      float cosPhi = (float) Math.cos(phiDampedRadians);
 
       // NOTE: this is counter-intuitive but don't be fooled, the dcx value is intentionally
       // divided by the height, not the width, because aspect ratio is factored into perspective
-      float dcx = dx * 2.f / getHeight() * this.radiusDamped.getValuef() * tanPerspective;
+      final float radiusDamped = this.radiusDamped.getValuef();
 
-      float dcy = dy * 2.f / getHeight() * this.radiusDamped.getValuef() * tanPerspective;
+      float dcx = dx * 2.f / getHeight() * radiusDamped * tanPerspective;
+      float dcy = dy * 2.f / getHeight() * radiusDamped * tanPerspective;
 
       float tx = 0, ty = 0, tz = 0;
       if (interaction == MouseInteraction.TRANSLATE_XY) {
@@ -893,25 +949,25 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
   @Override
   protected void onKeyPressed(KeyEvent keyEvent, char keyChar, int keyCode) {
-    float amount = .02f;
+    float degrees = 1;
     if (keyEvent.isShiftDown()) {
-      amount *= 10.f;
+      degrees *= 10.f;
     }
     if (keyCode == KeyEvent.VK_LEFT) {
       keyEvent.consume();
-      this.camera.theta.incrementValue(amount);
+      this.camera.theta.incrementValue(degrees);
       updateFocusedCamera();
     } else if (keyCode == KeyEvent.VK_RIGHT) {
       keyEvent.consume();
-      this.camera.theta.incrementValue(-amount);
+      this.camera.theta.incrementValue(-degrees);
       updateFocusedCamera();
     } else if (keyCode == KeyEvent.VK_UP) {
       keyEvent.consume();
-      this.camera.phi.incrementValue(-amount);
+      this.camera.phi.incrementValue(-degrees);
       updateFocusedCamera();
     } else if (keyCode == KeyEvent.VK_DOWN) {
       keyEvent.consume();
-      this.camera.phi.incrementValue(amount);
+      this.camera.phi.incrementValue(degrees);
       updateFocusedCamera();
     }
   }
@@ -924,9 +980,6 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   private static final String KEY_PROJECTION = "projection";
   private static final String KEY_PERSPECTIVE = "perspective";
   private static final String KEY_DEPTH = "depth";
-  private static final String KEY_PHI_LOCK = "phiLock";
-  private static final String KEY_CENTER_POINT = "centerPoint";
-
 
   @Override
   public void save(LX lx, JsonObject object) {
@@ -935,8 +988,6 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     object.addProperty(KEY_PROJECTION, this.projection.getValuei());
     object.addProperty(KEY_PERSPECTIVE, this.perspective.getValue());
     object.addProperty(KEY_DEPTH, this.depth.getValue());
-    object.addProperty(KEY_PHI_LOCK, this.phiLock.isOn());
-    object.addProperty(KEY_CENTER_POINT, this.showCenterPoint.isOn());
     object.add(KEY_CAMERA, LXSerializable.Utils.toObject(lx, this.camera));
     object.add(KEY_CUE, LXSerializable.Utils.toArray(lx, this.cue));
     object.addProperty(KEY_FOCUS, this.focusCamera.getValuei());
@@ -952,9 +1003,11 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     LXSerializable.Utils.loadInt(this.projection, object, KEY_PROJECTION);
     LXSerializable.Utils.loadDouble(this.perspective, object, KEY_PERSPECTIVE);
     LXSerializable.Utils.loadDouble(this.depth, object, KEY_DEPTH);
-    LXSerializable.Utils.loadBoolean(this.phiLock, object, KEY_PHI_LOCK);
-    LXSerializable.Utils.loadBoolean(this.showCenterPoint, object, KEY_CENTER_POINT);
-    LXSerializable.Utils.loadObject(lx, this.camera, object, KEY_CAMERA);
+    if (object.has(KEY_CAMERA)) {
+      LXSerializable.Utils.loadObject(lx, this.camera, object, KEY_CAMERA);
+    } else {
+      this.camera.reset();
+    }
     LXSerializable.Utils.loadArray(lx, this.cue, object, KEY_CUE);
     LXSerializable.Utils.loadInt(this.focusCamera, object, KEY_FOCUS);
 

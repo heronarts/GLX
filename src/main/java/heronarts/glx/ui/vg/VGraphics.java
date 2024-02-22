@@ -36,7 +36,8 @@ import org.lwjgl.system.MemoryUtil;
 import heronarts.glx.GLX;
 import heronarts.glx.GLXUtils;
 import heronarts.glx.View;
-import heronarts.lx.LX;
+import heronarts.glx.ui.UI2dContext;
+import heronarts.glx.ui.UIColor;
 
 import static org.lwjgl.bgfx.BGFX.*;
 import static org.lwjgl.nanovg.NanoVG.*;
@@ -126,15 +127,21 @@ public class VGraphics {
     public final int id;
     public final String name;
     public float size = 10;
+    private final ByteBuffer fontData;
 
-    private Font(int id, String name) {
+    private Font(int id, String name, ByteBuffer fontData) {
       this.id = id;
       this.name = name;
+      this.fontData = fontData;
     }
 
     public Font fontSize(float size) {
       this.size = size;
       return this;
+    }
+
+    public void dispose() {
+      MemoryUtil.memFree(this.fontData);
     }
   }
 
@@ -161,6 +168,10 @@ public class VGraphics {
 
     public void noTint() {
       setTint(1f, 1f, 1f, 1f);
+    }
+
+    public void setTint(UIColor color) {
+      setTint(color.get());
     }
 
     public void setTint(int argb) {
@@ -200,6 +211,7 @@ public class VGraphics {
   }
 
   public class Framebuffer {
+    private final UI2dContext context;
     private NVGLUFramebufferBGFX buffer = null;
     private final Paint paint = new Paint();
 
@@ -211,7 +223,8 @@ public class VGraphics {
     private final int imageFlags;
     private boolean isStale = true;
 
-    public Framebuffer(float w, float h, int imageFlags) {
+    public Framebuffer(UI2dContext context, float w, float h, int imageFlags) {
+      this.context = context;
       this.width = w;
       this.height = h;
       this.imageFlags = imageFlags;
@@ -229,7 +242,10 @@ public class VGraphics {
 
     public Paint getPaint() {
       if (this.buffer == null) {
-        GLX.error("Cannot use VGraphics.Framebuffer.getPaint() before initialize()");
+        GLX.error(
+          "Cannot use VGraphics.Framebuffer.getPaint() before initialize() - " +
+          this.context.getDebugClassHierarchy()
+        );
       }
       return this.paint;
     }
@@ -248,7 +264,7 @@ public class VGraphics {
 
     public Framebuffer initialize() {
       if (this.isStale) {
-        LX.error(new Exception(), "Framebuffer had to initialize itself before a bind() call ever occurred");
+        GLX.error(new Exception(), "Framebuffer had to initialize itself before a bind() call ever occurred - " + this.context.getDebugClassHierarchy());
         rebuffer();
         this.isStale = false;
       }
@@ -302,6 +318,14 @@ public class VGraphics {
 
       this.isStale = false;
     }
+
+    public void dispose() {
+      if (this.buffer != null) {
+        nvgluDeleteFramebuffer(this.buffer);
+      }
+      this.buffer = null;
+    }
+
   }
 
   private final GLX glx;
@@ -325,8 +349,8 @@ public class VGraphics {
     return this.vg;
   }
 
-  public Framebuffer createFramebuffer(float w, float h, int imageFlags) {
-    Framebuffer framebuffer = new Framebuffer(w, h, imageFlags);
+  public Framebuffer createFramebuffer(UI2dContext context, float w, float h, int imageFlags) {
+    Framebuffer framebuffer = new Framebuffer(context, w, h, imageFlags);
     this.allocatedBuffers.add(framebuffer);
     return framebuffer;
   }
@@ -370,6 +394,10 @@ public class VGraphics {
     return this;
   }
 
+  public VGraphics fillColor(UIColor color) {
+    return fillColor(color.get());
+  }
+
   public VGraphics fillColor(int argb) {
     return fillColor(
       (0xff & (argb >>> 16)) / 255f,
@@ -392,6 +420,10 @@ public class VGraphics {
   public VGraphics fillPaint(Paint paint) {
     nvgFillPaint(this.vg, paint.paint);
     return this;
+  }
+
+  public VGraphics strokeColor(UIColor color) {
+    return strokeColor(color.get());
   }
 
   public VGraphics strokeColor(int argb) {
@@ -604,7 +636,7 @@ public class VGraphics {
 
   private Font createFontMem(String name, ByteBuffer fontData) {
     int font = nvgCreateFontMem(this.vg, name, fontData, 0);
-    return new Font(font, name);
+    return new Font(font, name, fontData);
   }
 
   private Image createImageMem(ByteBuffer imageData, boolean is2x) {
@@ -699,8 +731,34 @@ public class VGraphics {
     return this;
   }
 
+  public VGraphics reset() {
+    nvgReset(this.vg);
+    return this;
+  }
+
   public VGraphics resetScissor() {
     nvgResetScissor(this.vg);
+    return this;
+  }
+
+  public VGraphics scissorPush(float x, float y, float w, float h) {
+    nvgSave(this.vg);
+    nvgIntersectScissor(this.vg, x, y, w, h);
+    return this;
+  }
+
+  public VGraphics scissorPop() {
+    nvgRestore(this.vg);
+    return this;
+  }
+
+  public VGraphics save() {
+    nvgSave(this.vg);
+    return this;
+  }
+
+  public VGraphics restore() {
+    nvgRestore(this.vg);
     return this;
   }
 

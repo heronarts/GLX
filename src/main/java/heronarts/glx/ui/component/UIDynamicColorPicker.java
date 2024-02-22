@@ -19,6 +19,7 @@
 package heronarts.glx.ui.component;
 
 import heronarts.lx.color.ColorParameter;
+import heronarts.lx.color.GradientUtils;
 import heronarts.lx.color.LXDynamicColor;
 import heronarts.lx.command.LXCommand;
 import heronarts.glx.event.KeyEvent;
@@ -45,7 +46,7 @@ public class UIDynamicColorPicker extends UIColorPicker implements UIFocus {
     addLoopTask(new UITimerTask(30, UITimerTask.Mode.FPS) {
       @Override
       protected void run() {
-        setBackgroundColor(dynamicColor.getColor());
+        setDrawColor(dynamicColor.getColor());
       }
     });
     setFocusCorners(false);
@@ -54,9 +55,9 @@ public class UIDynamicColorPicker extends UIColorPicker implements UIFocus {
   @Override
   protected void drawFocus(UI ui, VGraphics vg) {
     vg.beginPath();
-    vg.strokeColor(UI.WHITE);
+    vg.strokeColor(ui.theme.controlActiveTextColor);
     vg.strokeWidth(1);
-    vg.rect(.5f, .5f, this.width-1, this.height-1, getBorderRounding());
+    vgRoundedRect(vg, .5f, .5f, this.width-1, this.height-1);
     vg.stroke();
   }
 
@@ -87,21 +88,32 @@ public class UIDynamicColorPicker extends UIColorPicker implements UIFocus {
       period;
 
     UIDynamicColorOverlay(UI ui) {
-      super(38);
+      super(ui, 38);
 
       // Horizontal break
       new UI2dComponent(12, 140, 220, 1) {}
-      .setBorderColor(ui.theme.getDarkBackgroundColor())
+      .setBorderColor(ui.theme.controlBorderColor)
       .addToContainer(this);
 
       UI2dContainer controls = UI2dContainer.newHorizontalContainer(16, 4);
       controls.setPosition(12, 148);
 
-      new UIButton(64, 16, dynamicColor.mode)
+      new UIButton(48, 16, dynamicColor.mode)
       .addToContainer(controls);
 
       this.blendMode =
-        new UIButton(28, dynamicColor.blendMode)
+        new UIButton(44, dynamicColor.blendMode)
+        .setEnumFormatter(ep -> {
+          Object e = ep.getEnum();
+          if (e == GradientUtils.BlendMode.HSVM) {
+            return "Min";
+          } else if (e == GradientUtils.BlendMode.HSVCW) {
+            return "CW";
+          } else if (e == GradientUtils.BlendMode.HSVCCW) {
+            return "CCW";
+          }
+          return e.toString();
+        })
         .addToContainer(controls);
 
       this.primaryColorSelector = new UIColorSelector(dynamicColor.primary)
@@ -137,8 +149,7 @@ public class UIDynamicColorPicker extends UIColorPicker implements UIFocus {
       focusColor(dynamicColor.primary);
       controls.addToContainer(this);
 
-      dynamicColor.mode.addListener((p) -> { setMode(); } );
-      setMode();
+      addListener(dynamicColor.mode, p -> { setMode(); }, true);
     }
 
     private void setMode() {
@@ -158,11 +169,11 @@ public class UIDynamicColorPicker extends UIColorPicker implements UIFocus {
       setColor(color);
       if (color == dynamicColor.primary) {
         this.primaryColorSelector.setBorderWeight(2);
-        this.primaryColorSelector.setBorderColor(UI.WHITE);
+        this.primaryColorSelector.setBorderColor(UI.get().theme.controlActiveTextColor);
         this.secondaryColorSelector.setBorder(false);
       } else {
         this.secondaryColorSelector.setBorderWeight(2);
-        this.secondaryColorSelector.setBorderColor(UI.WHITE);
+        this.secondaryColorSelector.setBorderColor(UI.get().theme.controlActiveTextColor);
         this.primaryColorSelector.setBorder(false);
       }
     }
@@ -175,7 +186,7 @@ public class UIDynamicColorPicker extends UIColorPicker implements UIFocus {
         super(0, 0, 16, 16);
         this.color = color;
         setBackgroundColor(color.getColor());
-        color.addListener((p) -> { setBackgroundColor(color.getColor()); });
+        addListener(color, p -> { setBackgroundColor(color.getColor()); });
       }
 
       @Override

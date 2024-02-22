@@ -18,11 +18,11 @@
 
 package heronarts.glx.ui;
 
-import heronarts.lx.parameter.LXParameter;
+import heronarts.lx.parameter.LXNormalizedParameter;
 
 /**
  * Interface for UI elements that may offer a direct control target
  */
 public interface UIControlTarget {
-  public LXParameter getControlTarget();
+  public LXNormalizedParameter getControlTarget();
 }

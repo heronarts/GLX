@@ -128,6 +128,14 @@ public class View {
     return this.width / (float) this.height;
   }
 
+  public Matrix4f getViewMatrix() {
+    return this.viewMatrix;
+  }
+
+  public Matrix4f getProjectionMatrix() {
+    return this.projectionMatrix;
+  }
+
   public View setCamera(Vector3f eye, Vector3f center, Vector3f up) {
     this.viewMatrix.setLookAtLH(eye, center, up);
     this.viewMatrix.get(this.viewMatrixBuf);

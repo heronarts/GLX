@@ -35,7 +35,7 @@ public class UIFileNameBox extends UITextBox {
   }
 
   @Override
-  protected boolean isValidCharacter(char keyChar) {
+  public boolean isValidCharacter(char keyChar) {
     return isValidTextCharacter(keyChar);
   }
 }

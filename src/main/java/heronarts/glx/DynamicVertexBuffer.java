@@ -26,29 +26,25 @@ import org.lwjgl.system.MemoryUtil;
 
 public class DynamicVertexBuffer {
 
-  public static int ATTRIB_POSITION = 1 << 0;
-  public static int ATTRIB_COLOR0 = 1 << 1;
-  public static int ATTRIB_TEXCOORD0 = 1 << 2;
-
   private final VertexDeclaration vertexDeclaration;
   private final ByteBuffer vertexData;
 
-  private final short vbh;
+  private final short vertexBufferHandle;
   private final int numVertices;
 
   public DynamicVertexBuffer(GLX glx, int numVertices) {
-    this(glx, numVertices, ATTRIB_POSITION | ATTRIB_COLOR0);
+    this(glx, numVertices, VertexDeclaration.ATTRIB_POSITION | VertexDeclaration.ATTRIB_COLOR0);
   }
 
   public DynamicVertexBuffer(GLX glx, int numVertices, int attributes) {
     this.vertexDeclaration = new VertexDeclaration(glx, attributes);
     this.vertexData = MemoryUtil.memAlloc(this.vertexDeclaration.getStride() * numVertices);
-    this.vbh = bgfx_create_dynamic_vertex_buffer(numVertices, this.vertexDeclaration.getHandle(), BGFX_BUFFER_NONE);
+    this.vertexBufferHandle = bgfx_create_dynamic_vertex_buffer(numVertices, this.vertexDeclaration.getHandle(), BGFX_BUFFER_NONE);
     this.numVertices = numVertices;
   }
 
   public short getHandle() {
-    return this.vbh;
+    return this.vertexBufferHandle;
   }
 
   public int getNumVertices() {
@@ -60,11 +56,11 @@ public class DynamicVertexBuffer {
   }
 
   public void update() {
-    bgfx_update_dynamic_vertex_buffer(this.vbh, 0, bgfx_make_ref(this.vertexData));
+    bgfx_update_dynamic_vertex_buffer(this.vertexBufferHandle, 0, bgfx_make_ref(this.vertexData));
   }
 
   public void dispose() {
-    bgfx_destroy_dynamic_vertex_buffer(this.vbh);
+    bgfx_destroy_dynamic_vertex_buffer(this.vertexBufferHandle);
     MemoryUtil.memFree(this.vertexData);
     this.vertexDeclaration.dispose();
   }

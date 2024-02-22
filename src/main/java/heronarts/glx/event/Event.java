@@ -47,22 +47,41 @@ public abstract class Event {
   public static final int CAPS_LOCK = GLFW_MOD_CAPS_LOCK;
   public static final int NUM_LOCK = GLFW_MOD_NUM_LOCK;
 
-  public final double time;
+  /**
+   * Value of glfwGetTime() in seconds when the event occurred
+   */
+  public final double glfwTime;
+
+  /**
+   * Java System.nanoTime() when the event occurred
+   */
+  public final long nanoTime;
+
+  /**
+   * Bitmask of modifier keys held
+   */
   public final int modifiers;
 
   private boolean isConsumed = false;
 
   protected Event(int modifiers) {
-    this(modifiers, glfwGetTime());
+    this(modifiers, glfwGetTime(), System.nanoTime());
   }
 
-  protected Event(int modifiers, double time) {
+  protected Event(int modifiers, double glfwTime, long nanoTime) {
     this.modifiers = modifiers;
-    this.time = time;
+    this.glfwTime = glfwTime;
+    this.nanoTime = nanoTime;
   }
 
+  /**
+   * Gets the time of the event in seconds, as returned by
+   * the GLFW timer
+   *
+   * @return Time in seconds, returned by GLFW
+   */
   public double getTime() {
-    return this.time;
+    return this.glfwTime;
   }
 
   public int getModifiers() {

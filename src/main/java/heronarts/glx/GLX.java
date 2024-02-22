@@ -29,8 +29,7 @@ import java.io.IOException;
 import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.nio.file.Files;
-import java.nio.file.StandardCopyOption;
+import java.util.Map;
 
 import static org.lwjgl.bgfx.BGFX.*;
 import static org.lwjgl.bgfx.BGFXPlatform.*;
@@ -38,22 +37,27 @@ import static org.lwjgl.bgfx.BGFXPlatform.*;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.bgfx.BGFXInit;
 import org.lwjgl.bgfx.BGFXPlatformData;
+import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWDropCallback;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWNativeCocoa;
 import org.lwjgl.glfw.GLFWNativeWin32;
 import org.lwjgl.glfw.GLFWNativeX11;
+import org.lwjgl.system.APIUtil;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.Platform;
 import org.lwjgl.system.macosx.ObjCRuntime;
 
-import heronarts.glx.shader.Shape;
+import heronarts.glx.shader.UniformFill;
+import heronarts.glx.shader.VertexFill;
 import heronarts.glx.shader.Tex2d;
 import heronarts.glx.ui.UI;
 import heronarts.glx.ui.UIDialogBox;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.LX;
 import heronarts.lx.LXEngine;
+import heronarts.lx.clipboard.LXTextValue;
+import heronarts.lx.model.LXModel;
 import heronarts.lx.utils.LXUtils;
 
 public class GLX extends LX {
@@ -61,20 +65,29 @@ public class GLX extends LX {
   private static final int MIN_WINDOW_WIDTH = 820;
   private static final int MIN_WINDOW_HEIGHT = 480;
 
+  private static final int DEFAULT_WINDOW_WIDTH = 1280;
+  private static final int DEFAULT_WINDOW_HEIGHT = 720;
+
   private long window;
 
   private long handCursor;
   private long useCursor = 0;
   private boolean needsCursorUpdate = false;
 
+  private int displayX = -1;
+  private int displayY = -1;
   private int displayWidth = -1;
   private int displayHeight = -1;
-  private int windowWidth = 1280;
-  private int windowHeight = 720;
+  private int windowWidth = DEFAULT_WINDOW_WIDTH;
+  private int windowHeight = DEFAULT_WINDOW_HEIGHT;
+  private int windowPosX = -1;
+  private int windowPosY = -1;
   private int frameBufferWidth = 0;
   private int frameBufferHeight = 0;
   private float uiWidth = 0;
   private float uiHeight = 0;
+
+  private boolean flagUIDebug = false;
 
   float systemContentScaleX = 1;
   float systemContentScaleY = 1;
@@ -99,22 +112,31 @@ public class GLX extends LX {
   public final class Programs {
 
     public final Tex2d tex2d;
-    public final Shape shape;
+    public final UniformFill uniformFill;
+    public final VertexFill vertexFill;
 
     public Programs(GLX glx) {
       this.tex2d = new Tex2d(glx);
-      this.shape = new Shape(glx);
+      this.uniformFill = new UniformFill(glx);
+      this.vertexFill = new VertexFill(glx);
     }
 
     public void dispose() {
       this.tex2d.dispose();
-      this.shape.dispose();
+      this.uniformFill.dispose();
+      this.vertexFill.dispose();
     }
   }
 
+  /**
+   * Publicly accessible, globally reusable shader programs.
+   */
   public final Programs program;
 
   public static class Flags extends LX.Flags {
+    public int windowWidth = -1;
+    public int windowHeight = -1;
+    public boolean windowResizable = true;
     public String windowTitle = "GLX";
     public boolean useOpenGL = false;
   }
@@ -122,7 +144,11 @@ public class GLX extends LX {
   public final Flags flags;
 
   protected GLX(Flags flags) throws IOException {
-    super(flags);
+    this(flags, null);
+  }
+
+  protected GLX(Flags flags, LXModel model) throws IOException {
+    super(flags, model);
     this.flags = flags;
 
     if (this.flags.useOpenGL) {
@@ -135,7 +161,12 @@ public class GLX extends LX {
     if (preferenceWidth > 0 && preferenceHeight > 0) {
       this.windowWidth = preferenceWidth;
       this.windowHeight = preferenceHeight;
+    } else if (this.flags.windowWidth > 0 && this.flags.windowHeight > 0) {
+      this.windowWidth = this.flags.windowWidth;
+      this.windowHeight = this.flags.windowHeight;
     }
+    this.windowPosX = this.preferences.getWindowPosX();
+    this.windowPosY = this.preferences.getWindowPosY();
 
     initializeWindow();
     this.zZeroToOne = !bgfx_get_caps().homogeneousDepth();
@@ -150,6 +181,11 @@ public class GLX extends LX {
 
     // Create the UI system
     this.ui = buildUI();
+  }
+
+  void toggleUIPerformanceDebug() {
+    this.flagUIDebug = !this.flagUIDebug;
+    log("UI thread performance logging " + (this.flagUIDebug ? "ON" : "OFF"));
   }
 
   public void run() {
@@ -242,8 +278,34 @@ public class GLX extends LX {
     return this.systemContentScaleY;
   }
 
+  private boolean ignoreClipboardError = false;
+
   private void initializeWindow() {
-    GLFWErrorCallback.createPrint(System.err).set();
+    glfwSetErrorCallback(new GLFWErrorCallback() {
+      private Map<Integer, String> ERROR_CODES =
+        APIUtil.apiClassTokens((field, value) -> 0x10000 < value && value < 0x20000, null, GLFW.class);
+
+      @Override
+      public void invoke(int error, long description) {
+        if (ignoreClipboardError) {
+          return;
+        }
+
+        StringBuilder logMessage = new StringBuilder();
+        logMessage.append(
+          ERROR_CODES.get(error) + " error\n" +
+          "\tDescription : " + getDescription(description) + "\n" +
+          "\tStacktrace  :"
+        );
+
+        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
+        for (int i = 4; i < stack.length; ++i) {
+          logMessage.append("\n\t\t" + stack[i].toString());
+        }
+
+        LX._error("LWJGL", logMessage.toString());
+      }
+    });
 
     // Initialize GLFW. Most GLFW functions will not work before doing this.
     if (!glfwInit()) {
@@ -256,10 +318,35 @@ public class GLX extends LX {
 
     // Configure GLFW
     glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_TRUE);
+    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_FALSE);
     glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_TRUE);
+    glfwWindowHint(GLFW_RESIZABLE, flags.windowResizable ? GLFW_TRUE : GLFW_FALSE);
+
+    // Detect window/framebuffer sizes and content scale
+    try (MemoryStack stack = MemoryStack.stackPush()) {
+      long primaryMonitor = glfwGetPrimaryMonitor();
+      if (primaryMonitor == NULL) {
+        error("Running on a system with no monitor, is this intended?");
+      } else {
+        IntBuffer xPos = stack.mallocInt(1);
+        IntBuffer yPos = stack.mallocInt(1);
+        IntBuffer xSize = stack.mallocInt(1);
+        IntBuffer ySize = stack.mallocInt(1);
+        glfwGetMonitorWorkarea(primaryMonitor, xPos, yPos, xSize, ySize);
+        this.displayX = xPos.get();
+        this.displayY = yPos.get();
+        this.displayWidth = xSize.get();
+        this.displayHeight = ySize.get();
+      }
+      log("GLX monitorWorkarea: size(" + this.displayWidth + "x" + this.displayHeight + "), pos(x:" + this.displayX + ",y:" + this.displayY + ")");
+    }
+
+    // Ensure initial window bounds do not exceed the available display
+    this.windowWidth = LXUtils.min(this.windowWidth, this.displayWidth);
+    this.windowHeight = LXUtils.min(this.windowHeight, this.displayHeight);
 
     // Create GLFW window
+    log("GLX createWindow: " + this.windowWidth + "x" + this.windowHeight);
     this.window = glfwCreateWindow(
       this.windowWidth,
       this.windowHeight,
@@ -284,6 +371,7 @@ public class GLX extends LX {
       glfwGetWindowContentScale(this.window, xScale, yScale);
       this.systemContentScaleX = xScale.get(0);
       this.systemContentScaleY = yScale.get(0);
+      log("GLX systemContentScale: " + this.systemContentScaleX + "x" + this.systemContentScaleY);
 
       // The window size is in terms of "OS window size" - best thought of
       // as an abstract setting which may or may not exactly correspond to
@@ -293,24 +381,22 @@ public class GLX extends LX {
       glfwGetWindowSize(this.window, xSize, ySize);
       this.windowWidth = xSize.get(0);
       this.windowHeight = ySize.get(0);
+      log("GLX windowSize: " + this.windowWidth + "x" + this.windowHeight);
+
+      // Restore window position if restored from preferences
+      if (this.windowPosX >= 0 && this.windowPosY >= 0) {
+        this.windowPosX = LXUtils.constrain(this.windowPosX, this.displayX, this.displayX + this.displayWidth - this.windowWidth);
+        this.windowPosY = LXUtils.constrain(this.windowPosY, this.displayY, this.displayY + this.displayHeight - this.windowHeight);
+        log("GLX setWindowPos: " + this.windowPosX + "," + this.windowPosY);
+        glfwSetWindowPos(this.window, this.windowPosX, this.windowPosY);
+      }
 
       // See what is in the framebuffer. A retina Mac probably supplies
       // 2x the dimensions on framebuffer relative to window.
       glfwGetFramebufferSize(this.window, xSize, ySize);
       this.frameBufferWidth = xSize.get(0);
       this.frameBufferHeight = ySize.get(0);
-
-      long primaryMonitor = glfwGetPrimaryMonitor();
-      if (primaryMonitor == NULL) {
-        error("Running on a system with no monitor, is this intended?");
-      } else {
-        IntBuffer xPos = stack.mallocInt(1);
-        IntBuffer yPos = stack.mallocInt(1);
-        glfwGetMonitorWorkarea(primaryMonitor, xPos, yPos, xSize, ySize);
-        this.displayWidth = xSize.get();
-        this.displayHeight = ySize.get();
-      }
-      log("GLX display: " + this.displayWidth + "x" + this.displayHeight);
+      log("GLX framebufferSize: " + this.frameBufferWidth + "x" + this.frameBufferHeight);
 
       // Okay, let's figure out how many "virtual pixels" the GLX UI should
       // be. Note that on a Mac with 2x retina display, contentScale will be
@@ -321,12 +407,14 @@ public class GLX extends LX {
       // into a larger framebuffer.
       this.uiWidth = this.frameBufferWidth / this.systemContentScaleX / this.uiZoom;
       this.uiHeight = this.frameBufferHeight / this.systemContentScaleY / this.uiZoom;
+      log("GLX uiSize: " + this.uiWidth + "x" + this.uiHeight);
 
       // To make things even trickier... keep in mind that the OS specifies cursor
       // movement relative to its window size. We need to scale those onto our
       // virtual UI window size.
       this.cursorScaleX = this.uiWidth / this.windowWidth;
       this.cursorScaleY = this.uiHeight / this.windowHeight;
+      log("GLX cursorScale: " + this.cursorScaleX + "x" + this.cursorScaleY);
 
       // Set UI Zoom bounds based upon content scaling
       this.preferences.uiZoom.setRange((int) Math.ceil(100 / this.systemContentScaleX), 201);
@@ -341,11 +429,6 @@ public class GLX extends LX {
 //      this.cursorScaleX = this.uiWidth / this.windowWidth;
 //      this.cursorScaleY = this.uiHeight / this.windowHeight;
 
-      log("GLX window: " + this.windowWidth + "x" + this.windowHeight);
-      log("GLX frame: " + this.frameBufferWidth + "x" + this.frameBufferHeight);
-      log("GLX ui: " + this.uiWidth + "x" + this.uiHeight);
-      log("GLX content: " + this.systemContentScaleX + "x" + this.systemContentScaleY);
-      log("GLX cursor: " + this.cursorScaleX + "x" + this.cursorScaleY);
     }
 
     glfwSetWindowFocusCallback(this.window, (window, focused) -> {
@@ -371,11 +454,30 @@ public class GLX extends LX {
     });
 
     glfwSetWindowSizeCallback(this.window, (window, width, height) -> {
+      // NOTE(mcslee): This call should *follow* a call from glfwSetFramebufferSizeCallback, the window
+      // properties change after the underlying framebuffer
       this.windowWidth = width;
       this.windowHeight = height;
       this.cursorScaleX = this.uiWidth / this.windowWidth;
       this.cursorScaleY = this.uiHeight / this.windowHeight;
-      this.preferences.setWindowSize(this.windowWidth, this.windowHeight);
+      try (MemoryStack stack = MemoryStack.stackPush()) {
+        // NOTE(mcslee): need to grab the new window position here as well! If a top or left
+        // corner of the window is used for a drag-resize operation, then the window's X or Y
+        // position can change without a glfwSetWindowPosCallback being invoked from a window
+        // move operation
+        IntBuffer xPos = stack.mallocInt(1);
+        IntBuffer yPos = stack.mallocInt(1);
+        glfwGetWindowPos(this.window, xPos, yPos);
+        this.windowPosX = xPos.get();
+        this.windowPosY = yPos.get();
+      }
+      this.preferences.setWindowSize(this.windowWidth, this.windowHeight, this.windowPosX, this.windowPosY);
+    });
+
+    glfwSetWindowPosCallback(this.window, (window, x, y) -> {
+      this.windowPosX = x;
+      this.windowPosY = y;
+      this.preferences.setWindowPosition(this.windowPosX, this.windowPosY);
     });
 
     glfwSetWindowContentScaleCallback(this.window, (window, contentScaleX, contentScaleY) -> {
@@ -412,9 +514,9 @@ public class GLX extends LX {
                 openProject(file);
               });
             } else if (file.getName().endsWith(".jar")) {
-              final File destination = new File(getMediaFolder(LX.Media.CONTENT), file.getName());
+              final File destination = new File(getMediaFolder(LX.Media.PACKAGES), file.getName());
               if (destination.exists()) {
-                showConfirmDialog(file.getName() + " already exists in content folder, overwrite?", () -> { importContentJar(file, destination); });
+                showConfirmDialog(file.getName() + " already exists in package folder, reinstall?", () -> { importContentJar(file, destination); });
               } else {
                 importContentJar(file, destination);
               }
@@ -554,8 +656,8 @@ public class GLX extends LX {
         long drawStart = System.nanoTime();
         try {
           draw();
-        } catch (Exception x) {
-          error(x, "UI THREAD FAILURE: Unhandled exception in GLX.draw(): " + x.getLocalizedMessage());
+        } catch (Throwable x) {
+          error(x, "UI THREAD FAILURE: Unhandled error in GLX.draw(): " + x.getLocalizedMessage());
           fail(x);
 
           // The above should have set a UI failure window to be drawn...
@@ -563,7 +665,7 @@ public class GLX extends LX {
           // throw an uncaught error or exception, so be it.
           try {
             draw();
-          } catch (Exception ignored) {
+          } catch (Throwable ignored) {
             // Yeah, we thought that may happen.
           }
 
@@ -573,19 +675,29 @@ public class GLX extends LX {
         if (!failed && (++frameCount == FRAME_PERF_LOG)) {
           frameCount = 0;
           now = System.currentTimeMillis();
-          GLX.log("UI thread healthy, running at: " + FRAME_PERF_LOG * 1000f / (now - before) + "fps, average draw time: " + (drawNanos / FRAME_PERF_LOG / 1000) + "us");
+          if (this.flagUIDebug) {
+            GLX.log("UI thread healthy, running at: " + FRAME_PERF_LOG * 1000f / (now - before) + "fps, average draw time: " + (drawNanos / FRAME_PERF_LOG / 1000) + "us");
+          }
           before = now;
           drawNanos = 0;
         }
       }
 
       // Copy something to the clipboard
-      String copyToClipboard = this._setSystemClipboardString;
+      final String copyToClipboard = this._setSystemClipboardString;
       if (copyToClipboard != null) {
         glfwSetClipboardString(this.window, copyToClipboard);
+        this._getSystemClipboardString = copyToClipboard;
         this._setSystemClipboardString = null;
+      } else {
+        this.ignoreClipboardError = true;
+        String str = glfwGetClipboardString(NULL);
+        this.ignoreClipboardError = false;
+        if ((str != null) && !str.equals(this._getSystemClipboardString)) {
+          this._getSystemClipboardString = str;
+          this.clipboard.setItem(new LXTextValue(str), false);
+        }
       }
-
     }
   }
 
@@ -615,21 +727,18 @@ public class GLX extends LX {
 
   protected void importContentJar(File file, File destination) {
     log("Importing content JAR: " + destination.toString());
-    try {
-      Files.copy(file.toPath(), destination.toPath(), StandardCopyOption.REPLACE_EXISTING);
+    if (this.registry.installPackage(file, true)) {
       this.engine.addTask(() -> {
         reloadContent();
-        this.ui.contextualHelpText.setValue("New content imported into " + destination.getName());
-        this.ui.showContextDialogMessage("Added content JAR: " + destination.getName());
+        this.ui.contextualHelpText.setValue("New package imported into " + destination.getName());
+        this.ui.showContextDialogMessage("Installed package: " + destination.getName());
       });
-    } catch (IOException e) {
-      error(e, "Error copying " + file.getName() + " to content directory");
-    }
+    };
   }
 
   public void reloadContent() {
     this.registry.reloadContent();
-    this.ui.contextualHelpText.setValue("External content libraries reloaded");
+    pushStatusMessage("External packages reloaded");
   }
 
   public void showSaveProjectDialog() {
@@ -637,7 +746,7 @@ public class GLX extends LX {
       "Save Project",
       "Project File",
       new String[] { "lxp" },
-      getMediaFolder(LX.Media.PROJECTS).toString() + File.separator + "default.lxp",
+      getMediaFile(LX.Media.PROJECTS, "default.lxp").toString(),
       (path) -> { saveProject(new File(path)); }
     );
   }
@@ -651,7 +760,7 @@ public class GLX extends LX {
         "Open Project",
         "Project File",
         new String[] { "lxp" },
-        new File(getMediaFolder(LX.Media.PROJECTS), ".").toString(),
+        getMediaFile(LX.Media.PROJECTS, "default.lxp").toString(),
         (path) -> { openProject(new File(path)); }
       );
     });
@@ -662,7 +771,7 @@ public class GLX extends LX {
       "Save Schedule",
       "Schedule File",
       new String[] { "lxs" },
-      getMediaFolder(LX.Media.PROJECTS).toString() + File.separator + "default.lxs",
+      getMediaFile(LX.Media.PROJECTS, "default.lxs").toString(),
       (path) -> { this.scheduler.saveSchedule(new File(path)); }
     );
   }
@@ -675,7 +784,7 @@ public class GLX extends LX {
       "Add Project to Schedule",
       "Project File",
       new String[] { "lxp" },
-      new File(getMediaFolder(LX.Media.PROJECTS), ".").toString(),
+      getMediaFile(LX.Media.PROJECTS, "default.lxp").toString(),
       (path) -> { this.scheduler.addEntry(new File(path)); }
     );
   }
@@ -688,7 +797,7 @@ public class GLX extends LX {
       "Open Schedule",
       "Schedule File",
       new String[] { "lxs" },
-      new File(getMediaFolder(LX.Media.PROJECTS), ".").toString(),
+      getMediaFile(LX.Media.PROJECTS, "default.lxs").toString(),
       (path) -> { this.scheduler.openSchedule(new File(path)); }
     );
   }
@@ -713,31 +822,38 @@ public class GLX extends LX {
     if (this.dialogShowing) {
       return;
     }
-    new Thread() {
-      @Override
-      public void run() {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-          PointerBuffer aFilterPatterns = stack.mallocPointer(extensions.length);
-          for (String extension : extensions) {
-            aFilterPatterns.put(stack.UTF8("*." + extension));
+    new Thread(() -> {
+      try (MemoryStack stack = MemoryStack.stackPush()) {
+        PointerBuffer aFilterPatterns = stack.mallocPointer(extensions.length);
+        for (String extension : extensions) {
+          aFilterPatterns.put(stack.UTF8("*." + extension));
+        }
+        aFilterPatterns.flip();
+        dialogShowing = true;
+        String path = tinyfd_saveFileDialog(
+          dialogTitle,
+          defaultPath,
+          aFilterPatterns,
+          fileType + " (*." + String.join("/", extensions) + ")"
+        );
+        dialogShowing = false;
+        if (path != null) {
+          final int dot = path.lastIndexOf('.');
+          final int separator = path.lastIndexOf(File.separatorChar);
+          if (dot < 0 || dot < separator) {
+            path = path + "." + extensions[0];
+          } else if (dot == path.length() - 1) {
+            path = path + extensions[0];
           }
-          aFilterPatterns.flip();
-          dialogShowing = true;
-          String path = tinyfd_saveFileDialog(
-            dialogTitle,
-            defaultPath,
-            aFilterPatterns,
-            fileType + " (*." + String.join("/", extensions) + ")"
-          );
-          dialogShowing = false;
-          if (path != null) {
-            engine.addTask(() -> {
-              success.fileDialogCallback(path);
-            });
-          }
+          final String finalPath = path;
+          engine.addTask(() -> {
+            success.fileDialogCallback(finalPath);
+          });
+        } else {
+          pushError("Invalid file name or no file selected, the file was not saved.");
         }
       }
-    }.start();
+    }, "Save File Dialog").start();
   }
 
   /**
@@ -753,38 +869,43 @@ public class GLX extends LX {
     if (this.dialogShowing) {
       return;
     }
-    new Thread() {
-      @Override
-      public void run() {
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-          PointerBuffer aFilterPatterns = stack.mallocPointer(extensions.length);
-          for (String extension : extensions) {
-            aFilterPatterns.put(stack.UTF8("*." + extension));
-          }
-          aFilterPatterns.flip();
-          dialogShowing = true;
-          String path = tinyfd_openFileDialog(
-            dialogTitle,
-            defaultPath,
-            aFilterPatterns,
-            fileType + " (*." + String.join("/", extensions) + ")",
-            false
-          );
-          dialogShowing = false;
-          if (path != null) {
-            engine.addTask(() -> {
-              success.fileDialogCallback(path);
-            });
-          }
+    new Thread(() -> {
+      try (MemoryStack stack = MemoryStack.stackPush()) {
+        PointerBuffer aFilterPatterns = stack.mallocPointer(extensions.length);
+        for (String extension : extensions) {
+          aFilterPatterns.put(stack.UTF8("*." + extension));
+        }
+        aFilterPatterns.flip();
+        dialogShowing = true;
+        String path = tinyfd_openFileDialog(
+          dialogTitle,
+          defaultPath,
+          aFilterPatterns,
+          fileType + " (*." + String.join("/", extensions) + ")",
+          false
+        );
+        dialogShowing = false;
+        if (path != null) {
+          engine.addTask(() -> {
+            success.fileDialogCallback(path);
+          });
         }
       }
-    }.start();
+    }, "Open File Dialog").start();
   }
 
   @Override
   protected void showConfirmUnsavedProjectDialog(String message, Runnable confirm) {
     showConfirmDialog(
       "Your project has unsaved changes, really " + message + "?",
+      confirm
+    );
+  }
+
+  @Override
+  protected void showConfirmUnsavedModelDialog(File file, Runnable confirm) {
+    showConfirmDialog(
+      "You have modified the imported model file " + file.getName() +", do you want to export the changes you have made to this model?",
       confirm
     );
   }
@@ -797,6 +918,7 @@ public class GLX extends LX {
     ));
   }
 
+  private String _getSystemClipboardString = null;
   private String _setSystemClipboardString = null;
 
   @Override

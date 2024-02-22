@@ -23,12 +23,12 @@ import java.util.List;
 
 import heronarts.lx.parameter.LXListenableParameter;
 import heronarts.lx.parameter.LXNormalizedParameter;
+import heronarts.lx.LX;
 import heronarts.lx.command.LXCommand;
 import heronarts.lx.modulation.LXCompoundModulation;
 import heronarts.glx.ui.UI;
 import heronarts.glx.ui.UIContextActions;
 import heronarts.glx.ui.UITimerTask;
-import heronarts.lx.parameter.CompoundParameter;
 
 public class UICompoundParameterControl extends UIParameterControl {
   private double lastParameterValue = 0;
@@ -46,15 +46,15 @@ public class UICompoundParameterControl extends UIParameterControl {
     }
   };
 
-  private final CompoundParameter.ModulationListener modulationListener = new CompoundParameter.ModulationListener() {
+  private final LXCompoundModulation.Listener modulationListener = new LXCompoundModulation.Listener() {
 
     @Override
-    public void modulationAdded(CompoundParameter parameter, LXCompoundModulation modulation) {
+    public void modulationAdded(LXCompoundModulation.Target parameter, LXCompoundModulation modulation) {
 
     }
 
     @Override
-    public void modulationRemoved(CompoundParameter parameter, LXCompoundModulation modulation) {
+    public void modulationRemoved(LXCompoundModulation.Target parameter, LXCompoundModulation modulation) {
       removeModulationParameter(modulation.range);
       removeModulationParameter(modulation.polarity);
       removeModulationParameter(modulation.enabled);
@@ -76,24 +76,23 @@ public class UICompoundParameterControl extends UIParameterControl {
 
   @Override
   public UIParameterControl setParameter(LXNormalizedParameter parameter) {
+    if (this.parameter instanceof LXCompoundModulation.Target) {
+      ((LXCompoundModulation.Target) this.parameter).removeModulationListener(this.modulationListener);
+    }
     for (LXListenableParameter p : this.modulationParameters) {
       p.removeListener(this.redraw);
     }
     this.modulationParameters.clear();
     super.setParameter(parameter);
-    if (parameter instanceof CompoundParameter) {
-      ((CompoundParameter) parameter).addModulationListener(this.modulationListener);
+    if (parameter instanceof LXCompoundModulation.Target) {
+      ((LXCompoundModulation.Target) parameter).addModulationListener(this.modulationListener);
     }
     return this;
   }
 
   protected double getCompoundNormalized() {
     if (this.parameter != null) {
-      if (this.parameter instanceof CompoundParameter) {
-        return ((CompoundParameter) this.parameter).getNormalized();
-      } else {
-        return getNormalized();
-      }
+      return this.parameter.getNormalized();
     }
     return 0;
   }
@@ -115,27 +114,44 @@ public class UICompoundParameterControl extends UIParameterControl {
     }
   }
 
+  public static void addModulationContextActions(LX lx, List<UIContextActions.Action> actions, LXCompoundModulation.Target target) {
+    final List<? extends LXCompoundModulation> modulations = target.getModulations();
+    if (!modulations.isEmpty()) {
+      actions.add(new UIContextActions.Action("Remove Modulation") {
+        @Override
+        public void onContextAction(UI ui) {
+          ui.lx.command.perform(new LXCommand.Modulation.RemoveModulations(target));
+        }
+      });
+      if (!lx.engine.performanceMode.isOn()) {
+        for (LXCompoundModulation modulation : modulations) {
+          if (modulation.scope == lx.engine.modulation) {
+            actions.add(new UIContextActions.Action("Show Modulation") {
+              @Override
+              public void onContextAction(UI ui) {
+                ui.setHighlightModulationTarget(target);
+              }
+            });
+            break;
+          }
+        }
+      }
+    }
+  }
+
   @Override
   public List<UIContextActions.Action> getContextActions() {
     List<UIContextActions.Action> actions = super.getContextActions();
-    if (this.parameter instanceof CompoundParameter) {
-      final CompoundParameter cp = (CompoundParameter) this.parameter;
-      if (!cp.modulations.isEmpty()) {
-        actions.add(new UIContextActions.Action("Remove Modulation") {
-          @Override
-          public void onContextAction(UI ui) {
-            ui.lx.command.perform(new LXCommand.Modulation.RemoveModulations(cp));
-          }
-        });
-      }
+    if (this.parameter instanceof LXCompoundModulation.Target) {
+      addModulationContextActions(getLX(), actions, (LXCompoundModulation.Target) this.parameter);
     }
     return actions;
   }
 
   @Override
   public void dispose() {
-    if (this.parameter instanceof CompoundParameter) {
-      ((CompoundParameter) this.parameter).removeModulationListener(this.modulationListener);
+    if (this.parameter instanceof LXCompoundModulation.Target) {
+      ((LXCompoundModulation.Target) this.parameter).removeModulationListener(this.modulationListener);
     }
     for (LXListenableParameter parameter : this.modulationParameters) {
       parameter.removeListener(this.redraw);

@@ -18,6 +18,9 @@
 
 package heronarts.glx.ui.component;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
 import heronarts.glx.ui.UIFocus;
@@ -27,7 +30,6 @@ import heronarts.lx.color.DiscreteColorParameter;
 import heronarts.lx.color.LXColor;
 import heronarts.lx.command.LXCommand;
 import heronarts.lx.modulation.LXCompoundModulation;
-import heronarts.lx.parameter.CompoundParameter;
 import heronarts.lx.parameter.LXNormalizedParameter;
 import heronarts.lx.parameter.LXParameter;
 import heronarts.lx.utils.LXUtils;
@@ -67,8 +69,9 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
   public UIKnob(float x, float y, float w, float h) {
     super(x, y, w, h);
     this.keyEditable = true;
-    enableImmediateEdit(true);
   }
+
+  private final List<LXCompoundModulation> uiModulations = new ArrayList<LXCompoundModulation>();
 
   @Override
   protected void onDraw(UI ui, VGraphics vg) {
@@ -76,7 +79,7 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
     // base is the unmodulated, base value of that parameter.
     // If unmodulated, these will be equal
     float value = (float) getCompoundNormalized();
-    float base = (float) getNormalized();
+    float base = (float) getBaseNormalized();
     float valueEnd = ARC_START + value * ARC_RANGE;
     float baseEnd = ARC_START + base * ARC_RANGE;
     float valueStart;
@@ -88,54 +91,80 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
     float arcSize = KNOB_SIZE / 2;
 
     // Modulations!
-    if (this.parameter instanceof CompoundParameter) {
-      CompoundParameter compound = (CompoundParameter) this.parameter;
-      for (int i = compound.modulations.size()-1; i >= 0; --i) {
-        LXCompoundModulation modulation = compound.modulations.get(i);
+    if (this.parameter instanceof LXCompoundModulation.Target) {
+      final LXCompoundModulation.Target compound = (LXCompoundModulation.Target) this.parameter;
+      // Note: the UI thread is separate from the engine thread, modulations could in theory change
+      // *while* we are rendering here. So we lean on the fact that the parameters use a
+      // CopyOnWriteArrayList and shuffle everything into our own ui-thread-local copy here
+      this.uiModulations.clear();
+      this.uiModulations.addAll(compound.getModulations());
+      for (int i = this.uiModulations.size() - 1; i >= 0; --i) {
+        LXCompoundModulation modulation = this.uiModulations.get(i);
         registerModulation(modulation);
 
         float modStart, modEnd;
         switch (modulation.getPolarity()) {
         case BIPOLAR:
-          modStart = LXUtils.constrainf(baseEnd - modulation.range.getValuef() * ARC_RANGE, ARC_START, ARC_END);
-          modEnd = LXUtils.constrainf(baseEnd + modulation.range.getValuef() * ARC_RANGE, ARC_START, ARC_END);
+          modStart = baseEnd - modulation.range.getValuef() * ARC_RANGE;
+          modEnd = baseEnd + modulation.range.getValuef() * ARC_RANGE;
           break;
         default:
         case UNIPOLAR:
           modStart = baseEnd;
-          modEnd = LXUtils.constrainf(modStart + modulation.range.getValuef() * ARC_RANGE, ARC_START, ARC_END);
+          modEnd = modStart + modulation.range.getValuef() * ARC_RANGE;
           break;
         }
 
         // Light ring of value
         DiscreteColorParameter modulationColor = modulation.color;
-        int modColor = ui.theme.getControlDisabledColor();
+        int modColor = ui.theme.controlDisabledFillColor.get();
         int modColorInv = modColor;
         if (isEnabled() && modulation.enabled.isOn()) {
           modColor = modulationColor.getColor();
           modColorInv = LXColor.hsb(LXColor.h(modColor), 50, 75);
         }
-        vg.fillColor(modColor);
-        switch (modulation.getPolarity()) {
-        case BIPOLAR:
-          if (modEnd >= modStart) {
-            vg.beginPathMoveToArcFill(ARC_CENTER_X, ARC_CENTER_Y, arcSize, baseEnd, Math.min(ARC_END, modEnd+.1f));
+        boolean hasWrap = false;
+        float wrapStart = 0, wrapEnd = 0;
+        int wrapColor = modColor;
 
-            vg.fillColor(modColorInv);
-            vg.beginPathMoveToArcFill(ARC_CENTER_X, ARC_CENTER_Y, arcSize, Math.max(ARC_START, modStart-.1f), baseEnd);
-          } else {
-            vg.beginPathMoveToArcFill(ARC_CENTER_X, ARC_CENTER_Y, arcSize, Math.max(ARC_START, modEnd-.1f), baseEnd);
-
-            vg.fillColor(modColorInv);
-            vg.beginPathMoveToArcFill(ARC_CENTER_X, ARC_CENTER_Y, arcSize, baseEnd, Math.min(ARC_END, modStart+.1f));
+        if (this.parameter.isWrappable()) {
+          if (modStart < ARC_START) {
+            hasWrap = true;
+            wrapStart = ARC_END;
+            wrapEnd = ARC_END + (modStart - ARC_START);
+            modStart = ARC_START;
+            wrapColor = modColorInv;
+          } else if (modStart > ARC_END) {
+            hasWrap = true;
+            wrapEnd = ARC_START;
+            wrapStart = ARC_START + (modStart - ARC_END);
+            modStart = ARC_END;
+            wrapColor = modColorInv;
           }
-          break;
-        case UNIPOLAR:
-          vg.beginPathMoveToArcFill(ARC_CENTER_X, ARC_CENTER_Y, arcSize, Math.max(ARC_START, Math.min(modStart, modEnd)-.1f), Math.min(ARC_END, Math.max(modStart, modEnd)+.1f));
-          break;
+          if (modEnd < ARC_START) {
+            hasWrap = true;
+            wrapStart = ARC_END;
+            wrapEnd = ARC_END + (modEnd - ARC_START);
+            modEnd = ARC_START;
+            wrapColor = modColor;
+          } else if (modEnd > ARC_END) {
+            hasWrap = true;
+            wrapEnd = ARC_START;
+            wrapStart = ARC_START + (modEnd - ARC_END);
+            modEnd = ARC_END;
+            wrapColor = modColor;
+          }
+        } else {
+          modStart = LXUtils.constrainf(modStart, ARC_START, ARC_END);
+          modEnd = LXUtils.constrainf(modEnd, ARC_START, ARC_END);
         }
+        drawModArc(vg, modulation.getPolarity(), modStart, modEnd, baseEnd, arcSize, modColor, modColorInv);
+        if (hasWrap) {
+          drawModArc(vg, LXParameter.Polarity.UNIPOLAR, wrapStart, wrapEnd, baseEnd, arcSize, wrapColor, wrapColor);
+        }
+
         arcSize -= 3;
-        vg.fillColor(ui.theme.getDeviceBackgroundColor());
+        vg.fillColor(ui.theme.deviceBackgroundColor);
         vg.beginPath();
         vg.circle(ARC_CENTER_X, ARC_CENTER_Y, arcSize);
         vg.fill();
@@ -143,22 +172,23 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
         if (arcSize < 6) {
           break;
         }
-
       }
     }
 
+    final boolean editable = isEnabled() && isEditable();
+
     // Outer fill
-    vg.fillColor(ui.theme.getControlBackgroundColor());
+    vg.fillColor(editable ? ui.theme.controlFillColor : ui.theme.controlDisabledFillColor);
     vg.beginPathMoveToArcFill(ARC_CENTER_X, ARC_CENTER_Y, arcSize, ARC_START, ARC_END);
 
     // Compute colors for base/value fills
     int baseColor;
     int valueColor;
-    if (isEnabled() && isEditable()) {
-      baseColor = ui.theme.getPrimaryColor();
+    if (editable) {
+      baseColor = ui.theme.primaryColor.get();
       valueColor = getModulatedValueColor(baseColor);
     } else {
-      int disabled = ui.theme.getControlDisabledColor();
+      int disabled = ui.theme.controlDisabledValueColor.get();
       baseColor = disabled;
       valueColor = disabled;
     }
@@ -176,19 +206,42 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
 
     // Center tick mark for bipolar knobs
     if (this.polarity == LXParameter.Polarity.BIPOLAR) {
-      vg.strokeColor(0xff333333);
+      vg.strokeColor(ui.theme.controlDetentColor);
       vg.beginPath();
       vg.line(ARC_CENTER_X, ARC_CENTER_Y, ARC_CENTER_X, ARC_CENTER_Y - arcSize);
       vg.stroke();
     }
 
     // Center dot
-    vg.fillColor(0xff333333);
-    vg.beginPath();
-    vg.circle(ARC_CENTER_X, ARC_CENTER_Y, 4);
-    vg.fill();
+    float detent = LXUtils.minf(arcSize - 4, ui.theme.getKnobDetentSize());
+    if (detent > 0) {
+      vg.fillColor(ui.theme.controlDetentColor);
+      vg.beginPath();
+      vg.circle(ARC_CENTER_X, ARC_CENTER_Y, detent);
+      vg.fill();
+    }
 
     super.onDraw(ui, vg);
+  }
+
+  private void drawModArc(VGraphics vg, LXParameter.Polarity polarity, float modStart, float modEnd, float baseEnd, float arcSize, int modColor, int modColorInv) {
+    vg.fillColor(modColor);
+    switch (polarity) {
+    case BIPOLAR:
+      if (modEnd >= modStart) {
+        vg.beginPathMoveToArcFill(ARC_CENTER_X, ARC_CENTER_Y, arcSize, baseEnd, Math.min(ARC_END, modEnd+.1f));
+        vg.fillColor(modColorInv);
+        vg.beginPathMoveToArcFill(ARC_CENTER_X, ARC_CENTER_Y, arcSize, Math.max(ARC_START, modStart-.1f), baseEnd);
+      } else {
+        vg.beginPathMoveToArcFill(ARC_CENTER_X, ARC_CENTER_Y, arcSize, Math.max(ARC_START, modEnd-.1f), baseEnd);
+        vg.fillColor(modColorInv);
+        vg.beginPathMoveToArcFill(ARC_CENTER_X, ARC_CENTER_Y, arcSize, baseEnd, Math.min(ARC_END, modStart+.1f));
+      }
+      break;
+    case UNIPOLAR:
+      vg.beginPathMoveToArcFill(ARC_CENTER_X, ARC_CENTER_Y, arcSize, Math.max(ARC_START, Math.min(modStart, modEnd)-.1f), Math.min(ARC_END, Math.max(modStart, modEnd)+.1f));
+      break;
+    }
   }
 
   private double dragValue;
@@ -197,8 +250,8 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
   protected void onMousePressed(MouseEvent mouseEvent, float mx, float my) {
     super.onMousePressed(mouseEvent, mx, my);
 
-    this.dragValue = getNormalized();
-    if (isEditable() && (this.parameter != null) && (mouseEvent.getCount() > 1)) {
+    this.dragValue = getBaseNormalized();
+    if (isEditable() && (this.parameter != null) && (mouseEvent.isDoubleClick())) {
       LXCompoundModulation modulation = getModulation(mouseEvent.isShiftDown());
       if (modulation != null && (mouseEvent.isControlDown() || mouseEvent.isMetaDown())) {
         if (this.useCommandEngine) {
@@ -217,14 +270,17 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
   }
 
   private LXCompoundModulation getModulation(boolean secondary) {
-    if (this.parameter != null && this.parameter instanceof CompoundParameter) {
-      CompoundParameter compound = (CompoundParameter) this.parameter;
-      int size = compound.modulations.size();
+    if (this.parameter instanceof LXCompoundModulation.Target) {
+      LXCompoundModulation.Target compound = (LXCompoundModulation.Target) this.parameter;
+      // NOTE: this event-processing happens on the engine thread, the modulations won't change
+      // underneath us, we can access them directly
+      final List<LXCompoundModulation> modulations = compound.getModulations();
+      int size = modulations.size();
       if (size > 0) {
         if (secondary && (size > 1)) {
-          return compound.modulations.get(size-2);
+          return modulations.get(size-2);
         } else {
-          return compound.modulations.get(size-1);
+          return modulations.get(size-1);
         }
       }
     }
@@ -240,7 +296,11 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
     float delta = dy / 100.f;
     LXCompoundModulation modulation = getModulation(mouseEvent.isShiftDown());
     if (modulation != null && (mouseEvent.isMetaDown() || mouseEvent.isControlDown())) {
-      modulation.range.setValue(modulation.range.getValue() - delta);
+      if (this.useCommandEngine) {
+        setModulationRangeCommand(modulation.range, modulation.range.getValue() - delta);
+      } else {
+        modulation.range.setValue(modulation.range.getValue() - delta);
+      }
     } else {
       if (mouseEvent.isShiftDown()) {
         delta /= 10;

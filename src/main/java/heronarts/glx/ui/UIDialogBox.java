@@ -41,6 +41,8 @@ public class UIDialogBox extends UI2dContainer implements UIMouseFocus {
     return arr;
   }
 
+  private boolean isError = false;
+
   public UIDialogBox(UI ui, String message) {
     this(ui, message, new String[] { "Okay" }, null);
   }
@@ -55,8 +57,8 @@ public class UIDialogBox extends UI2dContainer implements UIMouseFocus {
 
   public UIDialogBox(UI ui, String message, String[] options, int[] optionWidth, Runnable[] callbacks) {
     super((ui.getWidth() - WIDTH) / 2, (ui.getHeight() - 2*HEIGHT) / 2, WIDTH, HEIGHT);
-    setBackgroundColor(ui.theme.getDeviceFocusedBackgroundColor());
-    setBorderColor(UI.BLACK);
+    setBackgroundColor(ui.theme.dialogBackgroundColor);
+    setBorderColor(ui.theme.contextBorderColor);
     setBorderRounding(4);
 
     new UILabel(PADDING, PADDING, this.width - 2*PADDING, this.height - 2*PADDING - BUTTON_ROW)
@@ -64,7 +66,7 @@ public class UIDialogBox extends UI2dContainer implements UIMouseFocus {
     .setBreakLines(true)
     .setPadding(4)
     .setTextAlignment(VGraphics.Align.LEFT, VGraphics.Align.TOP)
-    .setBackgroundColor(ui.theme.getDarkBackgroundColor())
+    .setBackgroundColor(ui.theme.dialogInsetColor)
     .setBorderRounding(4)
     .addToContainer(this);
 
@@ -81,7 +83,7 @@ public class UIDialogBox extends UI2dContainer implements UIMouseFocus {
       new UIButton.Action(xp, yp, optionWidth[i], 16) {
         @Override
         protected void onClick() {
-          getUI().hideContextOverlay();
+          getUI().clearContextOverlay(UIDialogBox.this);
           if ((callbacks != null) && (callbacks[ii] != null)) {
             callbacks[ii].run();
           }
@@ -91,5 +93,14 @@ public class UIDialogBox extends UI2dContainer implements UIMouseFocus {
       .addToContainer(this);
       xp += optionWidth[i] + OPTION_PADDING;
     }
+  }
+
+  public UIDialogBox setError() {
+    this.isError = true;
+    return this;
+  }
+
+  public boolean isError() {
+    return this.isError;
   }
 }

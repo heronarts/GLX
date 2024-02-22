@@ -23,6 +23,8 @@ import static org.lwjgl.glfw.GLFW.*;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.lwjgl.system.Platform;
 
 import heronarts.glx.event.Event;
@@ -41,11 +43,17 @@ public class InputDispatch implements LXEngine.Dispatch {
   private KeyEvent keyEvent = null;
   private MouseEvent previousMousePress = null;
 
+  private final AtomicBoolean hasInputEvents = new AtomicBoolean(false);
   private final List<Event> lxThreadEventQueue = new ArrayList<Event>();
   private final List<Event> glfwThreadEventQueue = Collections.synchronizedList(new ArrayList<Event>());
 
   InputDispatch(GLX lx) {
     this.lx = lx;
+  }
+
+  private void queueEvent(Event event) {
+    this.glfwThreadEventQueue.add(event);
+    this.hasInputEvents.set(true);
   }
 
   void onFocus(double cursorX, double cursorY) {
@@ -55,7 +63,12 @@ public class InputDispatch implements LXEngine.Dispatch {
 
   void glfwKeyCallback(long window, int key, int scancode, int action, int mods) {
     this.modifiers = mods;
-    this.glfwThreadEventQueue.add(this.keyEvent = new KeyEvent(key, scancode, action, mods));
+    queueEvent(this.keyEvent = new KeyEvent(key, scancode, action, mods));
+
+    // Hack-toggle to UI perf logging on the UI thread
+    if ((key == KeyEvent.VK_U) && (action == GLFW_PRESS) && keyEvent.isCommand() && keyEvent.isShiftDown()) {
+      lx.toggleUIPerformanceDebug();
+    }
   }
 
   void glfwCharCallback(long window, int codepoint) {
@@ -71,7 +84,7 @@ public class InputDispatch implements LXEngine.Dispatch {
     double dx = x - this.cursorX;
     double dy = y - this.cursorY;
     MouseEvent.Action action = this.mouseDragging ? MouseEvent.Action.DRAG : MouseEvent.Action.MOVE;
-    this.glfwThreadEventQueue.add(new MouseEvent(action, (float) x, (float) y, (float) dx, (float) dy, this.modifiers));
+    queueEvent(new MouseEvent(action, (float) x, (float) y, (float) dx, (float) dy, this.modifiers));
     this.cursorX = x;
     this.cursorY = y;
   };
@@ -111,7 +124,7 @@ public class InputDispatch implements LXEngine.Dispatch {
       this.previousMousePress = mouseEvent;
     }
 
-    this.glfwThreadEventQueue.add(mouseEvent);
+    queueEvent(mouseEvent);
   }
 
   void glfwScrollCallback(long window, double dx, double dy) {
@@ -127,10 +140,10 @@ public class InputDispatch implements LXEngine.Dispatch {
       default:
         break;
     }
-    this.glfwThreadEventQueue.add(new MouseEvent(MouseEvent.Action.SCROLL, (float) this.cursorX, (float) this.cursorY, (float) dx, (float) dy, this.modifiers));
+    queueEvent(new MouseEvent(MouseEvent.Action.SCROLL, (float) this.cursorX, (float) this.cursorY, (float) dx, (float) dy, this.modifiers));
   }
 
-  public static final double POLL_TIMEOUT = 1/30.;
+  public static final double POLL_TIMEOUT = 1/60.;
 
   void poll() {
     // It doesn't seem like V-Sync always works, definitely not on a Mac...
@@ -154,7 +167,7 @@ public class InputDispatch implements LXEngine.Dispatch {
         case MOVE:
         case DRAG:
           return new MouseEvent(
-            mouseEvent.time,
+            mouseEvent,
             mouseEvent.action,
             mouseEvent.x,
             mouseEvent.y,
@@ -175,6 +188,11 @@ public class InputDispatch implements LXEngine.Dispatch {
    */
   @Override
   public void dispatch() {
+    if (!this.hasInputEvents.compareAndSet(true, false)) {
+      // Nothing happened!
+      return;
+    }
+
     this.lxThreadEventQueue.clear();
 
     // Lock on the glfw input event queue, in case it's in the middle of polling...

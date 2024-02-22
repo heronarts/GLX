@@ -31,6 +31,25 @@ public abstract class UITimerTask implements LXLoopTask {
     FPS
   }
 
+  public static class Redraw extends UITimerTask {
+
+    private final UI2dComponent component;
+
+    public Redraw(UI2dComponent component, double period) {
+      this(component, period, Mode.MILLISECONDS);
+    }
+
+    public Redraw(UI2dComponent component, double period, Mode mode) {
+      super(period, mode);
+      this.component = component;
+    }
+
+    @Override
+    public void run() {
+      this.component.redraw();
+    }
+  }
+
   protected UITimerTask(double period) {
     this(period, Mode.MILLISECONDS);
   }

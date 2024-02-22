@@ -18,13 +18,16 @@
 
 package heronarts.glx.ui.component;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
+import heronarts.glx.ui.UIColor;
 import heronarts.glx.ui.UIFocus;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.color.LXColor;
 import heronarts.lx.modulation.LXCompoundModulation;
-import heronarts.lx.parameter.CompoundParameter;
 import heronarts.lx.parameter.LXListenableNormalizedParameter;
 import heronarts.lx.utils.LXUtils;
 
@@ -41,13 +44,11 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
   private static final int PADDING = 2;
   private static final int GROOVE = 4;
 
-  private final static int HANDLE_COLOR = 0xff5f5f5f;
-
   private float handleHeight;
 
   private boolean hasFillColor = false;
 
-  private int fillColor = 0;;
+  private UIColor fillColor = UIColor.NONE;
 
   public UISlider(float w, LXListenableNormalizedParameter parameter) {
     this(w, DEFAULT_HEIGHT, parameter);
@@ -77,7 +78,6 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
   public UISlider(Direction direction, float x, float y, float w, float h) {
     super(x, y, w, h);
     this.keyEditable = true;
-    enableImmediateEdit(true);
     this.direction = direction;
     this.handleHeight = h;
   }
@@ -85,7 +85,8 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
 
   @Override
   protected void onResize() {
-    this.handleHeight = this.height;
+    this.handleHeight = this.height -
+      (isShowLabel() ? (LABEL_MARGIN + LABEL_HEIGHT) : 0);
   }
 
   public UISlider resetFillColor() {
@@ -96,14 +97,20 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
     return this;
   }
 
-  public UISlider setFillColor(int color) {
-    if (!this.hasFillColor || (this.fillColor != color)) {
+  public UISlider setFillColor(int fillColor) {
+    return setFillColor(new UIColor(fillColor));
+  }
+
+  public UISlider setFillColor(UIColor fillColor) {
+    if (!this.hasFillColor || (this.fillColor != fillColor)) {
       this.hasFillColor = true;
-      this.fillColor = color;
+      this.fillColor = fillColor;
       redraw();
     }
     return this;
   }
+
+  private final List<LXCompoundModulation> uiModulations = new ArrayList<LXCompoundModulation>();
 
   @Override
   @SuppressWarnings("fallthrough")
@@ -112,7 +119,7 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
     // base is the unmodulated, base value of that parameter.
     // If unmodulated, these will be equal
     double value = getCompoundNormalized();
-    double base = getNormalized();
+    double base = getBaseNormalized();
     boolean modulated = (base != value);
     int baseHandleEdge;
     float grooveDim;
@@ -130,11 +137,16 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
     int baseHandleCenter = baseHandleEdge + 1 + HANDLE_SIZE/2;
 
     // Modulations!
-    if (this.parameter instanceof CompoundParameter) {
-      CompoundParameter compound = (CompoundParameter) this.parameter;
-      for (int i = 0; i < compound.modulations.size() && i < 3; ++i) {
-        LXCompoundModulation modulation = compound.modulations.get(i);
-        int modColor = ui.theme.getControlDisabledColor();
+    if (this.parameter instanceof LXCompoundModulation.Target) {
+      LXCompoundModulation.Target compound = (LXCompoundModulation.Target) this.parameter;
+      // Note: the UI thread is separate from the engine thread, modulations could in theory change
+      // *while* we are rendering here. So we lean on the fact that the parameters use a
+      // CopyOnWriteArrayList and shuffle everything into our own ui-thread-local copy here
+      this.uiModulations.clear();
+      this.uiModulations.addAll(compound.getModulations());
+      for (int i = 0; i < this.uiModulations.size() && i < 3; ++i) {
+        LXCompoundModulation modulation = this.uiModulations.get(i);
+        int modColor = ui.theme.controlDisabledColor.get();
         int modColorInv = modColor;
         if (isEnabled() && modulation.enabled.isOn()) {
           modColor = modulation.color.getColor();
@@ -198,19 +210,21 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
       }
     }
 
+    final boolean editable = isEnabled() && isEditable();
+
     int baseColor;
     int valueColor;
-    if (isEnabled()) {
-      baseColor = this.hasFillColor ? this.fillColor : ui.theme.getPrimaryColor();
+    if (editable) {
+      baseColor = this.hasFillColor ? this.fillColor.get() : ui.theme.primaryColor.get();
       valueColor = getModulatedValueColor(baseColor);
     } else {
-      int disabled = ui.theme.getControlDisabledColor();
+      int disabled = ui.theme.controlDisabledValueColor.get();
       baseColor = disabled;
       valueColor = disabled;
     }
 
     vg.strokeWidth(1);
-    vg.fillColor(ui.theme.getControlBackgroundColor());
+    vg.fillColor(editable ? ui.theme.controlFillColor : ui.theme.controlDisabledFillColor);
 
     switch (this.direction) {
     case HORIZONTAL:
@@ -263,7 +277,7 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
       // If we're modulating across the center, draw a small divider
       if ((base > 0.5 && value < 0.5) || (base < 0.5 && value > 0.5)) {
         float centerX = this.width / 2;
-        vg.strokeColor(ui.theme.getControlBackgroundColor());
+        vg.strokeColor(ui.theme.controlFillColor);
         vg.strokeWidth(1);
         vg.beginPath();
         vg.line(centerX, topY, centerX, topY + GROOVE);
@@ -271,8 +285,8 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
       }
 
       // Handle
-      vg.fillColor(HANDLE_COLOR);
-      vg.strokeColor(ui.theme.getControlBorderColor());
+      vg.fillColor(ui.theme.controlHandleColor);
+      vg.strokeColor(ui.theme.controlBorderColor);
       vg.beginPath();
       vg.rect(baseHandleEdge+.5f, PADDING+.5f, HANDLE_SIZE, this.handleHeight - 2*PADDING, HANDLE_ROUNDING);
       vg.fill();
@@ -330,8 +344,8 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
       }
 
       vg.beginPath();
-      vg.fillColor(HANDLE_COLOR);
-      vg.strokeColor(ui.theme.getControlBorderColor());
+      vg.fillColor(ui.theme.controlHandleColor);
+      vg.strokeColor(ui.theme.controlBorderColor);
       vg.rect(PADDING+.5f, baseHandleEdge + .5f, this.width - 2*PADDING, HANDLE_SIZE, HANDLE_ROUNDING);
       vg.fill();
       vg.stroke();
@@ -361,7 +375,7 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
       dim = this.width;
       break;
     }
-    if ((mouseEvent.getCount() > 1) && Math.abs(mp - this.doubleClickP) < 3) {
+    if (mouseEvent.isDoubleClick() && Math.abs(mp - this.doubleClickP) < 3) {
       setNormalized(this.doubleClickMode);
     }
     this.doubleClickP = mp;
@@ -381,14 +395,17 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
   }
 
   private LXCompoundModulation getModulation(boolean secondary) {
-    if (this.parameter != null && this.parameter instanceof CompoundParameter) {
-      CompoundParameter compound = (CompoundParameter) this.parameter;
-      int size = compound.modulations.size();
+    if (this.parameter != null && this.parameter instanceof LXCompoundModulation.Target) {
+      LXCompoundModulation.Target compound = (LXCompoundModulation.Target) this.parameter;
+      // NOTE: this event-processing happens on the engine thread, the modulations won't change
+      // underneath us, we can access them directly
+      final List<LXCompoundModulation> modulations = compound.getModulations();
+      int size = modulations.size();
       if (size > 0) {
         if (secondary && (size > 1)) {
-          return compound.modulations.get(1);
+          return modulations.get(1);
         } else {
-          return compound.modulations.get(0);
+          return modulations.get(0);
         }
       }
     }
@@ -420,12 +437,16 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
       float delta = dv / (dim - HANDLE_SIZE - 2*PADDING);
       LXCompoundModulation modulation = getModulation(mouseEvent.isShiftDown());
       if (modulation != null && (mouseEvent.isMetaDown() || mouseEvent.isControlDown())) {
-        modulation.range.setValue(modulation.range.getValue() + delta);
+        if (this.useCommandEngine) {
+          setModulationRangeCommand(modulation.range, modulation.range.getValue() + delta);
+        } else {
+          modulation.range.setValue(modulation.range.getValue() + delta);
+        }
       } else {
         if (mouseEvent.isShiftDown()) {
           delta /= 10;
         }
-        setNormalized(LXUtils.constrain(getNormalized() + delta, 0, 1));
+        setNormalized(LXUtils.constrain(getBaseNormalized() + delta, 0, 1));
       }
     }
   }

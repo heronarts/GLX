@@ -23,8 +23,11 @@ import java.util.Objects;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
+import heronarts.glx.ui.UI2dComponent;
+import heronarts.glx.ui.UIColor;
 import heronarts.glx.ui.UIControlTarget;
 import heronarts.glx.ui.UIFocus;
+import heronarts.glx.ui.UITheme;
 import heronarts.glx.ui.UITriggerSource;
 import heronarts.glx.ui.UITriggerTarget;
 import heronarts.glx.ui.vg.VGraphics;
@@ -32,10 +35,77 @@ import heronarts.lx.command.LXCommand;
 import heronarts.lx.parameter.BooleanParameter;
 import heronarts.lx.parameter.EnumParameter;
 import heronarts.lx.parameter.LXListenableNormalizedParameter;
-import heronarts.lx.parameter.LXParameter;
+import heronarts.lx.parameter.LXNormalizedParameter;
 import heronarts.lx.parameter.LXParameterListener;
 
 public class UIButton extends UIParameterComponent implements UIControlTarget, UITriggerSource, UITriggerTarget, UIFocus {
+
+  public static class Tooltip extends UIButton {
+
+    public enum Placement {
+      TOP_RIGHT,
+      TOP_LEFT,
+      BOTTOM_RIGHT,
+      BOTTOM_LEFT;
+    }
+
+    private final float tipWidth, tipHeight;
+    private final String message;
+    private Placement placement = Placement.TOP_RIGHT;
+
+    public Tooltip(float tipWidth, float tipHeight, String message) {
+      super(0, 0, 12, 12);
+      setBorder(false);
+      setBorderRounding(2);
+      setLabel("?");
+      setTextOffset(0, 1);
+      setMomentary(true);
+      setFocusCorners(false);
+      setDescription(message);
+      this.tipWidth = tipWidth;
+      this.tipHeight = tipHeight;
+      this.message = message;
+    }
+
+    public Tooltip setPlacement(Placement placement) {
+      this.placement = placement;
+      return this;
+    }
+
+    @Override
+    public void onClick() {
+      final UITheme theme = getUI().theme;
+      final UI2dComponent overlay =
+        new UILabel.Control(getUI(), this.width/2, this.height/2 - this.tipHeight, this.tipWidth, this.tipHeight, this.message) {
+          @Override
+          public void onMousePressed(MouseEvent mouseEvent, float mx, float my) {
+            getUI().clearContextOverlay(this);
+          }
+        }
+        .setBreakLines(true)
+        .setPadding(4)
+        .setTextAlignment(VGraphics.Align.LEFT, VGraphics.Align.TOP)
+        .setBackgroundColor(theme.contextBackgroundColor)
+        .setBorderColor(theme.contextBorderColor)
+        .setBorderRounding(4);
+
+      switch (this.placement) {
+      case TOP_RIGHT:
+        overlay.setPosition(this, this.width/2, this.height/2 - this.tipHeight);
+        break;
+      case TOP_LEFT:
+        overlay.setPosition(this, this.width/2 - this.tipWidth, this.height/2 - this.tipHeight);
+        break;
+      case BOTTOM_RIGHT:
+        overlay.setPosition(this, this.width/2, this.height/2);
+        break;
+      case BOTTOM_LEFT:
+        overlay.setPosition(this, this.width/2 - this.tipWidth, this.height/2);
+        break;
+      }
+      getUI().showContextOverlay(overlay);
+    }
+  }
 
   public static class Action extends UIButton {
     public Action(float w, float h) {
@@ -56,7 +126,102 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
       this(x, y, w, h);
       setLabel(label);
     }
+  }
 
+  public static class Expander extends Action {
+
+    public enum Direction {
+      BOTTOM_LEFT,
+      BOTTOM_RIGHT,
+      TOP_LEFT,
+      TOP_RIGHT;
+    }
+
+    private Direction direction = Direction.BOTTOM_LEFT;
+
+    public Expander(BooleanParameter param) {
+      this(0, 0, param);
+    }
+
+    public Expander(float x, float y, BooleanParameter param) {
+      super(x, y, 12, 12);
+      setParameter(param);
+    }
+
+    public Expander setDirection(Direction direction) {
+      this.direction = direction;
+      return this;
+    }
+
+    @Override
+    protected void drawBackground(UI ui, VGraphics vg) {
+      drawParentBackground(ui, vg);
+    }
+
+    @Override
+    protected void drawBorder(UI ui, VGraphics vg) {}
+
+    @Override
+    @SuppressWarnings("fallthrough")
+    protected void onDraw(UI ui, VGraphics vg) {
+      vg.beginPath();
+      vg.fillColor(ui.theme.sectionExpanderBackgroundColor);
+
+      boolean isOn = getParameter().getValue() > 0;
+
+      switch (this.direction) {
+      case TOP_RIGHT:
+        isOn = !isOn;
+        // Intentional fall-through
+      case BOTTOM_LEFT:
+        if (isOn) {
+          drawBottomLeft(ui, vg);
+        } else {
+          drawTopRight(ui, vg);
+        }
+        break;
+      case TOP_LEFT:
+        isOn = !isOn;
+        // Intentional fall-through
+      case BOTTOM_RIGHT:
+        if (isOn) {
+          drawBottomRight(ui, vg);
+        } else {
+          drawTopLeft(ui, vg);
+        }
+        break;
+      }
+
+      vg.fill();
+    }
+
+    protected void drawBottomLeft(UI ui, VGraphics vg) {
+      final float x = 1, y = getHeight()-1;
+      vg.moveTo(x, y-10);
+      vg.lineTo(x+10, y);
+      vg.lineTo(x, y);
+    }
+
+    protected void drawTopRight(UI ui, VGraphics vg) {
+      final float x = 1, y = getHeight()-1;
+      vg.moveTo(x, y-10);
+      vg.lineTo(x+10, y-10);
+      vg.lineTo(x+10, y);
+    }
+
+    protected void drawBottomRight(UI ui, VGraphics vg) {
+      final float x = 1, y = getHeight()-1;
+      vg.moveTo(x, y);
+      vg.lineTo(x+10, y-10);
+      vg.lineTo(x+10, y);
+    }
+
+    protected void drawTopLeft(UI ui, VGraphics vg) {
+      final float x = 1, y = getHeight()-1;
+      vg.moveTo(x, y-10);
+      vg.lineTo(x+10, y-10);
+      vg.lineTo(x, y);
+    }
   }
 
   public static class Trigger extends UIButton {
@@ -79,22 +244,50 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     }
   }
 
-  private LXParameter controlSource = null;
-  private LXParameter controlTarget = null;
+  public static class Toggle extends UIButton {
+
+    public static final int SIZE = 12;
+
+    public Toggle() {
+      this(null);
+    }
+
+    public Toggle(BooleanParameter parameter) {
+      this(0, 0, parameter);
+    }
+
+    public Toggle(float x, float y) {
+      this(x, y, null);
+    }
+
+    public Toggle(float x, float y, BooleanParameter parameter) {
+      super(x, y, SIZE, SIZE);
+      setBorderRounding(2);
+      setLabel("");
+      if (parameter != null) {
+        setParameter(parameter);
+      }
+    }
+
+  }
+
+  private LXNormalizedParameter controlSource = null;
+  private LXNormalizedParameter controlTarget = null;
 
   protected boolean active = false;
   protected boolean isMomentary = false;
 
-  protected int inactiveColor = UI.get().theme.getControlBackgroundColor();
-  protected int activeColor = UI.get().theme.getPrimaryColor();
+  protected UIColor inactiveColor = UI.get().theme.controlBackgroundColor;
+  protected UIColor activeColor = UI.get().theme.primaryColor;
 
   private String activeLabel = "";
   private String inactiveLabel = "";
 
   private boolean hasIconColor = false;
-  private int iconColor = UI.WHITE;
+  private UIColor iconColor = UIColor.NONE;
 
-  private int activeFontColor = UI.WHITE;
+  private boolean hasActiveFontColor = false;
+  private UIColor activeFontColor = UIColor.NONE;
 
   private VGraphics.Image activeIcon = null;
   private VGraphics.Image inactiveIcon = null;
@@ -108,6 +301,16 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   private EnumParameter<? extends Object> enumParameter = null;
   private BooleanParameter booleanParameter = null;
 
+  private EnumFormatter enumFormatter = EnumFormatter.DEFAULT;
+
+  public interface EnumFormatter {
+    public String toString(EnumParameter<? extends Object> enumParameter);
+
+    static EnumFormatter DEFAULT = (ep) -> {
+      return ep.getEnum().toString();
+    };
+  }
+
   private float iconOffsetX = 0, iconOffsetY = 0;
 
   private final LXParameterListener booleanParameterListener = (p) -> {
@@ -115,7 +318,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   };
 
   private final LXParameterListener enumParameterListener = (p) -> {
-    setLabel(enumParameter.getEnum().toString());
+    setLabel(enumFormatter.toString(enumParameter));
   };
 
   public UIButton() {
@@ -127,7 +330,11 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   }
 
   public UIButton(float w, float h, BooleanParameter p) {
-    this(0, 0, w, h);
+    this(0, 0, w, h, p);
+  }
+
+  public UIButton(float x, float y, float w, float h, BooleanParameter p) {
+    this(x, y, w, h);
     setParameter(p);
     setLabel(p.getLabel());
   }
@@ -137,15 +344,23 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   }
 
   public UIButton(float w, float h, EnumParameter<?> p) {
-    this(0, 0, w, h);
+    this(0, 0, w, h, p);
+  }
+
+  public UIButton(float x, float y, float w, float h, EnumParameter<?> p) {
+    this(x, y, w, h);
     setParameter(p);
-    setLabel(p.getEnum().toString());
+    setLabel(enumFormatter.toString(p));
+  }
+
+  public UIButton(float w, float h) {
+    this(0, 0, w, h);
   }
 
   public UIButton(float x, float y, float w, float h) {
     super(x, y, w, h);
-    setBorderColor(UI.get().theme.getControlBorderColor());
-    setFontColor(UI.get().theme.getControlTextColor());
+    setBorderColor(UI.get().theme.controlBorderColor);
+    setFontColor(UI.get().theme.controlTextColor);
     setBackgroundColor(this.inactiveColor);
   }
 
@@ -156,7 +371,18 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
    * @return this
    */
   public UIButton setActiveFontColor(int activeFontColor) {
-    if (activeColor != this.activeFontColor) {
+    return setActiveFontColor(new UIColor(activeFontColor));
+  }
+
+  /**
+   * Sets the active font color
+   *
+   * @param activeFontColor color
+   * @return this
+   */
+  public UIButton setActiveFontColor(UIColor activeFontColor) {
+    if (!this.hasActiveFontColor || (activeFontColor != this.activeFontColor)) {
+      this.hasActiveFontColor = true;
       this.activeFontColor = activeFontColor;
       redraw();
     }
@@ -185,6 +411,10 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   }
 
   public UIButton setIconColor(int iconColor) {
+    return setIconColor(new UIColor(iconColor));
+  }
+
+  public UIButton setIconColor(UIColor iconColor) {
     if (!this.hasIconColor || (this.iconColor != iconColor)) {
       this.hasIconColor = true;
       this.iconColor = iconColor;
@@ -230,9 +460,14 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
         this.enumParameter.addListener(this.enumParameterListener);
         setActive(false);
         setMomentary(true);
-        setLabel(this.enumParameter.getEnum().toString());
+        setLabel(this.enumFormatter.toString(this.enumParameter));
       }
     }
+    return this;
+  }
+
+  public UIButton setEnumFormatter(EnumFormatter formatter) {
+    this.enumFormatter = formatter;
     return this;
   }
 
@@ -293,19 +528,21 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     // with a mouse press but the mouse has moved off the active button
     if (!this.enabled || (this.momentaryPressEngaged && !this.momentaryPressValid)) {
       vg.beginPath();
-      vg.fillColor(ui.theme.getControlDisabledColor());
+      vg.fillColor(ui.theme.controlDisabledColor);
       vg.rect(1, 1, this.width-2, this.height-2);
       vg.fill();
     } else if (this.momentaryPressEngaged) {
       vg.beginPath();
       vg.fillColor(this.activeColor);
-      vg.rect(1, 1, this.width-2, this.height-2);
+      vgRoundedRect(this, vg, 1, 1, this.width-2, this.height-2);
       vg.fill();
     }
 
     VGraphics.Image icon = this.active ? this.activeIcon : this.inactiveIcon;
     if (icon != null) {
-      if (!this.active && !this.momentaryPressEngaged) {
+      if (this.active || this.momentaryPressEngaged) {
+        icon.setTint(this.hasActiveFontColor ? this.activeFontColor : ui.theme.controlActiveTextColor);
+      } else {
         icon.setTint(this.hasIconColor ? this.iconColor : getFontColor());
       }
       vg.beginPath();
@@ -315,7 +552,10 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     } else {
       String label = this.active ? this.activeLabel : this.inactiveLabel;
       if ((label != null) && (label.length() > 0)) {
-        vg.fillColor((this.active || this.momentaryPressEngaged) ? this.activeFontColor : getFontColor());
+        vg.fillColor((this.active || this.momentaryPressEngaged) ?
+          (this.hasActiveFontColor ? this.activeFontColor : ui.theme.controlActiveTextColor) :
+          getFontColor()
+        );
         vg.fontFace(hasFont() ? getFont() : ui.theme.getControlFont());
         if (this.textAlignVertical == VGraphics.Align.MIDDLE) {
           vg.textAlign(VGraphics.Align.CENTER, VGraphics.Align.MIDDLE);
@@ -422,9 +662,9 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
         if (this.enumParameter != null) {
           if (active) {
             if (this.useCommandEngine) {
-              getLX().command.perform(new LXCommand.Parameter.Increment(this.enumParameter));
+              getLX().command.perform(new LXCommand.Parameter.Increment(this.enumParameter, true));
             } else {
-              this.enumParameter.increment();
+              this.enumParameter.increment(true);
             }
           }
         } else if (this.booleanParameter != null) {
@@ -466,6 +706,10 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   }
 
   public UIButton setActiveColor(int activeColor) {
+    return setActiveColor(new UIColor(activeColor));
+  }
+
+  public UIButton setActiveColor(UIColor activeColor) {
     if (this.activeColor != activeColor) {
       this.activeColor = activeColor;
       if (this.active) {
@@ -476,6 +720,10 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   }
 
   public UIButton setInactiveColor(int inactiveColor) {
+    return setInactiveColor(new UIColor(inactiveColor));
+  }
+
+  public UIButton setInactiveColor(UIColor inactiveColor) {
     if (this.inactiveColor != inactiveColor) {
       this.inactiveColor = inactiveColor;
       if (!this.active) {
@@ -546,7 +794,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
    * @param controlSource Control source
    * @return this
    */
-  public UIButton setControlSource(LXParameter controlSource) {
+  public UIButton setControlSource(LXNormalizedParameter controlSource) {
     this.controlSource = controlSource;
     return this;
   }
@@ -560,13 +808,13 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
    * @param controlTarget Control target
    * @return this
    */
-  public UIButton setControlTarget(LXParameter controlTarget) {
+  public UIButton setControlTarget(LXNormalizedParameter controlTarget) {
     this.controlTarget = controlTarget;
     return this;
   }
 
   @Override
-  public LXParameter getControlTarget() {
+  public LXNormalizedParameter getControlTarget() {
     if (this.controlTarget != null) {
       // If one is explicitly set, doesn't have to match the rest
       return this.controlTarget;

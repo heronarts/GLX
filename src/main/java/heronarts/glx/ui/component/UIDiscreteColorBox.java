@@ -36,8 +36,8 @@ public class UIDiscreteColorBox extends UI2dComponent implements UIFocus {
 
     private UIDiscreteColorMenu(UI ui) {
       super(0, 0, 8 * BOX_SIZE + SPACING * 9, 3 * BOX_SIZE + SPACING * 4);
-      setBackgroundColor(ui.theme.getDarkBackgroundColor());
-      setBorderColor(ui.theme.getControlBorderColor());
+      setBackgroundColor(ui.theme.contextBackgroundColor);
+      setBorderColor(ui.theme.controlBorderColor);
     }
 
     @Override
@@ -45,7 +45,7 @@ public class UIDiscreteColorBox extends UI2dComponent implements UIFocus {
       int xi = LXUtils.constrain((int) ((mx - SPACING) / (BOX_SIZE + SPACING)), 0, 8);
       int yi = LXUtils.constrain((int) ((my - SPACING) / (BOX_SIZE + SPACING)), 0, 3);
       parameter.setValue(xi + yi * 8);
-      getUI().hideContextOverlay();
+      getUI().clearContextOverlay(this);
     }
 
     @Override
@@ -56,7 +56,7 @@ public class UIDiscreteColorBox extends UI2dComponent implements UIFocus {
         int y = i / 8;
         vg.beginPath();
         vg.fillColor(DiscreteColorParameter.COLORS[i]);
-        vg.strokeColor(0xffffffff);
+        vg.strokeColor(ui.theme.controlActiveTextColor);
         vg.strokeWidth(2);
         vg.rect((x+1) * SPACING + x * 10, (y+1) * SPACING + y * 10, 10, 10);
         vg.fill();
@@ -74,12 +74,12 @@ public class UIDiscreteColorBox extends UI2dComponent implements UIFocus {
 
   public UIDiscreteColorBox(UI ui, final DiscreteColorParameter parameter, float x, float y, float w, float h) {
     super(x, y, w, h);
-    setBorderColor(ui.theme.getControlBorderColor());
+    setBorderColor(ui.theme.controlBorderColor);
     setBackgroundColor(parameter.getColor());
     this.parameter = parameter;
     this.colorMenu = new UIDiscreteColorMenu(ui);
     this.colorMenu.setVisible(false);
-    parameter.addListener((p) -> {
+    addListener(parameter, p -> {
       setBackgroundColor(parameter.getColor());
       this.colorMenu.redraw();
     });
@@ -100,7 +100,7 @@ public class UIDiscreteColorBox extends UI2dComponent implements UIFocus {
         this.colorMenu.setPosition(this, -this.colorMenu.getWidth() + UIDiscreteColorMenu.BOX_SIZE + UIDiscreteColorMenu.SPACING, -UIDiscreteColorMenu.SPACING);
         getUI().showContextOverlay(this.colorMenu);
       } else {
-        getUI().hideContextOverlay();
+        getUI().clearContextOverlay(this.colorMenu);
       }
     }
   }

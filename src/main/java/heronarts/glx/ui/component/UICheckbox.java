@@ -5,6 +5,7 @@ import java.util.Objects;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
+import heronarts.glx.ui.UIColor;
 import heronarts.glx.ui.UIControlTarget;
 import heronarts.glx.ui.UIFocus;
 import heronarts.glx.ui.UITriggerSource;
@@ -13,7 +14,7 @@ import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.command.LXCommand;
 import heronarts.lx.parameter.BooleanParameter;
 import heronarts.lx.parameter.LXListenableNormalizedParameter;
-import heronarts.lx.parameter.LXParameter;
+import heronarts.lx.parameter.LXNormalizedParameter;
 import heronarts.lx.parameter.LXParameterListener;
 
 public class UICheckbox extends UIParameterComponent implements UIControlTarget, UITriggerSource, UITriggerTarget, UIFocus {
@@ -116,7 +117,7 @@ public class UICheckbox extends UIParameterComponent implements UIControlTarget,
   protected void onDraw(UI ui, VGraphics vg) {
     // A lighter gray background color when the button is disabled, or it's engaged
     // with a mouse press but the mouse has moved off the active button
-    int color = this.enabled ? ui.theme.getControlTextColor() : ui.theme.getControlDisabledColor();
+    UIColor color = this.enabled ? ui.theme.controlTextColor : ui.theme.controlDisabledColor;
 
     vg.beginPath();
     vg.strokeColor(color);
@@ -207,7 +208,7 @@ public class UICheckbox extends UIParameterComponent implements UIControlTarget,
 
 
   @Override
-  public LXParameter getControlTarget() {
+  public LXNormalizedParameter getControlTarget() {
     if (isMappable()) {
       if (this.parameter != null) {
         if (this.parameter.getParent() != null) {

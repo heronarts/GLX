@@ -21,18 +21,22 @@ package heronarts.glx.ui.component;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
+import heronarts.glx.ui.UI2dComponent;
 import heronarts.glx.ui.UI2dContainer;
 import heronarts.glx.ui.UIMouseFocus;
 import heronarts.glx.ui.vg.VGraphics;
+import heronarts.lx.parameter.BoundedParameter;
 
 /**
  * Section with a title which can collapse/expand
  */
 public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus {
 
-  private static final int PADDING = 4;
+  protected static final int PADDING = 4;
+  protected static final int TITLE_X = 18;
   private static final int TITLE_LABEL_HEIGHT = 12;
   private static final int CHEVRON_PADDING = 20;
+  public static final int BAR_HEIGHT = 20;
   private static final int CLOSED_HEIGHT = TITLE_LABEL_HEIGHT + 2*PADDING;
   private static final int CONTENT_Y = CLOSED_HEIGHT;
 
@@ -53,11 +57,11 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
    */
   public UICollapsibleSection(UI ui, float x, float y, float w, float h) {
     super(x, y, w, h);
-    setBackgroundColor(ui.theme.getDeviceBackgroundColor());
-    setFocusBackgroundColor(ui.theme.getDeviceFocusedBackgroundColor());
+    setBackgroundColor(ui.theme.deviceBackgroundColor);
+    setFocusBackgroundColor(ui.theme.deviceFocusedBackgroundColor);
     setBorderRounding(4);
 
-    this.title = new UILabel(PADDING, PADDING, this.width - PADDING - CHEVRON_PADDING, TITLE_LABEL_HEIGHT);
+    this.title = new UILabel(TITLE_X, PADDING, this.width - TITLE_X - CHEVRON_PADDING, TITLE_LABEL_HEIGHT);
     this.title.setTextAlignment(VGraphics.Align.LEFT, VGraphics.Align.MIDDLE);
     addTopLevelComponent(this.title);
 
@@ -95,20 +99,28 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
     return this;
   }
 
+  public static void drawHorizontalExpansionTriangle(UI ui, VGraphics vg, boolean expanded) {
+    vg.fillColor(ui.theme.sectionExpanderBackgroundColor);
+    vg.beginPath();
+    float x = 5;
+    float y = BAR_HEIGHT - 5;
+    if (expanded) {
+      vg.moveTo(x, y);
+      vg.lineTo(x+10, y);
+      vg.lineTo(x+10, y-10);
+    } else {
+      vg.moveTo(x, y);
+      vg.lineTo(x, y-10);
+      vg.lineTo(x+10, y-10);
+    }
+    vg.closePath();
+    vg.fill();
+  }
+
   @Override
   public void onDraw(UI ui, VGraphics vg) {
-    vg.fillColor(0xff333333);
-    vg.beginPath();
-    vg.rect(width-16, PADDING, 12, 12, 4);
-    vg.fill();
-
-    vg.fillColor(ui.theme.getControlTextColor());
-    vg.beginPath();
-    vg.rect(width-13, 9, 6, 2);
-    if (!this.expanded) {
-      vg.rect(width-11, 7, 2, 6);
-    }
-    vg.fill();
+    super.onDraw(ui, vg);
+    UICollapsibleSection.drawHorizontalExpansionTriangle(ui, vg, this.expanded);
   }
 
   /**
@@ -139,7 +151,8 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
   @Override
   public void onMousePressed(MouseEvent mouseEvent, float mx, float my) {
     if (my < CONTENT_Y) {
-      if ((mx >= this.width - CHEVRON_PADDING) || (mx >= this.title.getX() && mouseEvent.getCount() == 2)) {
+      if ((mx < this.title.getX()) || mouseEvent.isDoubleClick()) {
+        mouseEvent.consume();
         toggle();
       }
     }
@@ -157,5 +170,40 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
   @Override
   public UI2dContainer getContentTarget() {
     return this.content;
+  }
+
+  protected UI2dContainer controlRow(UI ui, String label, UI2dComponent control) {
+    return UI2dContainer.newHorizontalContainer(16, 0,
+      new UILabel.Control(ui, getContentWidth()-60, 16, label),
+      control.setWidth(60)
+    );
+  }
+
+  public interface Utils {
+
+    public default UI2dContainer controlRow(UI ui, float contentWidth, String label, UI2dComponent control) {
+      return UI2dContainer.newHorizontalContainer(16, 0,
+        new UILabel.Control(ui, contentWidth-60, 16, label),
+        control.setWidth(60)
+      );
+    }
+
+    public default UILabel geometryLabel(UI ui, String label) {
+      return (UILabel) new UILabel.Control(ui, 10, 16, label).setTextAlignment(VGraphics.Align.CENTER);
+    }
+
+    public default UIDoubleBox geometryBox(BoundedParameter p) {
+      return (UIDoubleBox) new UIDoubleBox(42, 16, p)
+        .setNormalizedMouseEditing(false)
+        .setShiftMultiplier(10f);
+    }
+
+    public default UI2dComponent geometryContainer(UI ui, float contentWidth, UI2dComponent ... components) {
+      return UI2dContainer.newVerticalContainer(contentWidth, 2, components)
+        .setPadding(4)
+        .setBackgroundColor(ui.theme.listBackgroundColor)
+        .setBorderColor(ui.theme.listBorderColor)
+        .setBorderRounding(4);
+    }
   }
 }

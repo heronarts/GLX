@@ -21,6 +21,7 @@ package heronarts.glx.ui;
 import java.util.List;
 
 import heronarts.lx.command.LXCommand;
+import heronarts.lx.parameter.BooleanParameter;
 import heronarts.lx.parameter.LXParameter;
 
 public interface UIContextActions {
@@ -37,6 +38,10 @@ public interface UIContextActions {
       return this.label;
     }
 
+    public String getDescription() {
+      return null;
+    }
+
     public Action setLabel(String label) {
       this.label = label;
       return this;
@@ -48,6 +53,37 @@ public interface UIContextActions {
     }
 
     public abstract void onContextAction(UI ui);
+
+    public static class ToggleParameter extends Action {
+
+      private final String onLabel, offLabel;
+      private final BooleanParameter parameter;
+
+      public ToggleParameter(BooleanParameter parameter) {
+        this(parameter, "Toggle " + parameter.getLabel());
+      }
+
+      public ToggleParameter(BooleanParameter parameter, String label) {
+        this(parameter, label, label);
+      }
+
+      public ToggleParameter(BooleanParameter parameter, String onLabel, String offLabel) {
+        super(parameter.isOn() ? onLabel : offLabel);
+        this.onLabel = onLabel;
+        this.offLabel = offLabel;
+        this.parameter = parameter;
+      }
+
+      @Override
+      public String getLabel() {
+        return this.parameter.isOn() ? this.onLabel : this.offLabel;
+      }
+
+      @Override
+      public void onContextAction(UI ui) {
+        ui.lx.command.perform(new LXCommand.Parameter.Toggle(this.parameter));
+      }
+    }
 
     public static class ResetParameter extends Action {
 

@@ -26,8 +26,8 @@ import heronarts.glx.ui.component.UIContextMenu;
 import heronarts.lx.LXLoopTask;
 import heronarts.lx.clipboard.LXClipboardItem;
 import heronarts.lx.command.LXCommand;
+import heronarts.lx.modulation.LXCompoundModulation;
 import heronarts.lx.parameter.BooleanParameter;
-import heronarts.lx.parameter.CompoundParameter;
 import heronarts.lx.parameter.LXListenableParameter;
 import heronarts.lx.parameter.LXNormalizedParameter;
 import heronarts.lx.parameter.LXParameter;
@@ -63,8 +63,8 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
 
   UIObject focusedChild = null;
 
-  private UIObject pressedChild = null;
-  private UIObject overChild = null;
+  UIObject pressedChild = null;
+  UIObject overChild = null;
 
   private boolean consumeMousePress = false;
 
@@ -117,7 +117,13 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     return this;
   }
 
+  private boolean disposed = false;
+
   public void dispose() {
+    if (this.disposed) {
+      throw new IllegalStateException("Cannot dispose UIObject twice: " + this);
+    }
+    this.disposed = true;
     for (ParameterListener parameterListener : this.parameterListeners) {
       parameterListener.parameter.removeListener(parameterListener.listener);
     }
@@ -149,7 +155,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    * @param loopTask Task to be performed on every UI frame
    * @return this
    */
-  protected UIObject addLoopTask(LXLoopTask loopTask) {
+  public UIObject addLoopTask(LXLoopTask loopTask) {
     this.loopTasks.add(loopTask);
     return this;
   }
@@ -160,7 +166,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    * @param loopTask Task to be removed from work list
    * @return this
    */
-  protected UIObject removeLoopTask(LXLoopTask loopTask) {
+  public UIObject removeLoopTask(LXLoopTask loopTask) {
     this.loopTasks.remove(loopTask);
     return this;
   }
@@ -448,7 +454,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       return
         (target != null) &&
         this.ui.modulationEngine.isValidTarget(target) &&
-        !target.isDescendant(this.ui.getTriggerSource().getTriggerSource().getParent());
+        !target.isDescendant(this.ui.getTriggerSourceComponent());
     }
     return false;
   }
@@ -502,7 +508,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    */
   boolean isModulationTargetMapping() {
     if (this.ui.modulationTargetMapping && (this instanceof UIModulationTarget)) {
-      CompoundParameter target = ((UIModulationTarget) this).getModulationTarget();
+      LXCompoundModulation.Target target = ((UIModulationTarget) this).getModulationTarget();
       return (target != null) && this.ui.modulationEngine.isValidTarget(target);
     }
     return false;
@@ -551,7 +557,11 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    */
   protected void onUIResize(UI ui) {}
 
+  UI2dContainer dragging = null;
+
   void mousePressed(MouseEvent mouseEvent, float mx, float my) {
+    this.dragging = null;
+
     if (isMidiMapping()) {
       this.ui.setControlTarget((UIControlTarget) this);
       return;
@@ -566,7 +576,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       return;
     } else if (isModulationTargetMapping() && !isModulationSource()) {
       LXNormalizedParameter source = this.ui.getModulationSource().getModulationSource();
-      CompoundParameter target = ((UIModulationTarget)this).getModulationTarget();
+      LXCompoundModulation.Target target = ((UIModulationTarget) this).getModulationTarget();
       if (source != null && target != null) {
         getLX().command.perform(new LXCommand.Modulation.AddModulation(this.ui.modulationEngine, source, target));
       }
@@ -617,6 +627,15 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       if (!mouseEvent.isContextMenuConsumed()) {
         onMousePressed(mouseEvent, mx, my);
       }
+      if (!mouseEvent.isConsumed() && mouseEvent.isButton(MouseEvent.BUTTON_LEFT) && (this instanceof UI2dComponent.UIDragReorder)) {
+        UI2dComponent.UIDragReorder drag = (UI2dComponent.UIDragReorder) this;
+        if (drag.isValidDragPosition(mx, my)) {
+          UI2dContainer container = ((UI2dComponent) this).getContainer();
+          if ((container != null) && container.hasDragToReorder()) {
+            this.dragging = container;
+          }
+        }
+      }
     }
 
     // Finally, if we're set to always consume mouse presses, eat this
@@ -642,6 +661,11 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       this.overChild.mouseOut(mouseEvent);
       this.overChild = null;
     }
+
+    if (this.dragging != null) {
+      this.dragging.dragChild(this, mx, my, true);
+      this.dragging = null;
+    }
   }
 
   void mouseDragged(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
@@ -659,6 +683,10 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     }
     if (!mouseEvent.isConsumed()) {
       onMouseDragged(mouseEvent, mx, my, dx, dy);
+    }
+    if (this.dragging != null) {
+      mouseEvent.consume();
+      this.dragging.dragChild(this, mx, my, false);
     }
   }
 
@@ -732,8 +760,11 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     if (!keyEvent.isConsumed()) {
       if (keyEvent.isMetaDown() || keyEvent.isControlDown()) {
         if (keyCode == KeyEvent.VK_C && this instanceof UICopy) {
-          this.ui.lx.clipboard.setItem(((UICopy)this).onCopy());
-          keyEvent.consume();
+          LXClipboardItem item = ((UICopy) this).onCopy();
+          if (item != null) {
+            keyEvent.consume();
+            this.ui.lx.clipboard.setItem(item);
+          }
         } else if (keyCode == KeyEvent.VK_V && this instanceof UIPaste) {
           LXClipboardItem item = this.ui.lx.clipboard.getItem();
           if (item != null) {
@@ -741,11 +772,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
             keyEvent.consume();
           }
         } else if (keyCode == KeyEvent.VK_D && this instanceof UIDuplicate) {
-          LXClipboardItem item = ((UICopy) this).onCopy();
-          if (item != null) {
-            ((UIPaste) this).onPaste(item);
-            keyEvent.consume();
-          }
+          ((UIDuplicate) this).onDuplicate(keyEvent);
         }
       }
     }
@@ -756,7 +783,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     }
 
     // Escape key blurs items with key focus
-    if (!keyEvent.isBlurConsumed() && (keyCode == KeyEvent.VK_ESCAPE) && this instanceof UIKeyFocus) {
+    if (!keyEvent.isConsumed() && !keyEvent.isBlurConsumed() && (keyCode == KeyEvent.VK_ESCAPE) && this instanceof UIKeyFocus) {
       keyEvent.consumeBlur();
       blur();
     }

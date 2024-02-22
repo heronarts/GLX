@@ -18,6 +18,15 @@
 
 package heronarts.glx.ui;
 
-public interface UIDuplicate extends UICopy, UIPaste {
+import heronarts.glx.event.KeyEvent;
+import heronarts.lx.clipboard.LXClipboardItem;
 
+public interface UIDuplicate extends UICopy, UIPaste {
+  public default void onDuplicate(KeyEvent keyEvent) {
+    LXClipboardItem item = ((UICopy) this).onCopy();
+    if (item != null) {
+      ((UIPaste) this).onPaste(item);
+      keyEvent.consume();
+    }
+  }
 }

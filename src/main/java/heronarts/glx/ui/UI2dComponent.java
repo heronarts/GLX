@@ -18,14 +18,82 @@
 
 package heronarts.glx.ui;
 
-import java.util.Stack;
+import java.util.Queue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import heronarts.glx.event.Event;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.modulation.LXParameterModulation;
+import heronarts.lx.parameter.LXNormalizedParameter;
 import heronarts.lx.parameter.LXParameterListener;
+import heronarts.lx.utils.LXUtils;
 
 public abstract class UI2dComponent extends UIObject {
+
+  /**
+   * Marker interface for components which can be dragged to reorder
+   * them within their container.
+   */
+  public interface UIDragReorder {
+
+    /**
+     * Whether this mouse press position is valid to initiate dragging
+     *
+     * @param mx Mouse x position
+     * @param my Mouse y position
+     * @return Whether to commence dragging from here
+     */
+    public default boolean isValidDragPosition(float mx, float my) {
+      return true;
+    }
+
+    /**
+     * Callback when an attempt is made to reorder this component in its container
+     *
+     * @param container Parent container
+     * @param child Element being reordered
+     * @param dragIndex Targeted index in parent container
+     */
+    public default void onDragReorder(UI2dContainer container, UI2dComponent child, int dragIndex) {
+      child.setContainerIndex(dragIndex);
+    }
+  }
+
+  /**
+   * Marker interface for components whose drawing should be scissored
+   */
+  public interface Scissored {}
+
+  protected static class Scissor {
+    public float x;
+    public float y;
+    public float width;
+    public float height;
+
+    private Scissor() {
+      this.x = 0;
+      this.y = 0;
+      this.width = 0;
+      this.height = 0;
+    }
+
+    protected void reset(UI2dComponent that) {
+      this.x = 0;
+      this.y = 0;
+      this.width = that.width;
+      this.height = that.height;
+    }
+
+    protected boolean intersect(Scissor that, float ox, float oy, float ow, float oh) {
+      this.x = LXUtils.maxf(0, that.x - ox);
+      this.y = LXUtils.maxf(0, that.y - oy);
+      this.width = LXUtils.minf(ow - this.x, that.x + that.width - ox);
+      this.height = LXUtils.minf(oh - this.y, that.y + that.height - oy);
+      return (this.width > 0) && (this.height > 0);
+    }
+  }
+
+  protected final Scissor scissor = new Scissor();
 
   /**
    * Position of the object, relative to parent, top left corner
@@ -47,7 +115,13 @@ public abstract class UI2dComponent extends UIObject {
    */
   protected float height;
 
-  protected float topMargin = 0, rightMargin = 0, bottomMargin = 0, leftMargin = 0;
+  protected float
+    marginTop = 0,
+    marginRight = 0,
+    marginBottom = 0,
+    marginLeft = 0;
+
+  UI2dContainer.Position containerPosition = null;
 
   float scrollX = 0;
 
@@ -55,31 +129,37 @@ public abstract class UI2dComponent extends UIObject {
 
   private boolean hasBackground = false;
 
-  private int backgroundColor = 0xFF000000;
+  private UIColor backgroundColor = UIColor.NONE;
 
   private boolean hasFocusBackground = false;
 
-  private int focusBackgroundColor = 0xFF000000;
+  private UIColor focusBackgroundColor = UIColor.NONE;
 
   private boolean hasBorder = false;
 
-  private int borderColor = 0xFF000000;
+  private UIColor borderColor = UIColor.NONE;
 
   private int borderWeight = 1;
 
-  private int borderRounding = 0;
+  private boolean hasBorderRounding = false;
+
+  int
+    borderRoundingTopLeft = 0,
+    borderRoundingTopRight = 0,
+    borderRoundingBottomRight = 0,
+    borderRoundingBottomLeft = 0;
 
   private boolean hasFocusCorners = true;
 
   private boolean hasFocusColor = false;
 
-  private int focusColor = 0;
+  private UIColor focusColor = UIColor.NONE;
 
   private VGraphics.Font font = null;
 
   private boolean hasFontColor = false;
 
-  private int fontColor = 0xff000000;
+  private UIColor fontColor = UIColor.NONE;
 
   protected VGraphics.Align textAlignHorizontal = VGraphics.Align.LEFT;
 
@@ -93,6 +173,8 @@ public abstract class UI2dComponent extends UIObject {
 
   protected boolean debug = false;
   protected String debugName = "";
+
+  final AtomicBoolean redrawFlag = new AtomicBoolean(true);
 
   boolean needsRedraw = true;
   boolean childNeedsRedraw = true;
@@ -121,6 +203,27 @@ public abstract class UI2dComponent extends UIObject {
     return this;
   }
 
+  public String getDebugClassHierarchy() {
+    return getDebugClassHierarchy(false);
+  }
+
+  public String dbch(boolean reverse) {
+    return getDebugClassHierarchy(reverse);
+  }
+
+  public String getDebugClassHierarchy(boolean reverse) {
+    String debug = getClass().getSimpleName().isEmpty() ? getClass().getName() : getClass().getSimpleName();
+    UIObject d = getParent();
+    while ((d != null) && (d instanceof UI2dComponent)) {
+      String nextClass = d.getClass().getSimpleName().isEmpty() ? d.getClass().getName() : d.getClass().getSimpleName();
+      debug = reverse ?
+        nextClass + " > " + debug :
+        debug + " < " + nextClass;
+      d = ((UI2dComponent) d).getParent();
+    }
+    return debug;
+  }
+
   @Override
   public UI2dComponent setDescription(String description) {
     super.setDescription(description);
@@ -146,6 +249,46 @@ public abstract class UI2dComponent extends UIObject {
   public final float getY() {
     return this.y;
   }
+
+
+  /**
+   * Gets the absolute X position of this component relative to the entire UI
+   *
+   * @return X position in absolute UI space
+   */
+  public final float getAbsoluteX() {
+    float absX = getX();
+    UIObject parent = getParent();
+    while (parent != null) {
+      absX += parent.getX();
+      if (parent instanceof UI2dScrollInterface) {
+        UI2dScrollInterface scrollInterface = (UI2dScrollInterface) parent;
+        absX += scrollInterface.getScrollX();
+      }
+      parent = parent.getParent();
+    }
+    return absX;
+  }
+
+  /**
+   * Gets the absolute Y position of this component relative to the entire UI
+   *
+   * @return Y position in absolute UI space
+   */
+  public final float getAbsoluteY() {
+    float absY = getY();
+    UIObject parent = getParent();
+    while (parent != null) {
+      absY += parent.getY();
+      if (parent instanceof UI2dScrollInterface) {
+        UI2dScrollInterface scrollInterface = (UI2dScrollInterface) parent;
+        absY += scrollInterface.getScrollY();
+      }
+      parent = parent.getParent();
+    }
+    return absY;
+  }
+
 
   /**
    * Width
@@ -318,10 +461,10 @@ public abstract class UI2dComponent extends UIObject {
     while (parent != null) {
       x += parent.getX();
       y += parent.getY();
-      if (parent instanceof UI2dScrollContext) {
-        UI2dScrollContext scrollContext = (UI2dScrollContext) parent;
-        x += scrollContext.getScrollX();
-        y += scrollContext.getScrollY();
+      if (parent instanceof UI2dScrollInterface) {
+        UI2dScrollInterface scrollInterface = (UI2dScrollInterface) parent;
+        x += scrollInterface.getScrollX();
+        y += scrollInterface.getScrollY();
       }
       parent = parent.getParent();
     }
@@ -401,7 +544,7 @@ public abstract class UI2dComponent extends UIObject {
    * @return this
    */
   public UI2dComponent setTopMargin(float topMargin) {
-    return setMargin(topMargin, this.rightMargin, this.bottomMargin, this.leftMargin);
+    return setMargin(topMargin, this.marginRight, this.marginBottom, this.marginLeft);
   }
 
   /**
@@ -411,7 +554,7 @@ public abstract class UI2dComponent extends UIObject {
    * @return this
    */
   public UI2dComponent setBottomMargin(float bottomMargin) {
-    return setMargin(this.topMargin, this.rightMargin, bottomMargin, this.leftMargin);
+    return setMargin(this.marginTop, this.marginRight, bottomMargin, this.marginLeft);
   }
 
   /**
@@ -421,7 +564,7 @@ public abstract class UI2dComponent extends UIObject {
    * @return this
    */
   public UI2dComponent setLeftMargin(float leftMargin) {
-    return setMargin(this.topMargin, this.rightMargin, this.bottomMargin, leftMargin);
+    return setMargin(this.marginTop, this.marginRight, this.marginBottom, leftMargin);
   }
 
   /**
@@ -431,7 +574,7 @@ public abstract class UI2dComponent extends UIObject {
    * @return this
    */
   public UI2dComponent setRightMargin(float rightMargin) {
-    return setMargin(this.topMargin, rightMargin, this.bottomMargin, this.leftMargin);
+    return setMargin(this.marginTop, rightMargin, this.marginBottom, this.marginLeft);
   }
 
   /**
@@ -445,20 +588,20 @@ public abstract class UI2dComponent extends UIObject {
    */
   public UI2dComponent setMargin(float topMargin, float rightMargin, float bottomMargin, float leftMargin) {
     boolean reflow = false;
-    if (this.topMargin != topMargin) {
-      this.topMargin = topMargin;
+    if (this.marginTop != topMargin) {
+      this.marginTop = topMargin;
       reflow = true;
     }
-    if (this.rightMargin != rightMargin) {
-      this.rightMargin = rightMargin;
+    if (this.marginRight != rightMargin) {
+      this.marginRight = rightMargin;
       reflow = true;
     }
-    if (this.bottomMargin != bottomMargin) {
-      this.bottomMargin = bottomMargin;
+    if (this.marginBottom != bottomMargin) {
+      this.marginBottom = bottomMargin;
       reflow = true;
     }
-    if (this.leftMargin != leftMargin) {
-      this.leftMargin = leftMargin;
+    if (this.marginLeft != leftMargin) {
+      this.marginLeft = leftMargin;
       reflow = true;
     }
     if (reflow && (this.parent instanceof UI2dContainer)) {
@@ -488,7 +631,7 @@ public abstract class UI2dComponent extends UIObject {
    *
    * @return color
    */
-  public int getBackgroundColor() {
+  public UIColor getBackgroundColor() {
     return this.backgroundColor;
   }
 
@@ -513,6 +656,16 @@ public abstract class UI2dComponent extends UIObject {
    * @return this
    */
   public UI2dComponent setBackgroundColor(int backgroundColor) {
+    return setBackgroundColor(new UIColor(backgroundColor));
+  }
+
+  /**
+   * Sets a background color
+   *
+   * @param backgroundColor color
+   * @return this
+   */
+  public UI2dComponent setBackgroundColor(UIColor backgroundColor) {
     if (!this.hasBackground || (this.backgroundColor != backgroundColor)) {
       this.hasBackground = true;
       this.backgroundColor = backgroundColor;
@@ -544,6 +697,16 @@ public abstract class UI2dComponent extends UIObject {
    * @return this
    */
   public UI2dComponent setFocusBackgroundColor(int focusBackgroundColor) {
+    return setFocusBackgroundColor(new UIColor(focusBackgroundColor));
+  }
+
+  /**
+   * Sets a background color to be used when the component is focused
+   *
+   * @param focusBackgroundColor Color
+   * @return this
+   */
+  public UI2dComponent setFocusBackgroundColor(UIColor focusBackgroundColor) {
     if (!this.hasFocusBackground || (this.focusBackgroundColor != focusBackgroundColor)) {
       this.hasFocusBackground = true;
       this.focusBackgroundColor = focusBackgroundColor;
@@ -568,7 +731,7 @@ public abstract class UI2dComponent extends UIObject {
    *
    * @return color
    */
-  public int getBorderColor() {
+  public UIColor getBorderColor() {
     return this.borderColor;
   }
 
@@ -602,6 +765,16 @@ public abstract class UI2dComponent extends UIObject {
    * @return this
    */
   public UI2dComponent setBorderColor(int borderColor) {
+    return setBorderColor(new UIColor(borderColor));
+  }
+
+  /**
+   * Sets the color of the border
+   *
+   * @param borderColor color
+   * @return this
+   */
+  public UI2dComponent setBorderColor(UIColor borderColor) {
     if (!this.hasBorder || (this.borderColor != borderColor)) {
       this.hasBorder = true;
       this.borderColor = borderColor;
@@ -626,15 +799,35 @@ public abstract class UI2dComponent extends UIObject {
   }
 
   public UI2dComponent setBorderRounding(int borderRounding) {
-    if (this.borderRounding != borderRounding) {
-      this.borderRounding = borderRounding;
+    return setBorderRounding(borderRounding, borderRounding, borderRounding, borderRounding);
+  }
+
+  public UI2dComponent setBorderRounding(
+    int borderRoundingTopLeft,
+    int borderRoundingTopRight,
+    int borderRoundingBottomRight,
+    int borderRoundingBottomLeft) {
+    boolean redraw =
+      (this.borderRoundingTopLeft != borderRoundingTopLeft) ||
+      (this.borderRoundingTopRight != borderRoundingTopRight) ||
+      (this.borderRoundingBottomRight != borderRoundingBottomRight) ||
+      (this.borderRoundingBottomLeft != borderRoundingBottomLeft);
+
+    this.borderRoundingTopLeft = borderRoundingTopLeft;
+    this.borderRoundingTopRight = borderRoundingTopRight;
+    this.borderRoundingBottomRight = borderRoundingBottomRight;
+    this.borderRoundingBottomLeft = borderRoundingBottomLeft;
+
+    this.hasBorderRounding =
+      (this.borderRoundingTopLeft > 0) ||
+      (this.borderRoundingTopRight > 0) ||
+      (this.borderRoundingBottomRight > 0) ||
+      (this.borderRoundingBottomLeft > 0);
+
+    if (redraw) {
       redraw();
     }
     return this;
-  }
-
-  public int getBorderRounding() {
-    return this.borderRounding;
   }
 
   public UI2dComponent setFocusCorners(boolean focusCorners) {
@@ -643,6 +836,10 @@ public abstract class UI2dComponent extends UIObject {
   }
 
   public UI2dComponent setFocusColor(int focusColor) {
+    return setFocusColor(new UIColor(focusColor));
+  }
+
+  public UI2dComponent setFocusColor(UIColor focusColor) {
     this.hasFocusColor = true;
     this.focusColor = focusColor;
     return this;
@@ -695,7 +892,7 @@ public abstract class UI2dComponent extends UIObject {
    *
    * @return color
    */
-  public int getFontColor() {
+  public UIColor getFontColor() {
     return this.fontColor;
   }
 
@@ -720,6 +917,16 @@ public abstract class UI2dComponent extends UIObject {
    * @return this
    */
   public UI2dComponent setFontColor(int fontColor) {
+    return setFontColor(new UIColor(fontColor));
+  }
+
+  /**
+   * Sets a font color
+   *
+   * @param fontColor color
+   * @return this
+   */
+  public UI2dComponent setFontColor(UIColor fontColor) {
     if (!this.hasFontColor || (this.fontColor != fontColor)) {
       this.hasFontColor = true;
       this.fontColor = fontColor;
@@ -759,8 +966,8 @@ public abstract class UI2dComponent extends UIObject {
   /**
    * Sets the text alignment of this component
    *
-   * @param horizontalAlignment From VGrahpics.Align
-   * @param verticalAlignment From VGrahpics.Align
+   * @param horizontalAlignment From VGraphics.Align
+   * @param verticalAlignment From VGraphics.Align
    * @return this
    */
   public UI2dComponent setTextAlignment(VGraphics.Align horizontalAlignment, VGraphics.Align verticalAlignment) {
@@ -781,14 +988,27 @@ public abstract class UI2dComponent extends UIObject {
   /**
    * Clip a text to fit in the given width
    *
-   * @param vg PGraphics
+   * @param vg VGraphics
    * @param str String
    * @param width Width to fit in
    * @return Clipped version of the string that will fit in the bounds
    */
   public static String clipTextToWidth(VGraphics vg, String str, float width) {
+    return clipTextToWidth(vg, str, width, true);
+  }
+
+  /**
+   * Clip a text to fit in the given width
+   *
+   * @param vg VGraphics
+   * @param str String
+   * @param width Width to fit in
+   * @param fromEnd True clips from end, false clips from the start
+   * @return Clipped version of the string that will fit in the bounds
+   */
+  public static String clipTextToWidth(VGraphics vg, String str, float width, boolean fromEnd) {
     while ((str.length() > 0) && (vg.textWidth(str) > width)) {
-      str = str.substring(0, str.length() - 1);
+      str = fromEnd ? str.substring(0, str.length() - 1) : str.substring(1);
     }
     return str;
   }
@@ -814,7 +1034,20 @@ public abstract class UI2dComponent extends UIObject {
   }
 
   /**
-   * Removes this components from the container is is held by
+   * Returns a valid mappable parameter or null
+   *
+   * @param parameter Parameter to test
+   * @return Parameter if eligible for mapping
+   */
+  public LXNormalizedParameter getMappableParameter(LXNormalizedParameter parameter) {
+    if (isMappable() && (parameter != null) && parameter.isMappable() && (parameter.getParent() != null)) {
+      return parameter;
+    }
+    return null;
+  };
+
+  /**
+   * Removes this component from the container it is held by
    *
    * @return this
    */
@@ -823,7 +1056,7 @@ public abstract class UI2dComponent extends UIObject {
   }
 
   /**
-   * Removes this components from the container is is held by
+   * Removes this component from the container it is held by
    *
    * @param redraw Whether to reflow and redraw the container
    * @return this
@@ -832,12 +1065,22 @@ public abstract class UI2dComponent extends UIObject {
     if (this.parent == null) {
       throw new IllegalStateException("Cannot remove parentless UIObject from container");
     }
+    if (this.dragging != null) {
+      this.dragging.dragCancel();
+      this.dragging = null;
+    }
     boolean hadFocus = hasFocus();
     if (hadFocus) {
       blur();
     }
     int index = this.parent.mutableChildren.indexOf(this);
     this.parent.mutableChildren.remove(index);
+    if (this.parent.pressedChild == this) {
+      this.parent.pressedChild = null;
+    }
+    if (this.parent.overChild == this) {
+      this.parent.overChild = null;
+    }
     if (this.parent instanceof UI2dContainer) {
       UI2dContainer container = (UI2dContainer) this.parent;
 
@@ -942,6 +1185,18 @@ public abstract class UI2dComponent extends UIObject {
   }
 
   /**
+   * Adds this component to a container, also removing it from any other container that
+   * is currently holding it.
+   *
+   * @param container Container to place in
+   * @param redraw Whether to reflow and redraw the parent container
+   * @return this
+   */
+  public final UI2dComponent addToContainer(UIContainer container, boolean redraw) {
+    return addToContainer(container, -1, redraw);
+  }
+
+  /**
    * Adds this component to a container at a specified index, also removing it from any
    * other container that is currently holding it.
    *
@@ -949,7 +1204,7 @@ public abstract class UI2dComponent extends UIObject {
    * @param index At which index to place this object in parent container
    * @return this
    */
-  public UI2dComponent addToContainer(UIContainer container, int index) {
+  public final UI2dComponent addToContainer(UIContainer container, int index) {
     return addToContainer(container, index, true);
   }
 
@@ -963,28 +1218,216 @@ public abstract class UI2dComponent extends UIObject {
    * @param redraw Whether to reflow and redraw the parent container
    * @return this
    */
-  public UI2dComponent addToContainer(UIContainer container, int index, boolean redraw) {
+  public final UI2dComponent addToContainer(UIContainer container, int index, boolean redraw) {
+    return _addToContainer(container, index, this.containerPosition, redraw);
+  }
+
+  /**
+   * Adds this component to a container, also removing it from any other container that
+   * is currently holding it.
+   *
+   * @param container Container to place in
+   * @param position Placement in this container
+   * @return this
+   */
+  public final UI2dComponent addToContainer(UI2dContainer container, UI2dContainer.Position position) {
+    return addToContainer(container, -1, position);
+  }
+
+  /**
+   * Adds this component to a container at a specified index, also removing it from any
+   * other container that is currently holding it.
+   *
+   * @param container Container to place in
+   * @param index At which index to place this object in parent container
+   * @param position Position in the container to place this object
+   * @return this
+   */
+  public final UI2dComponent addToContainer(UI2dContainer container, int index, UI2dContainer.Position position) {
+    return _addToContainer(container, index, position, true);
+  }
+
+  /**
+   * Adds this component to a container, also removing it from any other container that
+   * is currently holding it.
+   *
+   * @param container Container to place in
+   * @param position Placement in this container
+   * @param redraw Whether to reflow and redraw the parent container
+   * @return this
+   */
+  public final UI2dComponent addToContainer(UI2dContainer container, UI2dContainer.Position position, boolean redraw) {
+    return _addToContainer(container, -1, position, redraw);
+  }
+
+  /**
+   * Adds this component to a container at a specified index, also removing it from any
+   * other container that is currently holding it. Reflow behavior is controlled by a
+   * flag.
+   *
+   * @param container Container to place in
+   * @param index At which index to place this object in parent container
+   * @param position Position in the container at which to place the object, or null
+   * @param redraw Whether to reflow and redraw the parent container
+   * @return this
+   */
+  public final UI2dComponent addToContainer(UI2dContainer container, int index, UI2dContainer.Position position, boolean redraw) {
+    return _addToContainer(container, index, position, redraw);
+  }
+
+  /**
+   * Adds this component to a container at a specified index, also removing it from any
+   * other container that is currently holding it. Reflow behavior is controlled by a
+   * flag.
+   *
+   * @param container Container to place in
+   * @param index At which index to place this object in parent container
+   * @param position Position in the container at which to place the object, or null
+   * @param redraw Whether to reflow and redraw the parent container
+   * @return this
+   */
+  private UI2dComponent _addToContainer(UIContainer container, int index, UI2dContainer.Position position, boolean redraw) {
+    assertValidContainer(container);
     if (this.parent != null) {
       removeFromContainer();
     }
-    UIObject containerObject = container.getContentTarget();
-    if (containerObject == this) {
+    final UIObject contentTarget = container.getContentTarget();
+    final UI2dContainer container2d = (contentTarget instanceof UI2dContainer) ? (UI2dContainer) contentTarget : null;
+
+    if (contentTarget == this) {
       throw new IllegalArgumentException("Cannot add an object to itself");
     }
-    if (index < 0) {
-      containerObject.mutableChildren.add(this);
-    } else {
-      containerObject.mutableChildren.add(index, this);
+    if ((position != null) && (container2d != null)) {
+      this.containerPosition = position;
+      _setContainerPosition(container2d, position, false);
     }
-    this.parent = containerObject;
-    setUI(containerObject.ui);
+    if (index < 0) {
+      contentTarget.mutableChildren.add(this);
+    } else {
+      contentTarget.mutableChildren.add(index, this);
+    }
+    this.parent = contentTarget;
+    setUI(contentTarget.ui);
     if (redraw) {
-      if (this.parent instanceof UI2dContainer) {
-        ((UI2dContainer) this.parent).reflow();
+      if (container2d != null) {
+        container2d.reflow();
       }
       redraw();
     }
+
     return this;
+  }
+
+  /**
+   * Subclasses may override and throw an exception if they don't want to be added to this container type
+   *
+   * @param container Container
+   */
+  protected void assertValidContainer(UIContainer container) {}
+
+  /**
+   * Sets the position of this object in its container
+   *
+   * @param containerPosition Position relative to container
+   * @return this
+   */
+  public UI2dComponent setContainerPosition(UI2dContainer.Position containerPosition) {
+    this.containerPosition = containerPosition;
+    if ((containerPosition != null) && (this.parent instanceof UI2dContainer)) {
+      _setContainerPosition((UI2dContainer) this.parent, this.containerPosition, true);
+    }
+    return this;
+  }
+
+  boolean _setContainerPosition(UI2dContainer target, UI2dContainer.Position position, boolean redraw) {
+    if (position == null) {
+      return false;
+    }
+
+    boolean setX = false, setY = false;
+    float x = -1, y = -1;
+
+    // Determine X positioning
+    switch (position) {
+    case LEFT:
+    case TOP_LEFT:
+    case MIDDLE_LEFT:
+    case BOTTOM_LEFT:
+      setX = true;
+      x = target.getLeftPadding() + this.marginLeft;
+      break;
+
+    case CENTER:
+    case TOP_CENTER:
+    case MIDDLE_CENTER:
+    case BOTTOM_CENTER:
+      setX = true;
+      x = .5f * (target.getWidth() + target.getLeftPadding() - target.getRightPadding() - this.width);
+      break;
+
+    case RIGHT:
+    case TOP_RIGHT:
+    case MIDDLE_RIGHT:
+    case BOTTOM_RIGHT:
+      setX = true;
+      x = target.getWidth() - target.getRightPadding() - this.width - this.marginRight;
+      break;
+
+    default:
+      break;
+    }
+
+    // Determine Y positioning
+    switch (position) {
+    case TOP:
+    case TOP_LEFT:
+    case TOP_CENTER:
+    case TOP_RIGHT:
+      setY = true;
+      y = target.getTopPadding() + this.marginTop;
+      break;
+
+    case MIDDLE:
+    case MIDDLE_LEFT:
+    case MIDDLE_CENTER:
+    case MIDDLE_RIGHT:
+      setY = true;
+      y = .5f * (target.getHeight() + target.getTopPadding() - target.getBottomPadding() - this.height);
+      break;
+
+    case BOTTOM:
+    case BOTTOM_LEFT:
+    case BOTTOM_RIGHT:
+    case BOTTOM_CENTER:
+      setY = true;
+      y = target.getHeight() - target.getBottomPadding() - this.height - this.marginBottom;
+      break;
+
+    default:
+      break;
+    }
+
+    boolean changed = false;
+    if (setX && (this.x != x)) {
+      changed = true;
+      this.x = x;
+    }
+    if (setY && (this.y != y)) {
+      changed = true;
+      this.y = y;
+    }
+
+    // Position has been updated!
+    if (changed && redraw) {
+      // We redraw from our container instead of just
+      // ourselves because the background needs to be
+      // refreshed. If we only redrew ourself, there
+      // could be remnants of our old position in the
+      // buffer
+      redrawContainer();
+    }
+
+    return changed;
   }
 
   /**
@@ -1018,7 +1461,7 @@ public abstract class UI2dComponent extends UIObject {
    * @return this object
    */
   public final UI2dComponent redraw() {
-    if (this.ui != null && this.parent != null && this.isVisible()) {
+    if ((this.ui != null) && (this.parent != null) && isVisible()) {
       this.ui.redraw(this);
     }
     return this;
@@ -1030,54 +1473,36 @@ public abstract class UI2dComponent extends UIObject {
     }
   }
 
-  final void _redraw() {
-    // Mark object and children as needing redraw
-    _redrawChildren();
-
-    // Mark parent containers as needing a child redrawn
-    UIObject p = this.parent;
-    while ((p != null) && (p instanceof UI2dComponent)) {
-      UI2dComponent p2d = (UI2dComponent) p;
-      p2d.childNeedsRedraw = true;
-      p = p2d.parent;
+  final boolean predraw(Queue<UI2dContext> renderQueue, boolean forceRedraw) {
+    if (!isVisible()) {
+      return false;
     }
-  }
-
-  /**
-   * Internal helper. Marks this object and all of its children as needing to be
-   * redrawn.
-   */
-  private final void _redrawChildren() {
-    this.needsRedraw = true;
+    if (forceRedraw) {
+      // If we are forced to redraw by our parent, just clear our flag. Everything
+      // visible from here on down will be set to need redraws.
+      this.redrawFlag.set(false);
+      this.needsRedraw = true;
+    } else {
+      // Otherwise, check if we actually need a direct redraw
+      this.needsRedraw = this.redrawFlag.compareAndSet(true, false);
+    }
     this.childNeedsRedraw = false;
-    for (UIObject child : this.mutableChildren) {
-      if ((child instanceof UI2dContext) && (((UI2dContext) child).isOffscreen)) {
-        // If this is an offscreen 2d context that didn't get a direct redraw
-        // call, don't update it.
+    for (UIObject child : this.children) {
+      if (!child.isVisible()) {
         continue;
       }
-      this.childNeedsRedraw = true;
-      ((UI2dComponent) child)._redrawChildren();
+      // Off-screen children do not automatically need to be redrawn unless they themselves have
+      // their redraw flag explicitly set. Flip the second flag back to false in this case
+      boolean offscreen = (child instanceof UI2dContext) && (((UI2dContext) child).isOffscreen);
+      boolean redrawChild = ((UI2dComponent) child).predraw(renderQueue, offscreen ? false : this.needsRedraw);
+      this.childNeedsRedraw = this.childNeedsRedraw || redrawChild;
     }
-  }
-
-  protected final void populateRenderStack(Stack<UI2dContext> renderStack) {
-    if (!isVisible()) {
-      return;
+    // Are we a 2d context, and do we need some kind of redrawing?? Queue this context up...
+    if ((this.needsRedraw || this.childNeedsRedraw) && (this instanceof UI2dContext)) {
+      renderQueue.add((UI2dContext) this);
     }
-    // Before the main drawing loop, the tree is checked for all
-    // contexts that need a redraw. If we fall into this category
-    // then we push ourselves on the render stack, which will be
-    // serviced before the draw() methods are invoked.
-    if (this instanceof UI2dContext) {
-      if (this.needsRedraw || this.childNeedsRedraw) {
-        renderStack.push((UI2dContext) this);
-      }
-    }
-    // Iterate through children
-    for (UIObject child : this.children) {
-      ((UI2dComponent)child).populateRenderStack(renderStack);
-    }
+    // Signal back to the parent caller whether *any* redrawing was needed down the chain
+    return this.needsRedraw || this.childNeedsRedraw;
   }
 
   /**
@@ -1095,53 +1520,126 @@ public abstract class UI2dComponent extends UIObject {
    * @param vg View to draw into
    */
   void draw(UI ui, VGraphics vg) {
+    draw(ui, vg, false);
+  }
+
+  private void draw(UI ui, VGraphics vg, boolean forceRedraw) {
     if (!isVisible()) {
       return;
     }
-    boolean needsBorder = this.needsRedraw || this.childNeedsRedraw;
-    boolean needsMappingOverlay = this.needsRedraw;
-    int sx = (int) this.scrollX;
-    int sy = (int) this.scrollY;
+    final boolean hasMappingOverlay = hasMappingOverlay();
+    if (hasMappingOverlay) {
+      forceRedraw = true;
+    }
+    if (forceRedraw) {
+      this.needsRedraw = true;
+      this.childNeedsRedraw = true;
+    }
+
+    final boolean needsBorder = this.needsRedraw || this.childNeedsRedraw;
+
+    // NOTE(mcslee): these could change if the event processing thread receives
+    // mouse scroll while UI thread is rendering! Cache values in this thread
+    // context to ensure translate / untranslate match
+    final float sx = this.scrollX;
+    final float sy = this.scrollY;
+
+    final boolean needsVgScissor =
+      (this.needsRedraw || this.childNeedsRedraw) && (
+        (this instanceof Scissored) ||
+        ((this instanceof UI2dScrollContainer) && ((UI2dScrollContainer) this).hasScroll())
+      );
+
+    // Put down the background first, before scissoring
+    if (this.needsRedraw) {
+      drawBackground(ui, vg);
+    }
+
+    // Scissor all the content and children
+    if (needsVgScissor) {
+      vg.scissorPush(this.scissor.x + .5f, this.scissor.y + .5f, this.scissor.width-1, this.scissor.height-1);
+    }
+
+    // Redraw ourselves, just our immediate content
     if (this.needsRedraw) {
       this.needsRedraw = false;
-      drawBackground(ui, vg);
       vg.translate(sx, sy);
       onDraw(ui, vg);
       vg.translate(-sx, -sy);
     }
+
+    // Redraw children inside of this object
     if (this.childNeedsRedraw) {
       this.childNeedsRedraw = false;
-      vg.translate(sx, sy);
       for (UIObject childObject : this.mutableChildren) {
         UI2dComponent child = (UI2dComponent) childObject;
         if (child.isVisible()) {
-          if (child.needsRedraw || child.childNeedsRedraw || child.needsBlit) {
-            float cx = child.x;
-            float cy = child.y;
-            vg.translate(cx, cy);
-            child.draw(ui, vg);
-            vg.translate(-cx, -cy);
+          if (forceRedraw || child.needsRedraw || child.childNeedsRedraw || child.needsBlit) {
+            // NOTE(mcslee): loose threading here! the LX thread could
+            // reposition UI based upon listeners, make sure un-translate
+            // uses the strictly same value as translate
+            final float ox = sx + child.x;
+            final float oy = sy + child.y;
+            final float ow = child.width;
+            final float oh = child.height;
+
+            // Only draw children that have at least *some* intersection!
+            if (child.scissor.intersect(this.scissor, ox, oy, ow, oh)) {
+              vg.translate(ox, oy);
+              child.draw(ui, vg, forceRedraw);
+              vg.translate(-ox, -oy);
+            }
           }
         }
       }
-      vg.translate(-sx, -sy);
     }
+
+    // Undo scissoring
+    if (needsVgScissor) {
+      vg.scissorPop();
+    }
+
     if (needsBorder) {
       drawBorder(ui, vg);
       if (isModulationSource() || isTriggerSource()) {
         drawMappingBorder(ui, vg);
       }
     }
-    if (needsMappingOverlay) {
+    if (hasMappingOverlay) {
       drawMappingOverlay(ui, vg, 0, 0, this.width, this.height);
+    }
+
+  }
+
+  protected void vgRoundedRect(VGraphics vg) {
+    vgRoundedRect(vg, 0, 0, this.width, this.height);
+  }
+
+  protected void vgRoundedRect(VGraphics vg, float x, float y, float w, float h) {
+    vgRoundedRect(this, vg, x, y, w, h);
+  }
+
+  protected void vgRoundedRect(UI2dComponent that, VGraphics vg, float x, float y, float w, float h) {
+    if (that.hasBorderRounding) {
+      vg.roundedRectVarying(x, y, w, h, that.borderRoundingTopLeft, that.borderRoundingTopRight, that.borderRoundingBottomRight, that.borderRoundingBottomLeft);
+    } else {
+      vg.rect(x, y, w, h);
     }
   }
 
   private void drawMappingBorder(UI ui, VGraphics vg) {
     vg.beginPath();
-    vg.rect(0.5f, 0.5f, this.width - 1, this.height - 1, this.borderRounding);
-    vg.strokeColor(0xff000000 | ui.theme.getModulationTargetMappingColor());
+    vgRoundedRect(vg, 0.5f, 0.5f, this.width - 1, this.height - 1);
+    vg.strokeColor(ui.theme.modulationTargetMappingColor);
     vg.stroke();
+  }
+
+  private boolean hasMappingOverlay() {
+    return
+      isMidiMapping() ||
+      isModulationSourceMapping() || isTriggerSourceMapping() ||
+      isModulationTargetMapping() || isTriggerTargetMapping() ||
+      isModulationHighlight();
   }
 
   private void drawMappingOverlay(UI ui, VGraphics vg, float x, float y, float w, float h) {
@@ -1150,66 +1648,67 @@ public abstract class UI2dComponent extends UIObject {
     } else if (isMidiMapping()) {
       vg.beginPath();
       vg.rect(x, y, w, h);
-      vg.fillColor(ui.theme.getMidiMappingColor());
+      vg.fillColor(ui.theme.midiMappingColor.mask(0x33));
       vg.fill();
       if (isControlTarget()) {
-        drawFocusCorners(ui, vg, 0xccff0000);
+        drawFocusCorners(ui, vg, ui.theme.midiMappingColor.mask(0xcc));
       }
     } else if (isModulationSourceMapping() || isTriggerSourceMapping()) {
       vg.beginPath();
       vg.rect(x, y, w, h);
-      vg.fillColor(ui.theme.getModulationSourceMappingColor());
+      vg.fillColor(ui.theme.modulationSourceMappingColor.mask(0x33));
       vg.fill();
     } else if (isModulationTargetMapping() || isTriggerTargetMapping()) {
       vg.beginPath();
       vg.rect(x, y, w, h);
-      vg.fillColor(ui.theme.getModulationTargetMappingColor());
+      vg.fillColor(ui.theme.modulationTargetMappingColor.mask(0x33));
       vg.fill();
     } else if (isModulationHighlight()) {
-      LXParameterModulation modulation = this.ui.highlightParameterModulation;
+      final LXParameterModulation modulation = this.ui.highlightParameterModulation;
       if (modulation != null) {
-        int color = modulation.color.getColor();
-        color = (color & 0x00ffffff) | (0x33000000);
         vg.beginPath();
         vg.rect(x, y, w, h);
-        vg.fillColor(color);
+        vg.fillColor(UIColor.mask(modulation.color.getColor(), 0x33));
         vg.fill();
       }
     }
   }
 
-  private void drawBackground(UI ui, VGraphics vg) {
+  protected void drawBackground(UI ui, VGraphics vg) {
     if (this.width == 0 || this.height == 0) {
       return;
     }
 
     boolean ownBackground = this.hasBackground || (this.hasFocus && this.hasFocusBackground);
 
-    if (!ownBackground || (this.borderRounding > 0)) {
+    if (!ownBackground || this.hasBorderRounding) {
       // If we don't have our own background, or our borders are rounded,
       // then we need to walk up the UI tree to figure out how to paint
       // in the background.
-      UIObject component = this.parent;
-      while ((component != null) && (component instanceof UI2dComponent)) {
-        UI2dComponent component2d = (UI2dComponent) component;
-        if (component2d.hasBackground || (component2d.hasFocus && component2d.hasFocusBackground)) {
-          vg.beginPath();
-          vg.rect(0, 0, this.width, this.height);
-          vg.fillColor((component2d.hasFocus && component2d.hasFocusBackground) ? component2d.focusBackgroundColor : component2d.backgroundColor);
-          vg.fill();
-          break;
-        }
-        component = component.parent;
-      }
+      drawParentBackground(ui, vg);
     }
 
     if (ownBackground) {
       vg.beginPath();
-      vg.rect(0, 0, this.width, this.height, this.borderRounding);
+      vgRoundedRect(vg);
       vg.fillColor((this.hasFocus && this.hasFocusBackground) ? this.focusBackgroundColor : this.backgroundColor);
       vg.fill();
     }
+  }
 
+  protected void drawParentBackground(UI ui, VGraphics vg) {
+    UIObject component = this.parent;
+    while ((component != null) && (component instanceof UI2dComponent)) {
+      UI2dComponent component2d = (UI2dComponent) component;
+      if (component2d.hasBackground || (component2d.hasFocus && component2d.hasFocusBackground)) {
+        vg.beginPath();
+        vg.rect(0, 0, this.width, this.height);
+        vg.fillColor((component2d.hasFocus && component2d.hasFocusBackground) ? component2d.focusBackgroundColor : component2d.backgroundColor);
+        vg.fill();
+        break;
+      }
+      component = component.parent;
+    }
   }
 
   protected void drawBorder(UI ui, VGraphics vg) {
@@ -1218,10 +1717,10 @@ public abstract class UI2dComponent extends UIObject {
     }
 
     if (this.hasBorder) {
-      int border = this.borderWeight;
+      int borderWeight = this.borderWeight;
       vg.beginPath();
-      vg.rect(border * .5f, border * .5f, this.width - border, this.height - border, this.borderRounding);
-      vg.strokeWidth(border);
+      vgRoundedRect(vg, borderWeight * .5f, borderWeight * .5f, this.width - borderWeight, this.height - borderWeight);
+      vg.strokeWidth(borderWeight);
       vg.strokeColor(this.borderColor);
       vg.stroke();
 
@@ -1233,8 +1732,8 @@ public abstract class UI2dComponent extends UIObject {
     }
   }
 
-  protected int getFocusColor(UI ui) {
-    return this.hasFocusColor ? this.focusColor : ui.theme.getFocusColor();
+  protected UIColor getFocusColor(UI ui) {
+    return this.hasFocusColor ? this.focusColor : ui.theme.focusColor;
   }
 
   /**
@@ -1255,7 +1754,7 @@ public abstract class UI2dComponent extends UIObject {
    */
   protected void drawFocus(UI ui, VGraphics vg) {
     if (this.hasFocusCorners) {
-      drawFocusCorners(ui, vg, getFocusColor(ui));
+      drawFocusCorners(ui, vg, getFocusColor(ui).get());
     }
   }
 

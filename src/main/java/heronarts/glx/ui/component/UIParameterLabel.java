@@ -25,6 +25,7 @@ import heronarts.lx.parameter.LXParameterListener;
 public class UIParameterLabel extends UILabel implements LXParameterListener {
 
   private LXParameter parameter;
+  private LXComponent root;
   private String prefix = "";
 
   public UIParameterLabel(float x, float y, float w, float h) {
@@ -36,6 +37,11 @@ public class UIParameterLabel extends UILabel implements LXParameterListener {
       this.prefix = prefix;
       updateLabel();
     }
+    return this;
+  }
+
+  public UIParameterLabel setRoot(LXComponent root) {
+    this.root = root;
     return this;
   }
 
@@ -79,7 +85,7 @@ public class UIParameterLabel extends UILabel implements LXParameterListener {
     if (this.parameter == null) {
       setLabel("");
     } else {
-      setLabel((this.prefix != null ? this.prefix : "") + this.parameter.getCanonicalLabel());
+      setLabel((this.prefix != null ? this.prefix : "") + this.parameter.getCanonicalLabel(this.root));
     }
     onLabelChanged();
   }

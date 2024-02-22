@@ -24,8 +24,8 @@ import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UIControlTarget;
 import heronarts.glx.ui.UIModulationSource;
 import heronarts.glx.ui.UIModulationTarget;
+import heronarts.lx.modulation.LXCompoundModulation;
 import heronarts.lx.parameter.BoundedParameter;
-import heronarts.lx.parameter.CompoundParameter;
 import heronarts.lx.parameter.LXNormalizedParameter;
 import heronarts.lx.parameter.LXParameter;
 import heronarts.lx.parameter.LXParameterListener;
@@ -39,13 +39,8 @@ public class UIDoubleBox extends UINumberBox implements UIControlTarget, UIModul
   private BoundedParameter parameter = null;
 
   private boolean normalizedMouseEditing = true;
-  protected double editMultiplier = 1;
 
-  private final LXParameterListener parameterListener = new LXParameterListener() {
-    public void onParameterChanged(LXParameter p) {
-      setValue(p);
-    }
-  };
+  private final LXParameterListener parameterListener = p -> { setValue(p); };
 
   public UIDoubleBox() {
     this(0, 0, 0, 0);
@@ -72,11 +67,6 @@ public class UIDoubleBox extends UINumberBox implements UIControlTarget, UIModul
     setParameter(parameter);
   }
 
-  public UIDoubleBox setEditMultiplier(double editMultiplier) {
-    this.editMultiplier = editMultiplier;
-    return this;
-  }
-
   public UIDoubleBox setNormalizedMouseEditing(boolean normalizedMouseEditing) {
     this.normalizedMouseEditing = normalizedMouseEditing;
     return this;
@@ -93,6 +83,7 @@ public class UIDoubleBox extends UINumberBox implements UIControlTarget, UIModul
   }
 
   public UIDoubleBox setParameter(final BoundedParameter parameter) {
+    super.setModulationTarget(parameter);
     if (this.parameter != null) {
       this.parameter.removeListener(this.parameterListener);
     }
@@ -102,6 +93,8 @@ public class UIDoubleBox extends UINumberBox implements UIControlTarget, UIModul
       this.maxValue = parameter.range.max;
       this.parameter.addListener(this.parameterListener);
       setValue(parameter);
+    } else {
+      this.value = 0;
     }
     return this;
   }
@@ -113,12 +106,9 @@ public class UIDoubleBox extends UINumberBox implements UIControlTarget, UIModul
     return this;
   }
 
-  protected double getNormalized() {
+  protected double getBaseNormalized() {
     if (this.parameter != null) {
-      if (this.parameter instanceof CompoundParameter) {
-        return ((CompoundParameter) this.parameter).getBaseNormalized();
-      }
-      return this.parameter.getNormalized();
+      return this.parameter.getBaseNormalized();
     }
     return (this.value - this.minValue) / (this.maxValue - this.minValue);
   }
@@ -134,7 +124,7 @@ public class UIDoubleBox extends UINumberBox implements UIControlTarget, UIModul
 
   @Override
   protected double getFillWidthNormalized() {
-    return getNormalized();
+    return getBaseNormalized();
   }
 
   public double getValue() {
@@ -142,11 +132,7 @@ public class UIDoubleBox extends UINumberBox implements UIControlTarget, UIModul
   }
 
   protected UIDoubleBox setValue(LXParameter p) {
-    if (p instanceof CompoundParameter) {
-      return setValue(((CompoundParameter) p).getBaseValue(), false);
-    } else {
-      return setValue(p.getValue(), false);
-    }
+    return setValue(p.getBaseValue(), false);
   }
 
   public UIDoubleBox setValue(double value) {
@@ -154,13 +140,29 @@ public class UIDoubleBox extends UINumberBox implements UIControlTarget, UIModul
   }
 
   protected UIDoubleBox setValue(double value, boolean pushToParameter) {
-    value = LXUtils.constrain(value, this.minValue, this.maxValue);
+    if (this.value == value) {
+      return this;
+    }
+
+    // Check for wrappable params
+    boolean wrappable = (this.parameter != null) && this.parameter.isWrappable();
+    if (wrappable) {
+      final double range = this.maxValue - this.minValue;
+      if (value < this.minValue) {
+        value = this.maxValue + ((value - this.minValue) % range);
+      } else if (value > this.maxValue) {
+        value = this.minValue + ((value - this.minValue) % range);
+      }
+    } else {
+      value = LXUtils.constrain(value, this.minValue, this.maxValue);
+    }
+
     if (this.value != value) {
       this.value = value;
       if (this.parameter != null && pushToParameter) {
         setValueCommand(value);
       }
-      this.onValueChange(this.value);
+      onValueChange(this.value);
       redraw();
     }
     return this;
@@ -182,15 +184,12 @@ public class UIDoubleBox extends UINumberBox implements UIControlTarget, UIModul
   protected /* abstract */ void onValueChange(double value) {}
 
   @Override
-  protected void saveEditBuffer() {
+  protected void saveEditBuffer(String editBuffer) {
     try {
-      // Hacky solution for handling minutes + hours
-      String[] parts = this.editBuffer.split(":");
-      double value = 0;
-      for (String part : parts) {
-        value = value * 60 + Double.parseDouble(part);
-      }
-      setValue(this.editMultiplier * value);
+      setValue((this.parameter != null) ?
+        this.parameter.getUnits().parseDouble(editBuffer) :
+        Double.parseDouble(editBuffer)
+      );
     } catch (NumberFormatException nfx) {}
   }
 
@@ -260,7 +259,7 @@ public class UIDoubleBox extends UINumberBox implements UIControlTarget, UIModul
   }
 
   @Override
-  public LXParameter getControlTarget() {
+  public LXNormalizedParameter getControlTarget() {
     return getMappableParameter();
   }
 
@@ -270,18 +269,15 @@ public class UIDoubleBox extends UINumberBox implements UIControlTarget, UIModul
   }
 
   @Override
-  public CompoundParameter getModulationTarget() {
-    if (this.parameter instanceof CompoundParameter) {
-      return (CompoundParameter) getMappableParameter();
+  public LXCompoundModulation.Target getModulationTarget() {
+    if (this.parameter instanceof LXCompoundModulation.Target) {
+      return (LXCompoundModulation.Target) getMappableParameter();
     }
     return null;
   }
 
-  private BoundedParameter getMappableParameter() {
-    if (isMappable() && this.parameter != null && this.parameter.isMappable() && this.parameter.getParent() != null) {
-      return this.parameter;
-    }
-    return null;
+  private LXNormalizedParameter getMappableParameter() {
+    return getMappableParameter(this.parameter);
   }
 
   @Override
@@ -292,7 +288,7 @@ public class UIDoubleBox extends UINumberBox implements UIControlTarget, UIModul
       if (mouseEvent.isShiftDown()) {
         delta /= 10;
       }
-      setNormalized(LXUtils.constrain(getNormalized() - delta, 0, 1));
+      setNormalized(LXUtils.constrain(getBaseNormalized() - delta, 0, 1));
     } else {
       super.onMouseDragged(mouseEvent, mx, my, dx, dy);
     }

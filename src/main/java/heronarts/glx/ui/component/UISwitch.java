@@ -37,6 +37,9 @@ public class UISwitch extends UIParameterControl implements UIFocus, UITriggerTa
 
   protected boolean isMomentary = false;
 
+  private boolean momentaryPressValid = false;
+  private boolean momentaryPressEngaged = false;
+
   public UISwitch(LXNormalizedParameter parameter) {
     this(0, 0, parameter);
   }
@@ -93,17 +96,19 @@ public class UISwitch extends UIParameterControl implements UIFocus, UITriggerTa
 
   @Override
   protected void onDraw(UI ui, VGraphics vg) {
-    vg.strokeColor(ui.theme.getControlBorderColor());
+    vg.strokeColor(ui.theme.controlBorderColor);
     if (isEnabled() && (this.parameter != null)) {
-      vg.fillColor((this.parameter.getValue() > 0) ? ui.theme.getPrimaryColor() : ui.theme.getControlBackgroundColor());
+      vg.fillColor(this.momentaryPressEngaged ?
+        (this.momentaryPressValid ? ui.theme.primaryColor : ui.theme.controlDisabledColor) :
+        ((this.parameter.getValue() > 0) ? ui.theme.primaryColor : ui.theme.controlBackgroundColor)
+      );
     } else {
-      vg.fillColor(ui.theme.getControlDisabledColor());
+      vg.fillColor(ui.theme.controlDisabledColor);
     }
     vg.beginPath();
     vg.rect(SWITCH_MARGIN, 0, SWITCH_SIZE, SWITCH_SIZE);
     vg.fill();
     vg.stroke();
-
 
     super.onDraw(ui, vg);
   }
@@ -114,6 +119,8 @@ public class UISwitch extends UIParameterControl implements UIFocus, UITriggerTa
     if ((keyCode == KeyEvent.VK_SPACE) || keyEvent.isEnter()) {
       if (this.parameter != null) {
         keyEvent.consume();
+        this.momentaryPressValid = this.isMomentary;
+        this.momentaryPressEngaged = this.isMomentary;
         if (this.isMomentary) {
           getBooleanParameter().setValue(true);
         } else {
@@ -136,12 +143,17 @@ public class UISwitch extends UIParameterControl implements UIFocus, UITriggerTa
         getBooleanParameter().setValue(false);
       }
     }
+    if (this.momentaryPressEngaged) {
+      this.momentaryPressEngaged = false;
+      redraw();
+    }
   }
 
   private boolean isOnSwitch(float mx, float my) {
     return
       (mx >= SWITCH_MARGIN) &&
       (mx < SWITCH_SIZE + SWITCH_MARGIN) &&
+      (my >= 0) &&
       (my < SWITCH_SIZE);
   }
 
@@ -149,6 +161,8 @@ public class UISwitch extends UIParameterControl implements UIFocus, UITriggerTa
   protected void onMousePressed(MouseEvent mouseEvent, float mx, float my) {
     super.onMousePressed(mouseEvent, mx, my);
     if (this.parameter != null && isOnSwitch(mx, my)) {
+      this.momentaryPressValid = this.isMomentary;
+      this.momentaryPressEngaged = this.isMomentary;
       if (this.isMomentary) {
         getBooleanParameter().setValue(true);
       } else {
@@ -162,10 +176,25 @@ public class UISwitch extends UIParameterControl implements UIFocus, UITriggerTa
   }
 
   @Override
+  protected void onMouseDragged(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
+    if (isEnabled() && this.momentaryPressEngaged) {
+      boolean mouseDownMomentary = isOnSwitch(mx, my);
+      if (mouseDownMomentary != this.momentaryPressValid) {
+        this.momentaryPressValid = mouseDownMomentary;
+        redraw();
+      }
+    }
+  }
+
+  @Override
   protected void onMouseReleased(MouseEvent mouseEvent, float mx, float my) {
     super.onMouseReleased(mouseEvent, mx, my);
     if (this.isMomentary && (this.parameter != null) && isOnSwitch(mx, my)) {
       getBooleanParameter().setValue(false);
+    }
+    if (this.momentaryPressEngaged) {
+      this.momentaryPressEngaged = false;
+      redraw();
     }
   }
 

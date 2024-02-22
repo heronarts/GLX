@@ -23,24 +23,30 @@ import heronarts.glx.View;
 import heronarts.glx.event.Event;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
+import heronarts.glx.ui.component.UIContextMenu;
 import heronarts.glx.ui.component.UILabel;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.LX;
+import heronarts.lx.LXComponent;
 import heronarts.lx.LXLoopTask;
 import heronarts.lx.LXMappingEngine;
 import heronarts.lx.midi.LXMidiEngine;
 import heronarts.lx.midi.LXMidiMapping;
 import heronarts.lx.modulation.LXModulationEngine;
 import heronarts.lx.modulation.LXParameterModulation;
+import heronarts.lx.parameter.BooleanParameter;
 import heronarts.lx.parameter.LXNormalizedParameter;
 import heronarts.lx.parameter.LXParameter;
+import heronarts.lx.parameter.MutableParameter;
 import heronarts.lx.parameter.StringParameter;
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
-import java.util.Stack;
+import java.util.Queue;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static org.lwjgl.bgfx.BGFX.*;
 
@@ -60,27 +66,39 @@ public class UI {
 
   private class UIRoot extends UIObject implements UIContainer {
 
-    private final View view;
+    private final View viewClear;
+    private final View view2d;
 
     private UIRoot() {
       this.ui = UI.this;
-      this.view = new View(this.ui.lx);
-      this.view.setClearFlags(BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL);
-      this.view.setClearColor(0);
-      this.view.setScreenOrtho();
+
+      this.viewClear = new View(this.ui.lx);
+      this.viewClear.setClearColor(0x000000ff);
+      this.viewClear.setScreenOrtho();
+
+      this.view2d = new View(this.ui.lx);
+      this.view2d.setClearFlags(BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL);
+      this.view2d.setClearColor(0);
+      this.view2d.setScreenOrtho();
     }
 
     protected void resize() {
-      // Note that our getWidth() / getHeight() methods are in UI-space. We must multiply by
-      // the content scale factor when setting the view bounds, which are in framebuffer
-      // space.
-      this.view.setRect(
+      this.viewClear.setRect(
         0,
         0,
-        (int) (getWidth() * this.ui.getContentScaleX()),
-        (int) (getHeight() * this.ui.getContentScaleY())
+        lx.getFrameBufferWidth(),
+        lx.getFrameBufferHeight()
       );
-      this.view.setScreenOrtho();
+      this.viewClear.setScreenOrtho();
+
+      this.view2d.setRect(
+        0,
+        0,
+        lx.getFrameBufferWidth(),
+        lx.getFrameBufferHeight()
+      );
+      this.view2d.setScreenOrtho();
+
     }
 
     /**
@@ -118,19 +136,26 @@ public class UI {
       return getHeight();
     }
 
+    private boolean isErrorDialog(UI2dComponent component) {
+      if (component instanceof UIDialogBox) {
+        return ((UIDialogBox) component).isError();
+      }
+      return false;
+    }
+
     @Override
     void mousePressed(MouseEvent mouseEvent, float mx, float my) {
       // If a context menu is open, we'll want to close it on mouse-press
       // unless the mouse-press is within the context menu itself
-      boolean hideContext = false;
+      boolean hideContextOverlay = false;
       if (contextMenuOverlay.overlayContent != null) {
-        hideContext = true;
+        hideContextOverlay = true;
         contextMenuOverlay.mousePressed = false;
       }
       super.mousePressed(mouseEvent, mx, my);
 
       // Note: check
-      if (!mouseEvent.isContextMenuConsumed() && hideContext && !contextMenuOverlay.mousePressed) {
+      if (hideContextOverlay && !mouseEvent.isContextMenuConsumed() && !contextMenuOverlay.mousePressed && !isErrorDialog(contextMenuOverlay.overlayContent)) {
         hideContextOverlay();
       }
     }
@@ -262,49 +287,65 @@ public class UI {
     // Limit the number of nanovg buffers we'll render in a single pass
     private static final int MAX_NVG_VIEWS_PER_PASS = 30;
 
-    private final Stack<UI2dContext> renderStack = new Stack<UI2dContext>();
-    private final List<UI2dContext> drawList = new ArrayList<UI2dContext>();
+    private final List<UIObject> glfwThreadChildren = new ArrayList<UIObject>();
+    private final Queue<UI2dContext> renderQueue = new ArrayDeque<UI2dContext>();
 
     public void draw() {
-      this.renderStack.clear();
-      this.drawList.clear();
+      // The children array is a CopyOnWriteArrayList. Grab a proper copy
+      // of it here and do drawing operations against that, so that we don't
+      // have modifications to it in the middle of this draw() operation.
+      this.glfwThreadChildren.clear();
+      this.glfwThreadChildren.addAll(this.children);
 
-      // First pass, we determine which UI2dContexts need rendering, and push
-      // them all onto a stack. Each will need its own BGFX view because they have
-      // unique framebuffers. Since we dodn't use locks between the engine and UI
-      // thread for UI hierarchy, we'll also add the relevant UI2dContexts to
-      // a drawList on this single pass over this consistent view of the
-      // CopyOnWriteArrayList that stores the children
-      for (UIObject child : this.mutableChildren) {
-        if (child instanceof UI2dContext) {
-          ((UI2dContext) child).populateRenderStack(renderStack);
-          this.drawList.add(((UI2dContext) child));
+      short viewId = 1;
+
+      // Clear the whole window background to avoid edge-flicker
+      this.viewClear.bind(viewId++).touch();
+
+      // If the redraw flag is set, we need to walk all 2d hierarchies and
+      // see which contexts need to be redrawn with the vg layer
+      if (redrawFlag.compareAndSet(true, false)) {
+        // Pre-pass over all 2d objects, set redraw flags on the UI2dComponent
+        // objects and append to the list of 2d contexts that need rendering
+        for (UIObject child : this.glfwThreadChildren) {
+          if (child instanceof UI2dComponent) {
+            ((UI2dComponent) child).predraw(this.renderQueue, false);
+          }
+        }
+
+        // Now we have all of our UI2dContexts ready to go, render all of them
+        // as necessary. Note that this is not blitting to the main screen
+        // framebuffer, it's rendering the UI2dContexts using NanoVG onto a
+        // texture framebuffer owned by the UI2dContext
+        UI2dContext context;
+        while ((context = this.renderQueue.poll()) != null) {
+          context.render(vg, viewId++);
+          if (viewId > MAX_NVG_VIEWS_PER_PASS) {
+            // We're going to have to get to the rest on the next pass..
+            break;
+          }
         }
       }
 
-      // Now we have all of our UI2dContexts ready to go, render all of them
-      // as necessary.
-      short viewId = 0;
-      while (!renderStack.isEmpty() && (viewId < MAX_NVG_VIEWS_PER_PASS)) {
-        renderStack.pop().setView(viewId++).render(vg);
-      }
-
-      // Draw any 3d contexts
-      for (UIObject child : this.mutableChildren) {
-        if (child instanceof UI3dContext) {
+      // Finally, draw everything in the root view. Note that we don't
+      // iterate over mutableChildren here because it could have changed. Instead
+      // we use the drawList that we compiled above when we were preparing the
+      // UI2dContext objects for rendering. We render from back to front,
+      // re-binding views as needed
+      boolean bind2d = true;
+      for (UIObject child : this.glfwThreadChildren) {
+        if (child instanceof UI2dContext) {
+          if (bind2d) {
+            this.view2d.bind(viewId++);
+            bind2d = false;
+          }
+          ((UI2dContext) child).draw(this.ui, this.view2d);
+        } else if (child instanceof UI3dContext) {
           UI3dContext context3d = (UI3dContext) child;
           context3d.view.setId(viewId++);
           context3d.draw(this.ui, context3d.view);
+          bind2d = true;
         }
-      }
-
-      // Finally, draw all 2d overlays onto the root view. Note that we don't
-      // iterate over mutableChildren here because it could have changed. Instead
-      // we use the drawList that we compiled above when we were preparing the
-      // UI2dContext objects for rendering.
-      this.view.bind(viewId++);
-      for (UI2dContext child : this.drawList) {
-        child.draw(this.ui, this.view);
       }
     }
   }
@@ -312,14 +353,11 @@ public class UI {
   /**
    * Redraw may be called from any thread
    */
-  private final List<UI2dComponent> threadSafeRedrawQueue =
-    Collections.synchronizedList(new ArrayList<UI2dComponent>());
+  private final AtomicBoolean redrawFlag = new AtomicBoolean(true);
+  private final AtomicBoolean disposeFramebufferFlag = new AtomicBoolean(false);
 
-  /**
-   * Objects to redraw on current pass thru animation thread
-   */
-  private final List<UI2dComponent> glfwThreadRedrawList =
-    new ArrayList<UI2dComponent>();
+  private final List<VGraphics.Framebuffer> threadSafeDisposeList =
+    Collections.synchronizedList(new ArrayList<VGraphics.Framebuffer>());
 
   public class Profiler {
     public long drawNanos = 0;
@@ -343,17 +381,25 @@ public class UI {
 
   private UIEventHandler topLevelKeyEventHandler = null;
 
-  private class UIContextOverlay extends UI2dContext {
+  private class UIContextOverlay extends UI2dScrollContext {
 
     private boolean mousePressed = false;
 
     private UI2dComponent overlayContent = null;
+
+    private UIContextMenu contextMenu = null;
 
     public UIContextOverlay() {
       super(UI.this, 0, 0, 0, 0);
       this.parent = root;
       setUI(UI.this);
       setBackgroundColor(0);
+    }
+
+    private void clearContent(UI2dComponent overlayContent) {
+      if (this.overlayContent == overlayContent) {
+        setContent(null);
+      }
     }
 
     private void setContent(UI2dComponent overlayContent) {
@@ -363,18 +409,30 @@ public class UI {
         root.mutableChildren.remove(this);
       }
       this.overlayContent = overlayContent;
+      this.contextMenu = null;
       if (overlayContent != null) {
-        setSize(overlayContent.getWidth(), overlayContent.getHeight());
+        float contentWidth = overlayContent.getWidth();
+        float contentHeight = overlayContent.getHeight();
+        if (overlayContent instanceof UIContextMenu) {
+          this.contextMenu = (UIContextMenu) overlayContent;
+          float scrollHeight = contextMenu.getScrollHeight();
+          setSize(contentWidth, scrollHeight);
+          setScrollSize(contentWidth, contentHeight);
+        } else {
+          setScrollSize(contentWidth, contentHeight);
+          setSize(contentWidth, contentHeight);
+        }
+
         float x = 0;
         float y = 0;
         UIObject component = overlayContent;
         while (component != root && component != null) {
           x += component.getX();
           y += component.getY();
-          if (component instanceof UI2dScrollContext) {
-            UI2dScrollContext scrollContext = (UI2dScrollContext) component;
-            x += scrollContext.getScrollX();
-            y += scrollContext.getScrollY();
+          if (component instanceof UI2dScrollInterface) {
+            UI2dScrollInterface scrollInterface = (UI2dScrollInterface) component;
+            x += scrollInterface.getScrollX();
+            y += scrollInterface.getScrollY();
           }
           component = component.getParent();
         }
@@ -383,6 +441,57 @@ public class UI {
         overlayContent.setPosition(0, 0);
         overlayContent.addToContainer(this);
         root.mutableChildren.add(this);
+      }
+    }
+
+    @Override
+    protected void drawBackground(UI ui, VGraphics vg) {
+      UIContextMenu contextMenu = this.contextMenu;
+      if (contextMenu != null) {
+        float padding = contextMenu.getPadding();
+        if (padding > 0) {
+          vg.beginPath();
+          vg.fillColor(ui.theme.deviceFocusedBackgroundColor);
+          vgRoundedRect(contextMenu, vg, 0, 0, this.width, this.height);
+          vg.fill();
+        }
+        vg.beginPath();
+        vg.fillColor(contextMenu.getBackgroundColor());
+        if (padding > 0) {
+          vg.roundedRect(padding, padding, this.width - 2 * padding, this.height - 2*padding, 2);
+        } else {
+          vgRoundedRect(contextMenu, vg, 0, 0, this.width, this.height);
+        }
+        vg.fill();
+      } else {
+        super.drawBackground(ui, vg);
+      }
+    }
+
+    @Override
+    public void drawBorder(UI ui, VGraphics vg) {
+      UIContextMenu contextMenu = this.contextMenu;
+      if (contextMenu != null) {
+        float padding = contextMenu.getPadding();
+        UI2dComponent component = contextMenu;
+        if (padding > 0) {
+          // Cap the top and bottom of the scroll zone
+          vg.beginPath();
+          vg.fillColor(ui.theme.deviceFocusedBackgroundColor);
+          vg.rect(padding, 0, this.width - 2*padding, padding);
+          vg.rect(padding, this.height-padding, this.width - 2*padding, padding);
+          vg.fill();
+        }
+        if (contextMenu.hasBorder()) {
+          final float borderWeight = contextMenu.getBorderWeight();
+          final float halfBorderWeight = borderWeight * 0.5f;
+          vg.beginPath();
+          vg.strokeWidth(borderWeight);
+          vg.strokeColor(contextMenu.getBorderColor());
+          vgRoundedRect(component, vg, halfBorderWeight, halfBorderWeight, this.width-borderWeight, this.height-borderWeight);
+          vg.stroke();
+          vg.strokeWidth(1);
+        }
       }
     }
 
@@ -403,16 +512,6 @@ public class UI {
    */
   public final UITheme theme;
 
-  /**
-   * White color
-   */
-  public final static int WHITE = 0xffffffff;
-
-  /**
-   * Black color
-   */
-  public final static int BLACK = 0xff000000;
-
   boolean midiMapping = false;
   boolean modulationSourceMapping = false;
   boolean modulationTargetMapping = false;
@@ -420,6 +519,8 @@ public class UI {
   boolean triggerTargetMapping = false;
   LXModulationEngine modulationEngine = null;
   LXParameterModulation highlightParameterModulation = null;
+  private LXParameter highlightModulationTarget = null;
+  public final MutableParameter highlightModulationTargetChanged = new MutableParameter();
 
   private UIControlTarget controlTarget = null;
   private UITriggerSource triggerSource = null;
@@ -437,11 +538,11 @@ public class UI {
     this.vg = lx.vg;
 
     this.theme = new UITheme(this.vg);
-    LX.initProfiler.log("P3LX: UI: Theme");
+    LX.initProfiler.log("GLX: UI: Theme");
 
     this.root = new UIRoot();
     this.contextMenuOverlay = new UIContextOverlay();
-    LX.initProfiler.log("P3LX: UI: Root");
+    LX.initProfiler.log("GLX: UI: Root");
 
     lx.addProjectListener(new LX.ProjectListener() {
       @Override
@@ -524,14 +625,13 @@ public class UI {
       }
     });
 
-    lx.statusMessage.addListener((p) -> {
+    lx.statusMessage.addListener(p -> {
       if (!isMapping()) {
         contextualHelpText.setValue(lx.statusMessage.getString());
       }
     });
 
-    lx.errorChanged.addListener((p) -> { showError(); });
-    showError();
+    lx.errorChanged.addListener(p -> { showError(); }, true);
 
     lx.failure.addListener((p) -> {
       float width = getWidth() * .8f;
@@ -542,12 +642,24 @@ public class UI {
         .setBreakLines(true)
         .setPadding(8)
         .setTextAlignment(VGraphics.Align.LEFT, VGraphics.Align.TOP)
-        .setBorderColor(this.theme.getAttentionColor())
-        .setBackgroundColor(this.theme.getDarkBackgroundColor())
+        .setBackgroundColor(this.theme.listBackgroundColor)
+        .setBorderColor(this.theme.attentionColor)
+        .setBorderWeight(2)
         .setBorderRounding(4)
-        .setFontColor(this.theme.getAttentionColor())
+        .setFontColor(this.theme.attentionColor)
       );
     });
+
+    lx.preferences.uiTheme.addListener(p -> {
+      UITheme.Theme theme = null;
+      try {
+        theme = UITheme.Theme.valueOf(this.lx.preferences.uiTheme.getString());
+      } catch (Exception ignored) {}
+      if (theme != null) {
+        this.theme.setTheme(theme);
+        redraw();
+      }
+    }, true);
   }
 
   public void showError() {
@@ -562,11 +674,21 @@ public class UI {
           new Runnable[] {
             () -> { lx.setSystemClipboardString(error.getStackTrace()); },
             () -> { lx.popError(); }
-          }));
+          }).setError());
       } else {
-        showContextOverlay(new UIDialogBox(this, error.message, () -> { lx.popError(); }));
+        showContextOverlay(new UIDialogBox(this, error.message, () -> { lx.popError(); }).setError());
       }
     }
+  }
+
+  public LXParameter getHighlightModulationTarget() {
+    return this.highlightModulationTarget;
+  }
+
+  public UI setHighlightModulationTarget(LXParameter highlightModulationTarget) {
+    this.highlightModulationTarget = highlightModulationTarget;
+    this.highlightModulationTargetChanged.bang();
+    return this;
   }
 
   public UI setHighlightParameterModulation(LXParameterModulation highlightParameterModulation) {
@@ -584,10 +706,6 @@ public class UI {
 
   public void redraw() {
     this.root.redraw();
-  }
-
-  public void reflow() {
-    // Subclasses may override this method for top-level UI changes
   }
 
   public static UI get() {
@@ -681,6 +799,14 @@ public class UI {
 
   UITriggerSource getTriggerSource() {
     return this.triggerSource;
+  }
+
+  LXComponent getTriggerSourceComponent() {
+    final BooleanParameter source = this.triggerSource.getTriggerSource();
+    if (source != null) {
+      return source.getParent();
+    }
+    return null;
   }
 
   public UI mapModulationSource() {
@@ -789,19 +915,27 @@ public class UI {
     return showContextOverlay(new UIDialogBox(this, message));
   }
 
+  public UI clearContextOverlay(UI2dComponent contextOverlay) {
+    this.contextMenuOverlay.clearContent(contextOverlay);
+    return this;
+  }
+
   public UI showContextOverlay(UI2dComponent contextOverlay) {
     this.contextMenuOverlay.setContent(contextOverlay);
     return this;
   }
 
-  void redraw(UI2dComponent object) {
-    // NOTE(mcslee): determined empirically that it's worth putting this check here
-    // to avoid contention on this synchronized list between the UI and engine threads.
-    // adding the same container to be redrawn loads of times slows down. keeping the
-    // redraw list short is better.
-    if (!this.threadSafeRedrawQueue.contains(object)) {
-      this.threadSafeRedrawQueue.add(object);
-    }
+  void redraw(UI2dComponent component) {
+    // Use atomic booleans here to create a memory barrier for the GLFW
+    // UI rendering thread to see that the 2d hierarchy needs to be checked
+    // for items that need redraw
+    component.redrawFlag.set(true);
+    this.redrawFlag.set(true);
+  }
+
+  void disposeFramebuffer(VGraphics.Framebuffer buffer) {
+    this.threadSafeDisposeList.add(buffer);
+    this.disposeFramebufferFlag.set(true);
   }
 
   public float getContentScaleX() {
@@ -845,22 +979,22 @@ public class UI {
     // Run loop tasks through the UI tree
     this.root.loop(deltaMs);
 
-    // Iterate through all objects that need redraw state marked
-    this.glfwThreadRedrawList.clear();
-    synchronized (this.threadSafeRedrawQueue) {
-      this.glfwThreadRedrawList.addAll(this.threadSafeRedrawQueue);
-      this.threadSafeRedrawQueue.clear();
-    }
-    for (UI2dComponent object : this.glfwThreadRedrawList) {
-      object._redraw();
-    }
-
-    // Draw from the root
+    // Draw UIRoot object
     this.root.draw();
 
     endDraw();
 
     this.profiler.drawNanos = System.nanoTime() - drawStart;
+
+    // Dispose of any framebuffers that we are done with
+    if (this.disposeFramebufferFlag.compareAndSet(true, false)) {
+      synchronized (this.threadSafeDisposeList) {
+        for (VGraphics.Framebuffer framebuffer : this.threadSafeDisposeList) {
+          framebuffer.dispose();
+        }
+        this.threadSafeDisposeList.clear();
+      }
+    }
   }
 
   protected void beginDraw() {
@@ -938,5 +1072,6 @@ public class UI {
 
   public void dispose() {
     this.root.dispose();
+    this.theme.dispose();
   }
 }

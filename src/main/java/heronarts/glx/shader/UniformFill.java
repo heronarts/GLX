@@ -22,8 +22,6 @@ import static org.lwjgl.bgfx.BGFX.BGFX_UNIFORM_TYPE_VEC4;
 import static org.lwjgl.bgfx.BGFX.bgfx_create_uniform;
 import static org.lwjgl.bgfx.BGFX.bgfx_destroy_uniform;
 import static org.lwjgl.bgfx.BGFX.bgfx_set_uniform;
-import static org.lwjgl.bgfx.BGFX.bgfx_set_vertex_buffer;
-
 import java.nio.FloatBuffer;
 
 import org.lwjgl.system.MemoryUtil;
@@ -32,37 +30,40 @@ import heronarts.glx.GLX;
 import heronarts.glx.VertexBuffer;
 import heronarts.glx.View;
 
-public class Shape extends ShaderProgram {
+/**
+ * A global program used for rendering basic polygons with
+ * a uniform fill color
+ */
+public class UniformFill extends ShaderProgram {
 
   private short uniformFillColor;
   private final FloatBuffer fillColorBuffer;
-  private VertexBuffer vertexBuffer;
 
-  public Shape(GLX glx) {
+  public UniformFill(GLX glx) {
     super(glx, "vs_shape", "fs_shape");
     this.uniformFillColor = bgfx_create_uniform("u_fillColor", BGFX_UNIFORM_TYPE_VEC4, 1);
     this.fillColorBuffer = MemoryUtil.memAllocFloat(4);
     setFillColor(0xffffffff);
   }
 
-  public Shape setFillColor(int fillColor) {
-    this.fillColorBuffer.put(3, ((fillColor >>> 24) & 0xff) / 255f);
+  /**
+   * Sets the fill color of the shape
+   *
+   * @param fillColor Fill color in ARGB format
+   * @return this
+   */
+  public UniformFill setFillColor(int fillColor) {
     this.fillColorBuffer.put(0, ((fillColor >>> 16) & 0xff) / 255f);
     this.fillColorBuffer.put(1, ((fillColor >>> 8) & 0xff) / 255f);
     this.fillColorBuffer.put(2, (fillColor & 0xff) / 255f);
+    this.fillColorBuffer.put(3, ((fillColor >>> 24) & 0xff) / 255f);
     return this;
   }
 
-  public Shape setVertexBuffer(VertexBuffer vertexBuffer) {
-    this.vertexBuffer = vertexBuffer;
+  public UniformFill submit(View view, long state, int fillColor, VertexBuffer ... vertexBuffers) {
+    setFillColor(fillColor);
+    super.submit(view, state, vertexBuffers);
     return this;
-  }
-
-  @Override
-  protected void setVertexBuffers(View view) {
-    if (this.vertexBuffer != null) {
-      bgfx_set_vertex_buffer(0, this.vertexBuffer.getHandle(), 0, this.vertexBuffer.getNumVertices());
-    }
   }
 
   @Override
@@ -76,6 +77,5 @@ public class Shape extends ShaderProgram {
     MemoryUtil.memFree(this.fillColorBuffer);
     super.dispose();
   }
-
 
 }

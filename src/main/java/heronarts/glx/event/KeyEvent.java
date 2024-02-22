@@ -205,12 +205,20 @@ public class KeyEvent extends Event {
     return this.scanCode;
   }
 
+  public boolean isDigit() {
+    return (this.keyChar >= '0' && this.keyChar <= '9');
+  }
+
   public boolean isEnter() {
     return (this.keyCode == VK_ENTER) || (this.keyCode == VK_KP_ENTER);
   }
 
   public boolean isCommand(int keyCode) {
     return isCommand() && (this.keyCode == keyCode);
+  }
+
+  public boolean isShiftDown(int keyCode) {
+    return isShiftDown() && (this.keyCode == keyCode);
   }
 
   public boolean isRepeat() {

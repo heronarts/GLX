@@ -18,17 +18,21 @@
 
 package heronarts.glx.ui.component;
 
+import heronarts.glx.GLX;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
 import heronarts.glx.ui.UI2dComponent;
 import heronarts.glx.ui.UI2dContainer;
+import heronarts.glx.ui.UIColor;
 import heronarts.glx.ui.UIFocus;
 import heronarts.glx.ui.UITimerTask;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.color.ColorParameter;
 import heronarts.lx.color.LXColor;
+import heronarts.lx.color.LinkedColorParameter;
 import heronarts.lx.command.LXCommand;
+import heronarts.lx.parameter.LXNormalizedParameter;
 import heronarts.lx.parameter.LXParameterListener;
 import heronarts.lx.utils.LXUtils;
 
@@ -44,10 +48,15 @@ public class UIColorPicker extends UI2dComponent {
   private Corner corner = Corner.BOTTOM_RIGHT;
 
   private ColorParameter color;
+  private final LXNormalizedParameter subparameter;
 
   private UIColorOverlay uiColorOverlay = null;
 
   private boolean enabled = true;
+
+  private int drawColor = LXColor.BLACK;
+
+  private boolean deviceMode = false;
 
   public UIColorPicker(ColorParameter color) {
     this(UIKnob.WIDTH, UIKnob.WIDTH, color);
@@ -58,33 +67,48 @@ public class UIColorPicker extends UI2dComponent {
   }
 
   public UIColorPicker(float x, float y, float w, float h, ColorParameter color) {
-    this(x, y, w, h, color, false);
+    this(x, y, w, h, color, null, false);
   }
 
-  public UIColorPicker(float x, float y, float w, float h, ColorParameter color, boolean isDynamic) {
+  public UIColorPicker(float x, float y, float w, float h, ColorParameter color, LXNormalizedParameter subparameter) {
+    this(x, y, w, h, color, subparameter, false);
+  }
+
+  protected UIColorPicker(float x, float y, float w, float h, ColorParameter color, boolean isDynamic) {
+    this(x, y, w, h, color, null, isDynamic);
+  }
+
+  protected UIColorPicker(float x, float y, float w, float h, ColorParameter color, LXNormalizedParameter subparameter, boolean isDynamic) {
     super(x, y, w, h);
-    setBorderColor(UI.get().theme.getControlBorderColor());
-    setBackgroundColor(color.getColor());
     setColor(color);
+    this.subparameter = subparameter;
 
     // Redraw with color in real-time, if modulated
     if (!isDynamic) {
-      setDescription(UIParameterControl.getDescription(color));
+      setDescription(UIParameterControl.getDescription(subparameter != null ? subparameter : color));
       addLoopTask(new UITimerTask(30, UITimerTask.Mode.FPS) {
         @Override
         protected void run() {
-          setBackgroundColor(LXColor.hsb(
-            color.hue.getValuef(),
-            color.saturation.getValuef(),
-            color.brightness.getValuef()
-          ));
+          setDrawColor(color.calcColor());
         }
       });
     }
   }
 
+  protected void setDrawColor(int drawColor) {
+    if (this.drawColor != drawColor) {
+      this.drawColor = drawColor;
+      redraw();
+    }
+  }
+
   public UIColorPicker setEnabled(boolean enabled) {
     this.enabled = enabled;
+    return this;
+  }
+
+  protected UIColorPicker setDeviceMode(boolean deviceMode) {
+    this.deviceMode = deviceMode;
     return this;
   }
 
@@ -95,7 +119,7 @@ public class UIColorPicker extends UI2dComponent {
   };
 
   protected UIColorOverlay buildColorOverlay(UI ui) {
-    return new UIColorOverlay();
+    return new UIColorOverlay(ui);
   }
 
   public UIColorPicker setCorner(Corner corner) {
@@ -110,11 +134,44 @@ public class UIColorPicker extends UI2dComponent {
     this.color = color;
     if (color != null) {
       color.addListener(this.redrawSwatch, true);
+    } else {
+      setDrawColor(LXColor.BLACK);
+    }
+    if (this.uiColorOverlay != null) {
+      this.uiColorOverlay.updateColor();
+    }
+  }
+
+  @Override
+  public void drawBorder(UI ui, VGraphics vg) {
+    if (this.deviceMode) {
+      vg.beginPath();
+      vg.strokeColor(ui.theme.controlBorderColor);
+      vg.rect(UIKnob.KNOB_MARGIN + .5f, .5f, UIKnob.KNOB_SIZE - 1, UIKnob.KNOB_SIZE - 1);
+      vg.stroke();
+    } else {
+      super.drawBorder(ui, vg);
+    }
+  }
+
+  @Override
+  public void onDraw(UI ui, VGraphics vg) {
+    vg.beginPath();
+    vg.fillColor(this.drawColor);
+    if (this.deviceMode) {
+      vg.rect(UIKnob.KNOB_MARGIN, 0, UIKnob.KNOB_SIZE, UIKnob.KNOB_SIZE);
+    } else {
+      vgRoundedRect(vg, .5f, .5f, this.width-1, this.height-1);
+    }
+    vg.fill();
+
+    if (this.deviceMode) {
+      UIParameterControl.drawParameterLabel(ui, vg, this, this.subparameter != null ? this.subparameter.getLabel() : (this.color != null) ? this.color.getLabel() : "-");
     }
   }
 
   protected void hideOverlay() {
-    getUI().hideContextOverlay();
+    getUI().clearContextOverlay(this.uiColorOverlay);
   }
 
   private void showOverlay() {
@@ -172,42 +229,205 @@ public class UIColorPicker extends UI2dComponent {
     if (this.color != null) {
       this.color.removeListener(this.redrawSwatch);
     }
+    if (this.uiColorOverlay != null) {
+      getUI().clearContextOverlay(this.uiColorOverlay);
+      this.uiColorOverlay.dispose();
+    }
     super.dispose();
   }
 
   protected class UIColorOverlay extends UI2dContainer {
 
     private final UISwatch swatch;
+    private final UIDoubleBox hue, saturation, brightness;
+    private final UIIntegerBox red, green, blue;
+    private final UITextBox hex;
+    private final LXParameterListener rgbListener = p -> { setRGBBoxes(); };
+    private ColorParameter rgbColor;
+    private boolean inRGBUpdate = false;
 
-    UIColorOverlay() {
-      this(8);
+    UIColorOverlay(UI ui) {
+      this(ui, color instanceof LinkedColorParameter ? 38 : 8);
     }
 
-    UIColorOverlay(float extraHeight) {
+    UIColorOverlay(UI ui, float extraHeight) {
       super(0, 0, 240, UISwatch.HEIGHT + extraHeight);
 
-      setBackgroundColor(UI.get().theme.getDeviceBackgroundColor());
-      setBorderColor(UI.get().theme.getControlBorderColor());
+      setBackgroundColor(UI.get().theme.deviceBackgroundColor);
+      setBorderColor(UI.get().theme.controlBorderColor);
       setBorderRounding(6);
 
       this.swatch = new UISwatch();
       this.swatch.addToContainer(this);
 
-      float xp = this.swatch.getX() + this.swatch.getWidth();
-      float yp = 16;
-      new UIDoubleBox(xp, yp, 56, color.hue).addToContainer(this);
-      new UILabel(xp, yp + 16, 56, "Hue").setTextAlignment(VGraphics.Align.CENTER).addToContainer(this);
+      final float xs = this.swatch.getX() + this.swatch.getWidth();
+      final float ys = 11;
+      final float bw = 44;
 
-      yp += 40;
+      addChildren(
+        this.hue = new UIDoubleBox(xs+12, ys, bw, 14, color.hue),
+        new UILabel.Control(ui, xs, ys, 12, 14, "H"),
 
-      new UIDoubleBox(xp, yp, 56, color.saturation).addToContainer(this);
-      new UILabel(xp, yp + 16, 56, "Sat").setTextAlignment(VGraphics.Align.CENTER).addToContainer(this);
+        this.saturation = new UIDoubleBox(xs+12, ys + 18, bw, 14, color.saturation),
+        new UILabel.Control(ui, xs, ys + 18, 12, 14, "S"),
 
-      yp += 40;
+        this.brightness = new UIDoubleBox(xs+12, ys + 36, bw, 14, color.brightness),
+        new UILabel.Control(ui, xs, ys + 36, 12, 14, "V"),
 
-      new UIDoubleBox(xp, yp, 56, color.brightness).addToContainer(this);
-      new UILabel(xp, yp + 16, 56, "Bright").setTextAlignment(VGraphics.Align.CENTER).addToContainer(this);
+        this.red = new UIIntegerBox(xs+12, ys + 54, bw, 14) {
+          @Override
+          public String getDescription() {
+            return "Displays the red value of the color";
+          }
 
+          @Override
+          public void onValueChange(int value) {
+            if (!inRGBUpdate) {
+              color.setColor((color.getColor() & ~LXColor.R_MASK) | (value << LXColor.R_SHIFT));
+            }
+          }
+        }
+        .setWrappable(false)
+        .setRange(0, 255),
+        new UILabel.Control(ui, xs, ys + 54, 12, 14, "R"),
+
+        this.green = new UIIntegerBox(xs+12, ys + 72, bw, 14) {
+          @Override
+          public String getDescription() {
+            return "Displays the green value of the color";
+          }
+
+          @Override
+          public void onValueChange(int value) {
+            if (!inRGBUpdate) {
+              color.setColor((color.getColor() & ~LXColor.G_MASK) | (value << LXColor.G_SHIFT));
+            }
+          }
+        }
+        .setWrappable(false)
+        .setRange(0, 255),
+        new UILabel.Control(ui, xs, ys + 72, 12, 14, "G"),
+
+        this.blue = new UIIntegerBox(xs+12, ys + 90, bw, 14) {
+          @Override
+          public String getDescription() {
+            return "Displays the blue value of the color";
+          }
+
+          @Override
+          public void onValueChange(int value) {
+            if (!inRGBUpdate) {
+              color.setColor((color.getColor() & ~LXColor.B_MASK) | value);
+            }
+          }
+        }
+        .setWrappable(false)
+        .setRange(0, 255),
+        new UILabel.Control(ui, xs, ys + 90, 12, 14, "B"),
+
+        this.hex = (UITextBox) new UITextBox(xs+12, ys + 108, bw, 14) {
+
+          @Override
+          public String getDescription() {
+            return "Displays the color value as a RGB hex string";
+          }
+
+          @Override
+          public void onEditFinished() {
+            String val = getValue().trim().replace("#", "");
+            boolean reset = true;
+            if (val.length() == 6) {
+              try {
+                color.setColor(LXColor.ALPHA_MASK | Integer.parseInt(val, 16));
+                reset = false;
+              } catch (NumberFormatException nfx) {
+                GLX.error(nfx, "Invalid hex string in color RGB box: " + val);
+              }
+            }
+            if (reset) {
+              setRGBBoxes();
+            }
+          }
+        }
+        .setValidCharacters("#ABCDEFabcdef0123456789")
+        .disableImmediateAppend()
+        .setTextAlignment(VGraphics.Align.CENTER)
+        .setTopMargin(1),
+        new UILabel.Control(ui, xs, ys + 108, 12, 14, "#")
+      );
+
+      if (color instanceof LinkedColorParameter) {
+        LinkedColorParameter linkedColor = (LinkedColorParameter) color;
+
+        // Horizontal break
+        new UI2dComponent(12, 140, 220, 1) {}
+        .setBorderColor(ui.theme.controlBorderColor)
+        .addToContainer(this);
+
+        final UIIntegerBox indexBox = new UIIntegerBox(20, 16, linkedColor.index);
+
+        UI2dContainer.newHorizontalContainer(16, 4,
+          new UIButton(64, 16, linkedColor.mode),
+          new UILabel(28, 11, "Index").setFont(ui.theme.getControlFont()),
+          indexBox
+        )
+        .setPosition(12, 148)
+        .addToContainer(this);
+
+        addListener(linkedColor.mode, p -> {
+          boolean isLinked = linkedColor.mode.getEnum() == LinkedColorParameter.Mode.PALETTE;
+          swatch.setEnabled(!isLinked);
+          this.hue.setEnabled(!isLinked);
+          this.saturation.setEnabled(!isLinked);
+          this.brightness.setEnabled(!isLinked);
+          this.red.setEnabled(!isLinked);
+          this.green.setEnabled(!isLinked);
+          this.blue.setEnabled(!isLinked);
+          this.hex.setEnabled(!isLinked);
+          indexBox.setEnabled(isLinked);
+        }, true);
+      }
+
+      updateColor();
+    }
+
+    private void setRGBBoxes() {
+      if (color != null) {
+        int c = color.getColor();
+        this.inRGBUpdate = true;
+        this.red.setValue(0xff & LXColor.red(c));
+        this.green.setValue(0xff & LXColor.green(c));
+        this.blue.setValue(0xff & LXColor.blue(c));
+        this.hex.setValue(String.format("%06x", c & LXColor.RGB_MASK));
+        this.inRGBUpdate = false;
+      }
+    }
+
+    private void updateColor() {
+      if (this.rgbColor != null) {
+        this.rgbColor.removeListener(this.rgbListener);
+        this.rgbColor = null;
+      }
+      if (color == null) {
+        this.hue.setParameter(null);
+        this.saturation.setParameter(null);
+        this.brightness.setParameter(null);
+      } else {
+        this.hue.setParameter(color.hue);
+        this.saturation.setParameter(color.saturation);
+        this.brightness.setParameter(color.brightness);
+        this.rgbColor = color;
+        color.addListener(this.rgbListener, true);
+      }
+    }
+
+    @Override
+    public void dispose() {
+      if (this.rgbColor != null) {
+        this.rgbColor.removeListener(this.rgbListener);
+        this.rgbColor = null;
+      }
+      super.dispose();
     }
 
     private class UISwatch extends UI2dComponent implements UIFocus {
@@ -228,9 +448,15 @@ public class UIColorPicker extends UI2dComponent {
       private static final float WIDTH = BRIGHT_SLIDER_X + BRIGHT_SLIDER_WIDTH + 2*PADDING;
       private static final float HEIGHT = GRID_HEIGHT + 2*PADDING;
 
+      private boolean enabled = true;
+
       public UISwatch() {
         super(4, 4, WIDTH, HEIGHT);
         setFocusCorners(false);
+      }
+
+      private void setEnabled(boolean enabled) {
+        this.enabled = enabled;
       }
 
       @Override
@@ -267,7 +493,7 @@ public class UIColorPicker extends UI2dComponent {
 
         // Color square
         vg.beginPath();
-        vg.strokeColor(brightness < 50 ? 0xffffffff : 0xff000000);
+        vg.strokeColor(brightness < 50 ? UIColor.WHITE : UIColor.BLACK);
         vg.ellipse(
           GRID_X + hue / 360 * GRID_WIDTH,
           GRID_Y + (1 - saturation / 100) * GRID_HEIGHT,
@@ -278,7 +504,7 @@ public class UIColorPicker extends UI2dComponent {
 
         // Brightness triangle
         vg.beginPath();
-        vg.fillColor(0xffcccccc);
+        vg.fillColor(ui.theme.controlTextColor);
         float xp = BRIGHT_SLIDER_X;
         float yp = BRIGHT_SLIDER_Y + (1 - brightness / 100) * BRIGHT_SLIDER_HEIGHT;
         vg.moveTo(xp, yp);
@@ -298,6 +524,9 @@ public class UIColorPicker extends UI2dComponent {
 
       @Override
       public void onMousePressed(MouseEvent mouseEvent, float mx, float my) {
+        if (!this.enabled) {
+          return;
+        }
         mouseEvent.consume();
         this.setBrightness = null;
         this.setColor = null;
@@ -326,6 +555,9 @@ public class UIColorPicker extends UI2dComponent {
 
       @Override
       public void onMouseDragged(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
+        if (!this.enabled) {
+          return;
+        }
         mouseEvent.consume();
         if (this.draggingBrightness) {
           if (dy != 0) {
@@ -340,6 +572,9 @@ public class UIColorPicker extends UI2dComponent {
 
       @Override
       public void onKeyPressed(KeyEvent keyEvent, char keyChar, int keyCode) {
+        if (!this.enabled) {
+          return;
+        }
         float inc = keyEvent.isShiftDown() ? 10 : 2;
         if (keyCode == KeyEvent.VK_UP) {
           keyEvent.consume();

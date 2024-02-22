@@ -86,8 +86,8 @@ public class MouseEvent extends Event {
     this.dy = dy;
   }
 
-  public MouseEvent(double time, Action action, float x, float y, float dx, float dy, int modifiers) {
-    super(modifiers, time);
+  public MouseEvent(MouseEvent source, Action action, float x, float y, float dx, float dy, int modifiers) {
+    super(modifiers, source.glfwTime, source.nanoTime);
     this.action = action;
     this.button = BUTTON_NONE;
     this.x = x;
@@ -127,13 +127,21 @@ public class MouseEvent extends Event {
 
   public boolean isRepeat(MouseEvent that) {
     return
-      (that.time - this.time) < REPEAT_CLICK_TIME &&
+      (that.glfwTime - this.glfwTime) < REPEAT_CLICK_TIME &&
       Math.abs(that.x - this.x) < REPEAT_CLICK_PX &&
       Math.abs(that.y - this.y) < REPEAT_CLICK_PX;
   }
 
   public int getCount() {
     return this.count;
+  }
+
+  public boolean isButton(int button) {
+    return this.button == button;
+  }
+
+  public boolean isDoubleClick() {
+    return (this.count % 2) == 0;
   }
 
   @Override

@@ -18,11 +18,11 @@
 
 package heronarts.glx.ui;
 
-import heronarts.lx.parameter.CompoundParameter;
+import heronarts.lx.modulation.LXCompoundModulation;
 
 /**
  * Interface for UI elements that may offer a modulation target
  */
 public interface UIModulationTarget {
-  public CompoundParameter getModulationTarget();
+  public LXCompoundModulation.Target getModulationTarget();
 }

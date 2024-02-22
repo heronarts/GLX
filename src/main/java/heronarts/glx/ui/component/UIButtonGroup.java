@@ -24,10 +24,11 @@ import java.util.List;
 import heronarts.glx.ui.UI2dContainer;
 import heronarts.glx.ui.UIContextActions;
 import heronarts.glx.ui.UIControlTarget;
+import heronarts.lx.LX;
 import heronarts.lx.command.LXCommand;
 import heronarts.lx.osc.LXOscEngine;
 import heronarts.lx.parameter.DiscreteParameter;
-import heronarts.lx.parameter.LXParameter;
+import heronarts.lx.parameter.LXNormalizedParameter;
 
 public class UIButtonGroup extends UI2dContainer implements UIControlTarget, UIContextActions {
 
@@ -37,7 +38,7 @@ public class UIButtonGroup extends UI2dContainer implements UIControlTarget, UIC
 
   public final UIButton[] buttons;
 
-  private boolean inParameterUpdate = false;
+  private boolean internalStateUpdate = false;
 
   public UIButtonGroup(DiscreteParameter parameter, float x, float y, float w, float h) {
     this(parameter, x, y, w, h, false);
@@ -45,54 +46,56 @@ public class UIButtonGroup extends UI2dContainer implements UIControlTarget, UIC
 
   public UIButtonGroup(final DiscreteParameter parameter, float x, float y, float w, float h, final boolean hideFirst) {
     super(x, y, w, h);
-    setLayout(UI2dContainer.Layout.HORIZONTAL);
-    setChildSpacing(DEFAULT_BUTTON_MARGIN);
+    setLayout(UI2dContainer.Layout.HORIZONTAL, DEFAULT_BUTTON_MARGIN);
 
     this.parameter = parameter;
-    int range = parameter.getRange();
-    this.buttons = new UIButton[range];
+    final int range = parameter.getRange();
 
-    int numButtons = range - (hideFirst ? 1 : 0);
-    int buttonWidth = (int) (w - (numButtons-1) * DEFAULT_BUTTON_MARGIN) / numButtons;
+    this.buttons = new UIButton[range];
+    final LX lx = this.parameter.getParent().getLX();
+    final String[] options = this.parameter.getOptions();
+
+    final int numButtons = range - (hideFirst ? 1 : 0);
+    final int buttonWidth = (int) (w - (numButtons-1) * DEFAULT_BUTTON_MARGIN) / numButtons;
 
     for (int i = hideFirst ? 1 : 0; i < range; ++i) {
-      final int iv = i;
-      this.buttons[i] = new UIButton(0, 0, buttonWidth, h) {
+      final int index = i;
+      this.buttons[i] = (UIButton) new UIButton(0, 0, buttonWidth, h) {
         @Override
         public void onToggle(boolean enabled) {
-          if (!inParameterUpdate) {
+          if (!internalStateUpdate) {
             if (enabled) {
               if (this.useCommandEngine) {
-                getLX().command.perform(new LXCommand.Parameter.SetValue(parameter, iv));
+                lx.command.perform(new LXCommand.Parameter.SetIndex(parameter, index));
               } else {
-                parameter.setValue(iv);
+                parameter.setIndex(index);
               }
             } else if (hideFirst) {
               if (this.useCommandEngine) {
-                getLX().command.perform(new LXCommand.Parameter.SetValue(parameter, 0));
+                lx.command.perform(new LXCommand.Parameter.SetIndex(parameter, 0));
               } else {
-                parameter.setValue(0);
+                parameter.setIndex(0);
               }
             }
           }
         }
-      };
-      this.buttons[i]
-      .setLabel(parameter.getOptions()[i])
-      .setActive(i == parameter.getValuei())
+      }
+      .setLabel(options[index])
       .addToContainer(this);
     }
 
-    addListener(parameter, (p) -> {
-      int active = parameter.getValuei();
-      inParameterUpdate = true;
-      for (int i = 0; i < buttons.length; ++i) {
-        if (!hideFirst || i > 0) {
-          buttons[i].setActive(i == active);
+    // Initialize and follow button state
+    addListener(parameter, p -> {
+      this.internalStateUpdate = true;
+      final int activeIndex = parameter.getBaseIndex();
+      for (int i = 0; i < this.buttons.length; ++i) {
+        // NOTE: if hideFirst was true index 0 will be null
+        if (this.buttons[i] != null) {
+          this.buttons[i].setActive(i == activeIndex);
         }
       }
-      inParameterUpdate = false;
-    });
+      this.internalStateUpdate = false;
+    }, true);
   }
 
   @Override
@@ -101,11 +104,8 @@ public class UIButtonGroup extends UI2dContainer implements UIControlTarget, UIC
   }
 
   @Override
-  public LXParameter getControlTarget() {
-    if (isMappable() && this.parameter != null && this.parameter.isMappable() && this.parameter.getParent() != null) {
-      return this.parameter;
-    }
-    return null;
+  public LXNormalizedParameter getControlTarget() {
+    return getMappableParameter(this.parameter);
   }
 
   @Override

@@ -39,7 +39,7 @@ public class UI2dContext extends UI2dContainer implements UILayer {
   public UI2dContext(UI ui, float x, float y, float w, float h) {
     super(x, y, w, h);
     setUI(ui);
-    this.framebuffer = ui.vg.createFramebuffer(w, h, 0);
+    this.framebuffer = ui.vg.createFramebuffer(this, w, h, 0);
   }
 
   public UI2dContext setOffscreen(boolean isOffscreen) {
@@ -49,11 +49,6 @@ public class UI2dContext extends UI2dContainer implements UILayer {
 
   public short getTexture() {
     return (short) this.framebuffer.getHandle();
-  }
-
-  public UI2dContext setView(short viewId) {
-    this.framebuffer.setView(viewId);
-    return this;
   }
 
   public VGraphics.Paint getPaint() {
@@ -68,10 +63,15 @@ public class UI2dContext extends UI2dContainer implements UILayer {
    *
    * @param vg VGraphics instance
    */
-  protected final void render(VGraphics vg) {
+  protected final void render(VGraphics vg, short viewId) {
+    this.framebuffer.setView(viewId);
+
+    this.scissor.reset(this);
+
     // Bind the framebuffer, which rebuilds if necessary
     vg.bindFramebuffer(this.framebuffer);
     vg.beginFrame(this.width, this.height);
+    vg.scissor(0, 0, this.width, this.height);
     super.draw(this.ui, vg);
     vg.endFrame();
 
@@ -139,7 +139,16 @@ public class UI2dContext extends UI2dContainer implements UILayer {
   @Override
   protected void onResize() {
     this.framebuffer.markForResize(this.width, this.height);
+
+    // Redraw with the force flag set, to ensure that this WHOLE thing is redrawn
+    // *after* the framebuffer resize
     redraw();
+  }
+
+  @Override
+  public void dispose() {
+    this.ui.disposeFramebuffer(this.framebuffer);
+    super.dispose();
   }
 
 }

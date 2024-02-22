@@ -22,6 +22,7 @@ import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
 import heronarts.glx.ui.UI2dComponent;
+import heronarts.glx.ui.UIColor;
 import heronarts.glx.ui.UIContextActions;
 import heronarts.glx.ui.UIFocus;
 import heronarts.glx.ui.vg.VGraphics;
@@ -29,9 +30,12 @@ import heronarts.glx.ui.vg.VGraphics;
 public class UIContextButton extends UI2dComponent implements UIFocus {
 
   private String label = "";
-  private final UIContextMenu contextMenu;
+  private final UI2dComponent contextMenu;
   private float contextMenuWidth = -1;
   private Direction direction = Direction.DOWN;
+  private VGraphics.Image icon = null;
+  private float iconOffsetX = 0, iconOffsetY = 0;
+
 
   /**
    * Direction that a context menu opens from a button
@@ -48,12 +52,29 @@ public class UIContextButton extends UI2dComponent implements UIFocus {
     UP
   };
 
-  public UIContextButton(float x, float y, float w, float h) {
+  public UIContextButton(UI ui, float x, float y, float w, float h) {
+    this(ui, x, y, w, h, new UIContextMenu(0, 0, UIContextMenu.DEFAULT_WIDTH, 0));
+    this.contextMenuWidth = -1;
+  }
+
+  public UIContextButton(UI ui, float x, float y, float w, float h, UI2dComponent contextMenu) {
     super(x, y, w, h);
-    setBorderColor(UI.get().theme.getControlBorderColor());
-    setFontColor(UI.get().theme.getControlTextColor());
-    setBackgroundColor(UI.get().theme.getControlBackgroundColor());
-    this.contextMenu = new UIContextMenu(0, 0, UIContextMenu.DEFAULT_WIDTH, 0);
+    setBorderColor(ui.theme.controlBorderColor);
+    setFontColor(ui.theme.controlTextColor);
+    setBackgroundColor(ui.theme.controlBackgroundColor);
+    this.contextMenu = contextMenu;
+    this.contextMenuWidth = contextMenu.getWidth();
+  }
+
+  public UIContextButton setIcon(VGraphics.Image icon) {
+    this.icon = icon;
+    return this;
+  }
+
+  public UIContextButton setIconOffset(float iconOffsetX, float iconOffsetY) {
+    this.iconOffsetX = iconOffsetX;
+    this.iconOffsetY = iconOffsetY;
+    return this;
   }
 
   /**
@@ -61,7 +82,7 @@ public class UIContextButton extends UI2dComponent implements UIFocus {
    *
    * @return Context menu object opened by this button
    */
-  public UIContextMenu getContextMenu() {
+  public UI2dComponent getContextMenu() {
     return this.contextMenu;
   }
 
@@ -84,7 +105,10 @@ public class UIContextButton extends UI2dComponent implements UIFocus {
    * @return this
    */
   public UIContextButton setContextActions(UIContextActions.Action[] contextActions) {
-    this.contextMenu.setActions(contextActions);
+    if (!(this.contextMenu instanceof UIContextMenu)) {
+      throw new IllegalStateException("May not set context actions on custom UIContextButton");
+    }
+    ((UIContextMenu) this.contextMenu).setActions(contextActions);
     return this;
   }
 
@@ -115,8 +139,19 @@ public class UIContextButton extends UI2dComponent implements UIFocus {
 
   @Override
   public void onDraw(UI ui, VGraphics vg) {
-    if ((this.label != null) && (this.label.length() > 0)) {
-      int fontColor = this.mouseDown ? UI.WHITE : getFontColor();
+    if (this.icon != null) {
+      UIColor iconTint = this.mouseDown ? ui.theme.controlActiveTextColor : getFontColor();
+      this.icon.setTint(iconTint);
+      vg.beginPath();
+      vg.image(
+        this.icon,
+        this.iconOffsetX + this.width/2 - this.icon.width/2,
+        this.iconOffsetY + this.height/2 - this.icon.height/2
+      );
+      vg.fill();
+      this.icon.noTint();
+    } else if ((this.label != null) && (this.label.length() > 0)) {
+      UIColor fontColor = this.mouseDown ? ui.theme.controlActiveTextColor : getFontColor();
       vg.fillColor(fontColor);
       vg.fontFace(hasFont() ? getFont() : ui.theme.getControlFont());
       if (this.textAlignVertical == VGraphics.Align.MIDDLE) {
@@ -153,7 +188,9 @@ public class UIContextButton extends UI2dComponent implements UIFocus {
   public void onKeyPressed(KeyEvent keyEvent, char keyChar, int keyCode) {
     if (this.contextMenu.isVisible()) {
       keyEvent.consume();
-      this.contextMenu.onKeyPressed(keyEvent, keyChar, keyCode);
+      if (this.contextMenu instanceof UIContextMenu) {
+        ((UIContextMenu) this.contextMenu).onKeyPressed(keyEvent, keyChar, keyCode);
+      }
     } else if ((keyCode == KeyEvent.VK_SPACE) || keyEvent.isEnter()) {
       keyEvent.consume();
       showMenu();
@@ -170,7 +207,16 @@ public class UIContextButton extends UI2dComponent implements UIFocus {
       this.contextMenu.setPosition(this, 0, -this.contextMenu.getHeight());
       break;
     }
-    this.contextMenu.setHighlight(0);
+    if (this.contextMenu instanceof UIContextMenu) {
+      ((UIContextMenu) this.contextMenu).setHighlight(0);
+    }
     getUI().showContextOverlay(this.contextMenu);
+  }
+
+  @Override
+  public void dispose() {
+    UI.get().clearContextOverlay(this.contextMenu);
+    this.contextMenu.dispose();
+    super.dispose();
   }
 }

@@ -20,7 +20,6 @@ package heronarts.glx.ui.component;
 
 import heronarts.lx.osc.LXOscEngine;
 import heronarts.lx.parameter.BooleanParameter;
-import heronarts.lx.parameter.CompoundParameter;
 import heronarts.lx.parameter.DiscreteParameter;
 import heronarts.lx.parameter.FunctionalParameter;
 import heronarts.lx.parameter.LXListenableParameter;
@@ -31,6 +30,8 @@ import heronarts.glx.event.Event;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
+import heronarts.glx.ui.UI2dComponent;
+import heronarts.glx.ui.UIColor;
 import heronarts.glx.ui.UIControlTarget;
 import heronarts.glx.ui.UICopy;
 import heronarts.glx.ui.UIModulationSource;
@@ -41,6 +42,7 @@ import heronarts.lx.clipboard.LXClipboardItem;
 import heronarts.lx.clipboard.LXNormalizedValue;
 import heronarts.lx.color.LXColor;
 import heronarts.lx.command.LXCommand;
+import heronarts.lx.modulation.LXCompoundModulation;
 
 public abstract class UIParameterControl extends UIInputBox implements UIControlTarget, UIModulationTarget, UIModulationSource, LXParameterListener, UICopy, UIPaste {
 
@@ -49,6 +51,10 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
   protected final static int LABEL_HEIGHT = 12;
 
   public final static int TEXT_MARGIN = 1;
+
+  private final static int EDIT_DISPLAY_VALUE_MS = 1000;
+
+  private double editTimeRemaining = 0;
 
   private boolean showValue = false;
 
@@ -68,6 +74,14 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
     super(x, y, w, h + LABEL_MARGIN + LABEL_HEIGHT);
     setBackground(false);
     setBorder(false);
+    addLoopTask(deltaMs -> {
+      if (this.editTimeRemaining > 0) {
+        this.editTimeRemaining -= deltaMs;
+        if (this.showLabel && (this.editTimeRemaining <= 0)) {
+          redraw();
+        }
+      }
+    });
   }
 
   @Override
@@ -126,6 +140,10 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
     return this;
   }
 
+  public boolean isShowLabel() {
+    return this.showLabel;
+  }
+
   public UIParameterControl setLabel(String label) {
     if (this.label != label) {
       this.label = label;
@@ -135,23 +153,24 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
   }
 
   @Override
-  protected int getFocusColor(UI ui) {
+  protected UIColor getFocusColor(UI ui) {
     if (!isEnabled() || !isEditable()) {
-      return ui.theme.getControlDisabledColor();
+      return ui.theme.controlDisabledColor;
     }
     return super.getFocusColor(ui);
   }
 
+  @Override
   public void onParameterChanged(LXParameter parameter) {
+    if (this.showLabel && isVisible()) {
+      this.editTimeRemaining = EDIT_DISPLAY_VALUE_MS;
+    }
     redraw();
   }
 
-  protected double getNormalized() {
+  protected double getBaseNormalized() {
     if (this.parameter != null) {
-      if (this.parameter instanceof CompoundParameter) {
-        return ((CompoundParameter) this.parameter).getBaseNormalized();
-      }
-      return this.parameter.getNormalized();
+      return this.parameter.getBaseNormalized();
     }
     return 0;
   }
@@ -209,13 +228,11 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
   protected String getValueString() {
     if (this.parameter != null) {
       if (this.parameter instanceof DiscreteParameter) {
-        return ((DiscreteParameter) this.parameter).getOption();
+        return ((DiscreteParameter) this.parameter).getBaseOption();
       } else if (this.parameter instanceof BooleanParameter) {
         return ((BooleanParameter) this.parameter).isOn() ? "ON" : "OFF";
-      } else if (this.parameter instanceof CompoundParameter) {
-        return this.parameter.getFormatter().format(((CompoundParameter) this.parameter).getBaseValue());
       } else {
-        return this.parameter.getFormatter().format(this.parameter.getValue());
+        return this.parameter.getFormatter().format(this.parameter.getBaseValue());
       }
     }
     return "-";
@@ -243,42 +260,17 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
   }
 
   @Override
-  @SuppressWarnings("fallthrough")
-  protected void saveEditBuffer() {
+  protected void saveEditBuffer(String editBuffer) {
     if (!isEditable()) {
       throw new IllegalStateException("Cannot save edit buffer on non-editable parameter");
     }
     if (this.parameter != null) {
       try {
-        if (this.editBuffer.indexOf(':') >= 0) {
-          double multiplier = 1;
-          switch (this.parameter.getUnits()) {
-          case MILLISECONDS:
-            multiplier = 1000;
-            // intentional pass-thru
-          case SECONDS:
-            String[] parts = this.editBuffer.split(":");
-            double value = 0;
-            for (String part : parts) {
-              value = value * 60 + Double.parseDouble(part);
-            }
-            if (this.useCommandEngine) {
-              getLX().command.perform(new LXCommand.Parameter.SetValue(this.parameter, value * multiplier));
-            } else {
-              this.parameter.setValue(value * multiplier);
-            }
-            break;
-          default:
-            // No colon character allowed for other types
-            break;
-          }
+        final double value = this.parameter.getUnits().parseDouble(editBuffer);
+        if (this.useCommandEngine) {
+          getLX().command.perform(new LXCommand.Parameter.SetValue(this.parameter, value));
         } else {
-          double value = Double.parseDouble(this.editBuffer);
-          if (this.useCommandEngine) {
-            getLX().command.perform(new LXCommand.Parameter.SetValue(this.parameter, value));
-          } else {
-            this.parameter.setValue(value);
-          }
+          this.parameter.setValue(value);
         }
       } catch (NumberFormatException nfx) {}
     }
@@ -291,28 +283,33 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
     }
   }
 
+  public static void drawParameterLabel(UI ui, VGraphics vg, UI2dComponent component, String labelText) {
+    vg.beginPath();
+    vg.fillColor(ui.theme.controlTextColor);
+    vg.textAlign(VGraphics.Align.CENTER, VGraphics.Align.MIDDLE);
+    vg.fontFace(ui.theme.getControlFont());
+    vg.text(component.getWidth()/2, component.getHeight() - TEXT_MARGIN - LABEL_HEIGHT/2, clipTextToWidth(vg, labelText, component.getWidth() - TEXT_MARGIN));
+    vg.fill();
+  }
+
   private void drawLabel(UI ui, VGraphics vg) {
     if (this.editing) {
       vg.beginPath();
       vg.rect(0, this.height - LABEL_HEIGHT, this.width, LABEL_HEIGHT);
-      vg.fillColor(ui.theme.getControlBackgroundColor());
+      vg.fillColor(ui.theme.controlBackgroundColor);
       vg.fill();
 
       vg.beginPath();
       vg.fontFace(ui.theme.getControlFont());
       vg.textAlign(VGraphics.Align.CENTER, VGraphics.Align.MIDDLE);
-      vg.fillColor(ui.theme.getPrimaryColor());
-      vg.text(this.width/2, this.height - LABEL_HEIGHT/2, clipTextToWidth(vg, this.editBuffer, this.width - TEXT_MARGIN));
+      vg.fillColor(ui.theme.editTextColor);
+      vg.text(this.width/2, this.height - LABEL_HEIGHT/2, clipTextToWidth(vg, getEditBuffer(), this.width - TEXT_MARGIN));
       vg.fill();
 
     } else {
-      String labelText = this.showValue ? getValueString() : getLabelString();
-      vg.beginPath();
-      vg.fillColor(ui.theme.getControlTextColor());
-      vg.textAlign(VGraphics.Align.CENTER, VGraphics.Align.MIDDLE);
-      vg.fontFace(ui.theme.getControlFont());
-      vg.text(this.width/2, this.height - TEXT_MARGIN - LABEL_HEIGHT/2, clipTextToWidth(vg, labelText, this.width - TEXT_MARGIN));
-      vg.fill();
+      String labelText = (this.showValue || (this.editTimeRemaining > 0)) ? getValueString() : getLabelString();
+      drawParameterLabel(ui, vg, this, labelText);
+
     }
   }
 
@@ -345,7 +342,7 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
           ((BooleanParameter) this.parameter).setValue(value);
         }
       } else {
-        double value = getNormalized() - getIncrement(keyEvent);
+        double value = getBaseNormalized() - getIncrement(keyEvent);
         if (isWrappable() && value < 0) {
           value = 1 + (value % 1.);
         }
@@ -379,7 +376,7 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
           ((BooleanParameter) this.parameter).setValue(value);
         }
       } else {
-        double value = getNormalized() + getIncrement(keyEvent);
+        double value = getBaseNormalized() + getIncrement(keyEvent);
         if (isWrappable() && value > 1) {
           value = value % 1.;
         }
@@ -394,7 +391,7 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
       if ((keyCode == KeyEvent.VK_SPACE) || keyEvent.isEnter()) {
         keyEvent.consume();
         setShowValue(true);
-      } else if (isEnabled() && isEditable() && keyEvent.isShiftDown() && keyCode == KeyEvent.VK_BACKSPACE) {
+      } else if (isEnabled() && isEditable() && keyEvent.isShiftDown() && keyEvent.isDelete()) {
         keyEvent.consume();
         if (this.parameter != null) {
           this.parameter.reset();
@@ -433,7 +430,7 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
   }
 
   @Override
-  public LXParameter getControlTarget() {
+  public LXNormalizedParameter getControlTarget() {
     return getMappableParameter();
   }
 
@@ -443,18 +440,15 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
   }
 
   @Override
-  public CompoundParameter getModulationTarget() {
-    if (this.parameter instanceof CompoundParameter) {
-      return (CompoundParameter) getMappableParameter();
+  public LXCompoundModulation.Target getModulationTarget() {
+    if (this.parameter instanceof LXCompoundModulation.Target) {
+      return (LXCompoundModulation.Target) getMappableParameter();
     }
     return null;
   }
 
   private LXNormalizedParameter getMappableParameter() {
-    if (isMappable() && this.parameter != null && this.parameter.isMappable() && this.parameter.getParent() != null) {
-      return this.parameter;
-    }
-    return null;
+    return getMappableParameter(this.parameter);
   }
 
   /**

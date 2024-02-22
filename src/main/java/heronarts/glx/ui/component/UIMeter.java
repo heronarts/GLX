@@ -31,10 +31,18 @@ public class UIMeter extends UI2dComponent implements UIModulationSource {
     HORIZONTAL
   };
 
-  private final LXNormalizedParameter parameter;
+  private LXNormalizedParameter parameter;
   private final Axis axis;
 
-  private float d = 0;
+  protected float drawPixels = 0;
+
+  public static UIMeter newHorizontalMeter(UI ui, LXNormalizedParameter parameter, float w, float h) {
+    return new UIMeter(ui, parameter, Axis.HORIZONTAL, 0, 0, w, h);
+  }
+
+  public static UIMeter newVerticalMeter(UI ui, LXNormalizedParameter parameter, float w, float h) {
+    return new UIMeter(ui, parameter, Axis.VERTICAL, 0, 0, w, h);
+  }
 
   public UIMeter(UI ui, LXNormalizedParameter parameter, float x, float y, float w, float h) {
     this(ui, parameter, Axis.VERTICAL, x, y, w, h);
@@ -42,35 +50,41 @@ public class UIMeter extends UI2dComponent implements UIModulationSource {
 
   public UIMeter(UI ui, LXNormalizedParameter parameter, Axis axis, float x, float y, float w, float h) {
     super(x, y, w, h);
-    setBorderColor(ui.theme.getControlBorderColor());
-    setBackgroundColor(ui.theme.getDarkBackgroundColor());
+    setBorderColor(ui.theme.controlBorderColor);
+    setBackgroundColor(ui.theme.meterBackgroundColor);
 
     this.parameter = parameter;
     this.axis = axis;
 
     addLoopTask((deltaMs) -> {
-      float dv = ((axis == Axis.VERTICAL) ? (this.height-2) : (this.width - 2)) * this.parameter.getNormalizedf();
-      if (dv != this.d) {
-        this.d = dv;
+      float normalized = (this.parameter == null) ? 0 : this.parameter.getNormalizedf();
+      float dv = ((axis == Axis.VERTICAL) ? (this.height-2) : (this.width - 2)) * normalized;
+      if (dv != this.drawPixels) {
+        this.drawPixels = dv;
         redraw();
       }
     });
   }
 
+  public UIMeter setParameter(LXNormalizedParameter parameter) {
+    this.parameter = parameter;
+    return this;
+  }
+
   @Override
   public String getDescription() {
-    return this.parameter.getLabel() + ": " + this.parameter.getDescription();
+    return (this.parameter == null) ? "No parameter" : UIParameterControl.getDescription(this.parameter);
   }
 
   @Override
   public void onDraw(UI ui, VGraphics vg) {
-    if (this.d > 0.5f) {
-      vg.fillColor(ui.theme.getPrimaryColor());
+    if (this.drawPixels > 0.5f) {
+      vg.fillColor(ui.theme.primaryColor);
       vg.beginPath();
       if (this.axis == Axis.VERTICAL) {
-        vg.rect(1, this.height-1-this.d, this.width-2, this.d);
+        vg.rect(1, this.height-1-this.drawPixels, this.width-2, this.drawPixels);
       } else {
-        vg.rect(1, 1, this.d, this.height-2);
+        vg.rect(1, 1, this.drawPixels, this.height-2);
       }
       vg.fill();
     }

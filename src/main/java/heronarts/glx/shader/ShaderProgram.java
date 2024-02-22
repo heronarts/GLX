@@ -61,18 +61,25 @@ public class ShaderProgram {
   }
 
   public void submit(View view, VertexBuffer vertexBuffer) {
-    submit(view, vertexBuffer, this.bgfxState);
+    submit(view, this.bgfxState, vertexBuffer);
   }
 
   public void submit(View view, long bgfxState) {
-    submit(view, null, bgfxState);
+    submit(view, bgfxState, (VertexBuffer[]) null);
   }
 
-  public void submit(View view, VertexBuffer vertexBuffer, long bgfxState) {
+  public void submit(View view, long bgfxState, VertexBuffer ... vertexBuffers) {
     bgfx_set_state(bgfxState, 0);
     setUniforms(view);
-    if (vertexBuffer != null) {
-      bgfx_set_vertex_buffer(0, vertexBuffer.getHandle(), 0, vertexBuffer.getNumVertices());
+    if (vertexBuffers != null) {
+      int vertexStream = 0;
+      for (VertexBuffer vertexBuffer : vertexBuffers) {
+        if (vertexBuffer == null) {
+          GLX.error(new Exception("A null vertexBuffer was passed to ShaderProgram.submit"));
+        } else {
+          bgfx_set_vertex_buffer(vertexStream++, vertexBuffer.getHandle(), 0, vertexBuffer.getNumVertices());
+        }
+      }
     }
     setVertexBuffers(view);
     bgfx_submit(view.getId(), this.handle, 0, BGFX_DISCARD_ALL);

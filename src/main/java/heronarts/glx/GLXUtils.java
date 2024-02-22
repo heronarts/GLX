@@ -48,6 +48,13 @@ public class GLXUtils {
     public final int height;
     public final int components;
 
+    private Image(int[] argb, int width, int height) {
+      this.pixels = argb;
+      this.width = width;
+      this.height = height;
+      this.components = -1;
+    }
+
     private Image(ByteBuffer imageBuffer) throws IOException {
       try (MemoryStack stack = MemoryStack.stackPush()) {
         IntBuffer width = stack.mallocInt(1);
@@ -86,14 +93,23 @@ public class GLXUtils {
 
     public int getNormalized(float x, float y) {
       return get(
-        (int) (x * (this.width - .5f)),
-        (int) (y * (this.height - .5f))
+        (int) (x * (this.width - .01f)),
+        (int) (y * (this.height - .01f))
       );
+    }
+
+    public float getAspectRatio() {
+      return (float) this.width / (float) this.height;
     }
   }
 
+  public static Image loadRaster(int[] argb, int width, int height) {
+    return new Image(argb, width, height);
+  }
+
   public static Image loadImage(String path) throws IOException {
-    return new Image(loadFile(path));
+    ByteBuffer buffer = loadFile(path);
+    return (buffer != null) ? new Image(buffer) : null;
   }
 
   public static ByteBuffer loadShader(GLX glx, String name) throws IOException {

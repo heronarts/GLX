@@ -22,22 +22,24 @@ import heronarts.glx.event.Event;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UIControlTarget;
+import heronarts.glx.ui.UIModulationTarget;
 import heronarts.lx.command.LXCommand;
+import heronarts.lx.modulation.LXCompoundModulation;
 import heronarts.lx.parameter.DiscreteParameter;
-import heronarts.lx.parameter.LXParameter;
+import heronarts.lx.parameter.LXNormalizedParameter;
 import heronarts.lx.parameter.LXParameterListener;
 import heronarts.lx.utils.LXUtils;
 
-public class UIIntegerBox extends UINumberBox implements UIControlTarget {
+public class UIIntegerBox extends UINumberBox implements UIControlTarget, UIModulationTarget {
 
   private int minValue = 0;
   private int maxValue = Integer.MAX_VALUE;
   private int value = 0;
+  private boolean wrappable = true;
   protected DiscreteParameter parameter = null;
-  protected int editMultiplier = 1;
 
-  private final LXParameterListener parameterListener = (p) -> {
-    setValue(this.parameter.getValuei(), false);
+  private final LXParameterListener parameterListener = p -> {
+    setValue(this.parameter.getBaseValuei(), false);
   };
 
   public UIIntegerBox() {
@@ -53,7 +55,11 @@ public class UIIntegerBox extends UINumberBox implements UIControlTarget {
   }
 
   public UIIntegerBox(float w, float h, DiscreteParameter parameter) {
-    this(0, 0, w, h);
+    this(0, 0, w, h, parameter);
+  }
+
+  public UIIntegerBox(float x, float y, float w, float h, DiscreteParameter parameter) {
+    this(x, y, w, h);
     setParameter(parameter);
   }
 
@@ -63,11 +69,12 @@ public class UIIntegerBox extends UINumberBox implements UIControlTarget {
   }
 
   @Override
-  public LXParameter getParameter() {
+  public DiscreteParameter getParameter() {
     return this.parameter;
   }
 
   public UIIntegerBox setParameter(final DiscreteParameter parameter) {
+    super.setModulationTarget(parameter);
     if (this.parameter != null) {
       this.parameter.removeListener(this.parameterListener);
     }
@@ -75,13 +82,32 @@ public class UIIntegerBox extends UINumberBox implements UIControlTarget {
     if (parameter != null) {
       this.minValue = parameter.getMinValue();
       this.maxValue = parameter.getMaxValue();
-      this.value = parameter.getValuei();
+      this.value = parameter.getBaseValuei();
       this.parameter.addListener(this.parameterListener);
     }
     redraw();
     return this;
   }
 
+  /**
+   * Sets whether the box is wrappable, only applies when there is not a parameter
+   * set.
+   *
+   * @param wrappable Whether box is wrappable when no parameter set
+   * @return This
+   */
+  public UIIntegerBox setWrappable(boolean wrappable) {
+    this.wrappable = wrappable;
+    return this;
+  }
+
+  /**
+   * Sets the range of the input box, inclusive
+   *
+   * @param minValue Minimum value (inclusive)
+   * @param maxValue Maximum value (inclusive)
+   * @return this
+   */
   public UIIntegerBox setRange(int minValue, int maxValue) {
     this.minValue = minValue;
     this.maxValue = maxValue;
@@ -101,11 +127,6 @@ public class UIIntegerBox extends UINumberBox implements UIControlTarget {
       return this.parameter.getMaxValue();
     }
     return this.maxValue;
-  }
-
-  public UIIntegerBox setEditMultiplier(int editMultiplier) {
-    this.editMultiplier = editMultiplier;
-    return this;
   }
 
   @Override
@@ -136,22 +157,32 @@ public class UIIntegerBox extends UINumberBox implements UIControlTarget {
   }
 
   protected UIIntegerBox setValue(int value, boolean pushToParameter) {
-    if (this.value != value) {
-      int min = getMinValue();
-      int max = getMaxValue();
-      int range = (max - min + 1);
-      while (value < min) {
-        value += range;
+    if (this.value == value) {
+      return this;
+    }
+    final int min = getMinValue();
+    final int max = getMaxValue();
+    final boolean wrappable = (this.parameter == null) ? this.wrappable : this.parameter.isWrappable();
+    if (wrappable) {
+      final int range = (max - min + 1);
+      if (value < min) {
+        value = max + ((value - min) % range);
+      } else if (value > max) {
+        value = min + ((value - min) % range);
       }
-      this.value = min + (value - min) % range;
-      if (this.parameter != null && pushToParameter) {
+    } else {
+      value = LXUtils.constrain(value, min, max);
+    }
+    if (this.value != value) {
+      this.value = value;
+      if ((this.parameter != null) && pushToParameter) {
         if (this.useCommandEngine) {
           getLX().command.perform(new LXCommand.Parameter.SetValue(this.parameter, this.value));
         } else {
           this.parameter.setValue(this.value);
         }
       }
-      this.onValueChange(this.value);
+      onValueChange(this.value);
       redraw();
     }
     return this;
@@ -165,9 +196,9 @@ public class UIIntegerBox extends UINumberBox implements UIControlTarget {
   protected void onValueChange(int value) {}
 
   @Override
-  protected void saveEditBuffer() {
+  protected void saveEditBuffer(String editBuffer) {
     try {
-      setValue(this.editMultiplier * Integer.parseInt(this.editBuffer));
+      setValue(Integer.parseInt(editBuffer));
     } catch (NumberFormatException nfx) {}
   }
 
@@ -208,9 +239,14 @@ public class UIIntegerBox extends UINumberBox implements UIControlTarget {
   }
 
   @Override
-  public LXParameter getControlTarget() {
-    if (isMappable() && this.parameter != null && this.parameter.isMappable() && this.parameter.getParent() != null) {
-      return this.parameter;
+  public LXNormalizedParameter getControlTarget() {
+    return getMappableParameter(this.parameter);
+  }
+
+  @Override
+  public LXCompoundModulation.Target getModulationTarget() {
+    if (this.parameter instanceof LXCompoundModulation.Target) {
+      return (LXCompoundModulation.Target) getMappableParameter(this.parameter);
     }
     return null;
   }

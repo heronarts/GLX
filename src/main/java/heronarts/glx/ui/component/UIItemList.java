@@ -29,9 +29,11 @@ import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
 import heronarts.glx.ui.UI2dComponent;
 import heronarts.glx.ui.UI2dContainer;
-import heronarts.glx.ui.UI2dScrollContext;
+import heronarts.glx.ui.UIColor;
 import heronarts.glx.ui.UIFocus;
 import heronarts.glx.ui.vg.VGraphics;
+import heronarts.lx.LX;
+import heronarts.lx.clipboard.LXTextValue;
 import heronarts.lx.utils.LXUtils;
 
 /**
@@ -50,6 +52,16 @@ public interface UIItemList {
    * Interface to which items in the list must conform
    */
   public static abstract class Item {
+
+    protected boolean hidden = false;
+
+    private boolean isVisible() {
+      if (this.hidden) {
+        return false;
+      }
+      Section section = getSection();
+      return (section == null) || section.expanded;
+    }
 
     /**
      * Whether this item is in a special active state
@@ -76,7 +88,7 @@ public interface UIItemList {
      * @return Background color
      */
     public int getActiveColor(UI ui) {
-      return ui.theme.getControlBackgroundColor();
+      return ui.theme.controlBackgroundColor.get();
     }
 
     /**
@@ -208,6 +220,8 @@ public interface UIItemList {
     private static final int CHECKBOX_SIZE = 8;
     private static final int SECTION_CHEVRON_WIDTH = 14;
 
+    private final LX lx;
+
     private final UI2dContainer list;
 
     private final List<Item> items = new CopyOnWriteArrayList<Item>();
@@ -224,13 +238,18 @@ public interface UIItemList {
 
     private boolean isReorderable = false;
 
+    private boolean isDeletable = false;
+
     private boolean showCheckboxes = false;
 
     private boolean renaming = false;
 
-    private String renameBuffer = "";
+    private UIInputBox.EditState editState = new UIInputBox.EditState();
 
-    private boolean dragging;
+    private boolean scrolling = false;
+
+    private Item dragging = null;
+    private float dragY = -1;
 
     private boolean mouseChevronPress = false;
 
@@ -240,11 +259,24 @@ public interface UIItemList {
 
     private int controlSurfaceFocusIndex = -1;
     private int controlSurfaceFocusLength = -1;
+    private UIColor controlSurfaceFocusColor = UIColor.NONE;
+
+    private String filter = null;
 
     private Impl(UI ui, UI2dContainer list) {
+      this.lx = ui.lx;
       this.list = list;
-      list.setBackgroundColor(ui.theme.getDarkBackgroundColor());
+      list.setBackgroundColor(ui.theme.listBackgroundColor);;
+      list.setBorderColor(ui.theme.listBorderColor);;
       list.setBorderRounding(4);
+
+      // Animate cursor while editing
+      list.addLoopTask(deltaMs -> {
+        if (this.renaming) {
+          this.editState.animateCursor(deltaMs);
+          list.redraw();
+        }
+      });
     }
 
     private void addListener(Listener listener) {
@@ -265,13 +297,26 @@ public interface UIItemList {
     private void focusNext(int increment) {
       int index = this.focusIndex + increment;
       while (index >= 0 && index < this.items.size()) {
-        Section section = this.items.get(index).getSection();
-        if (section == null || section.expanded) {
+        if (this.items.get(index).isVisible()) {
           setFocusIndex(index);
           return;
         }
         index += increment;
       }
+    }
+
+    private float getFocusYOffset(int focusIndex) {
+      float offset = 0;
+      int i = 0;
+      for (Item item : this.items) {
+        if (i++ >= focusIndex) {
+          break;
+        }
+        if (item.isVisible()) {
+          offset += ROW_SPACING;
+        }
+      }
+      return offset;
     }
 
     private void setFocusIndex(int focusIndex) {
@@ -281,13 +326,16 @@ public interface UIItemList {
     private void setFocusIndex(int focusIndex, boolean scroll) {
       focusIndex = LXUtils.constrain(focusIndex, -1, this.items.size() - 1);
       if (this.focusIndex != focusIndex) {
-        if (focusIndex >= 0 && scroll && this.list instanceof ScrollList) {
-          UI2dScrollContext scrollList = (UI2dScrollContext) this.list;
-          float yp = ROW_SPACING * focusIndex + scrollList.getScrollY();
-          if (yp < 0) {
-            scrollList.setScrollY(-ROW_SPACING * focusIndex);
-          } else if (yp >= list.getHeight() - ROW_SPACING) {
-            scrollList.setScrollY(list.getHeight() - ROW_SPACING * (focusIndex+1) - ROW_MARGIN);
+        this.renaming = false;
+        cancelDragging();
+        if ((focusIndex >= 0) && scroll && this.list instanceof ScrollList) {
+          ScrollList scrollList = (ScrollList) this.list;
+          final float yOffset = getFocusYOffset(focusIndex);
+          final float yDelta = yOffset + scrollList.getScrollY();
+          if (yDelta < 0) {
+            scrollList.setScrollY(-yOffset);
+          } else if (yDelta >= list.getHeight() - ROW_SPACING) {
+            scrollList.setScrollY(list.getHeight() - ROW_SPACING - ROW_MARGIN - yOffset);
           }
         }
         this.focusIndex = focusIndex;
@@ -321,8 +369,7 @@ public interface UIItemList {
     private void recomputeContentHeight() {
       int itemCount = 0;
       for (Item item : this.items) {
-        Section section = item.getSection();
-        if (section == null || section.expanded) {
+        if (item.isVisible()) {
           ++itemCount;
         }
       }
@@ -395,15 +442,14 @@ public interface UIItemList {
         }
       }
       recomputeContentHeight();
+      cancelDragging();
       this.list.redraw();
     }
 
     private void moveItem(Item item, int index) {
-      if (!this.isReorderable) {
-        throw new IllegalStateException("Cannot move items in non-reorderable list");
-      }
       this.items.remove(item);
       this.items.add(index, item);
+      cancelDragging();
       this.list.redraw();
     }
 
@@ -414,7 +460,14 @@ public interface UIItemList {
      * @return this
      */
     private void setItems(List<? extends Item> items) {
+      cancelDragging();
       this.items.clear();
+      for (Item item : items) {
+        Section section = item.getSection();
+        if (section != null) {
+          section.addItem(item);
+        }
+      }
       this.items.addAll(items);
       if (this.focusIndex >= items.size()) {
         setFocusIndex(items.size() - 1);
@@ -430,6 +483,7 @@ public interface UIItemList {
     }
 
     private void clearItems() {
+      cancelDragging();
       this.items.clear();
       setContentHeight(ROW_MARGIN);
       this.list.redraw();
@@ -450,6 +504,21 @@ public interface UIItemList {
       this.isRenamable = isRenamable;
     }
 
+    private boolean isRenaming() {
+      return this.renaming;
+    }
+
+    private String getRenameBuffer() {
+      return this.editState.getRange();
+    }
+
+    private void renameAppend(String append) {
+      if (this.renaming && !append.isEmpty()) {
+        this.editState.append(append);
+        this.list.redraw();
+      }
+    }
+
     private void setMomentary(boolean momentary) {
       this.isMomentary = momentary;
     }
@@ -458,9 +527,74 @@ public interface UIItemList {
       this.isReorderable = isReorderable;
     }
 
-    private void setControlSurfaceFocus(int index, int length) {
+    private void setDeletable(boolean isDeletable) {
+      this.isDeletable = isDeletable;
+    }
+
+    private void setFilter(String filter) {
+      if (filter != null) {
+        filter = filter.toLowerCase();
+      }
+      if (this.filter != filter) {
+        this.filter = filter;
+        boolean changed = false;
+        for (Item item : this.items) {
+          if (!(item instanceof Section)) {
+            boolean hidden = (filter != null) && !item.getLabel().toLowerCase().contains(filter);
+            if (hidden != item.hidden) {
+              item.hidden = hidden;
+              changed = true;
+            }
+          }
+        }
+        for (Item item : this.items) {
+          if (item instanceof Section) {
+            Section section = (Section) item;
+            boolean sectionHidden = true;
+            for (Item sectionItem : section.items) {
+              if (!sectionItem.hidden) {
+                sectionHidden = false;
+                break;
+              }
+            }
+            if (sectionHidden != section.hidden) {
+              section.hidden = sectionHidden;
+              changed = true;
+            }
+          }
+        }
+
+        if (changed) {
+          setFilterFocusIndex();
+          recomputeContentHeight();
+          this.list.redraw();
+        }
+      }
+    }
+
+    private void setFilterFocusIndex() {
+      boolean resetFocus = true;
+      if (this.focusIndex >= 0 && this.focusIndex < this.items.size()) {
+        resetFocus = !this.items.get(this.focusIndex).isVisible();
+      }
+      if (resetFocus) {
+        int focusIndex = -1;
+        int i = 0;
+        for (Item item : this.items) {
+          if (!(item instanceof Section) && item.isVisible()) {
+            focusIndex = i;
+            break;
+          }
+          ++i;
+        }
+        setFocusIndex(focusIndex);
+      }
+    }
+
+    private void setControlSurfaceFocus(int index, int length, UIColor color) {
       this.controlSurfaceFocusIndex = index;
       this.controlSurfaceFocusLength = length;
+      this.controlSurfaceFocusColor = color;
       this.list.redraw();
     }
 
@@ -498,14 +632,14 @@ public interface UIItemList {
 
     private float getScrollY() {
       if (this.list instanceof ScrollList) {
-        return ((UI2dScrollContext) this.list).getScrollY();
+        return ((ScrollList) this.list).getScrollY();
       }
       return 0;
     }
 
     private float getScrollHeight() {
       if (this.list instanceof ScrollList) {
-        return ((UI2dScrollContext) this.list).getScrollHeight();
+        return ((ScrollList) this.list).getScrollHeight();
       }
       return this.list.getHeight();
     }
@@ -516,7 +650,7 @@ public interface UIItemList {
 
     private void setScrollY(float scrollY) {
       if (this.list instanceof ScrollList) {
-        ((UI2dScrollContext) this.list).setScrollY(scrollY);
+        ((ScrollList) this.list).setScrollY(scrollY);
       }
     }
 
@@ -534,44 +668,57 @@ public interface UIItemList {
 
     private int getVisibleFocusIndex() {
       int counter = 0;
-      int itemIndex = -1;
+      int visibleIndex = -1;
       for (Item item : this.items) {
-        Section section = item.getSection();
-        if (section == null || section.expanded) {
-          ++itemIndex;
+        if (item.isVisible()) {
+          ++visibleIndex;
         }
         if (counter++ >= this.focusIndex) {
           break;
         }
       }
-      return itemIndex;
+      return visibleIndex;
     }
 
     private void drawFocus(UI ui, VGraphics vg) {
       int visibleFocusIndex = getVisibleFocusIndex();
       if (visibleFocusIndex >= 0) {
+        final boolean hasScroll = getScrollHeight() > getHeight();
+        if (hasScroll) {
+          vg.scissorPush(1, 1, getWidth()-2, getHeight() - 2);
+        }
         float yp = ROW_MARGIN + getScrollY() + ROW_SPACING * visibleFocusIndex;
-        UI2dComponent.drawFocusCorners(ui, vg, ui.theme.getFocusColor(), PADDING, yp, getRowWidth() - 2*PADDING, ROW_HEIGHT, 2);
+        UI2dComponent.drawFocusCorners(ui, vg, ui.theme.focusColor.get(), PADDING, yp, getRowWidth() - 2*PADDING, ROW_HEIGHT, 2);
+        if (hasScroll) {
+          vg.scissorPop();
+        }
       }
     }
 
     private void onDraw(UI ui, VGraphics vg) {
-      float yp = ROW_MARGIN;
+      final float scrollY = getScrollY();
+      final float height = getHeight();
+      final float scrollHeight = getScrollHeight();
+      final boolean hasScroll = scrollHeight > height;
+
+      if (hasScroll) {
+        vg.scissorPush(1, 1, getWidth()-2, height-2);
+      }
       vg.fontFace(ui.theme.getControlFont());
       vg.textAlign(VGraphics.Align.LEFT, VGraphics.Align.MIDDLE);
 
-      int i = 0;
+      int index = 0;
+      float yp = ROW_MARGIN + scrollY;
 
-      float rowWidth = getRowWidth();
+      final float rowWidth = getRowWidth();
 
-      if (getScrollHeight() > getHeight()) {
-        float percentCovered = getHeight() / getScrollHeight();
-        float barHeight = percentCovered * getHeight() - 2*PADDING;
-        float startPosition = -getScrollY() / getScrollHeight();
-        float barY = -getScrollY() + startPosition * getHeight() + PADDING;
+      if (hasScroll) {
+        float eligibleHeight = height - 2*PADDING;
+        float barHeight = height / scrollHeight * eligibleHeight;
+        float barY = PADDING - (eligibleHeight - barHeight) * (getScrollY() / (scrollHeight - height));
         vg.beginPath();
-        vg.fillColor(0xff333333);
-        vg.rect(getWidth() - PADDING-SCROLL_BAR_WIDTH, barY, SCROLL_BAR_WIDTH, barHeight, 4);
+        vg.fillColor(ui.theme.listScrollBarColor);
+        vg.rect(getWidth() - PADDING - SCROLL_BAR_WIDTH, barY, SCROLL_BAR_WIDTH, barHeight, 2);
         vg.fill();
       }
 
@@ -579,21 +726,31 @@ public interface UIItemList {
         Section section = item.getSection();
         boolean isSection = item instanceof Section;
 
-        // Skip rendering items that are in a collapsed section
-        if (section != null && !section.expanded) {
-          ++i;
+        // Skip rendering items that are invisible
+        if (!item.isVisible()) {
+          ++index;
           continue;
         }
 
-        boolean renameItem = this.renaming && (this.focusIndex == i);
+        if (yp <= -ROW_SPACING) {
+          // We're not visible yet...
+          ++index;
+          yp += ROW_SPACING;
+          continue;
+        } else if (yp > getHeight()) {
+          // We're offscreen at this point...
+          break;
+        }
+
+        boolean renameItem = this.renaming && (this.focusIndex == index);
 
         int backgroundColor, textColor;
         if (item.isActive()) {
           backgroundColor = item.getActiveColor(ui);
-          textColor = UI.WHITE;
+          textColor = ui.theme.listItemFocusedTextColor.get();
         } else {
-          backgroundColor = (i == this.focusIndex) ? ui.theme.getSelectionColor() : ui.theme.getControlBackgroundColor();
-          textColor = isSection ? 0xffaaaaaa : ((i == this.focusIndex) ? UI.WHITE : ui.theme.getControlTextColor());
+          backgroundColor = (index == this.focusIndex) ? ui.theme.listItemFocusedBackgroundColor.get() : ui.theme.listItemBackgroundColor.get();
+          textColor = isSection ? ui.theme.listSectionTextColor.get() : ((index == this.focusIndex) ? ui.theme.listItemFocusedTextColor.get() : ui.theme.controlTextColor.get());
         }
         vg.beginPath();
         vg.fillColor(backgroundColor);
@@ -603,7 +760,7 @@ public interface UIItemList {
         int textX = 6;
         if (isSection) {
           vg.beginPath();
-          vg.fillColor(0xff666666);
+          vg.fillColor(ui.theme.listSectionArrowColor);
           if (((Section) item).expanded) {
             vg.moveTo(textX-1, yp + 6);
             vg.lineTo(textX+5, yp + 6);
@@ -635,16 +792,15 @@ public interface UIItemList {
 
           textX += CHECKBOX_SIZE + 4;
         }
+
         if (renameItem) {
           vg.beginPath();
-          vg.fillColor(UI.BLACK);
+          vg.fillColor(ui.theme.editTextBackgroundColor);
           vg.rect(textX-2, yp+1, rowWidth - 2*PADDING - textX + 2, ROW_HEIGHT-2, 4);
           vg.fill();
 
-          vg.beginPath();
-          vg.fillColor(UI.WHITE);
-          vg.text(textX, yp + ROW_SPACING/2-.5f, UI2dComponent.clipTextToWidth(vg, this.renameBuffer, rowWidth - textX - 2));
-          vg.fill();
+          vg.fillColor(ui.theme.editTextColor);
+          UIInputBox.onDrawText(ui, vg, this.editState, this.editState.buffer, true, VGraphics.Align.LEFT, textX - 2, yp - .5f, rowWidth, ROW_HEIGHT, rowWidth - textX - 5);
         } else {
           vg.fillColor(textColor);
           vg.beginPath();
@@ -653,52 +809,66 @@ public interface UIItemList {
         }
         yp += ROW_SPACING;
 
-        ++i;
+        ++index;
+      }
+
+      if ((this.dragging != null) && (this.dragY >= 0)) {
+        vg.fillColor(ui.theme.attentionColor);
+        vg.beginPath();
+        vg.rect(PADDING, LXUtils.constrainf(this.dragY + getScrollY() - .5f, PADDING, getHeight()-PADDING), getRowWidth() - 2*PADDING, 1);
+        vg.fill();
       }
 
       if (this.controlSurfaceFocusIndex >= 0 && this.controlSurfaceFocusLength > 0) {
-        vg.strokeColor(ui.theme.getSurfaceColor());
+        vg.strokeColor(this.controlSurfaceFocusColor);
         vg.beginPath();
         vg.rect(
           PADDING - .5f,
-          ROW_MARGIN + this.controlSurfaceFocusIndex * ROW_SPACING - .5f,
+          ROW_MARGIN + scrollY + this.controlSurfaceFocusIndex * ROW_SPACING - .5f,
           rowWidth - 2*PADDING + 1,
           Math.min(this.controlSurfaceFocusLength, this.items.size() - this.controlSurfaceFocusIndex) * ROW_SPACING - ROW_MARGIN + 1,
           4
         );
         vg.stroke();
       }
+
+      if (hasScroll) {
+        vg.scissorPop();
+      }
+
     }
 
-    private int getMouseItemIndex(float my) {
-      if ((my % (ROW_HEIGHT + ROW_MARGIN)) < ROW_MARGIN) {
+    private int getMousePressIndex(float my) {
+      if ((my % ROW_SPACING) < ROW_MARGIN) {
         // Don't detect clicks on strip between rows
         return -1;
       }
-
-      int visibleIndex = (int) (my / (ROW_HEIGHT + ROW_MARGIN));
-      int counter = 0;
-      int itemIndex = -1;
+      int visibleIndex = (int) (my / (ROW_SPACING));
+      int visibleCounter = 0;
+      int itemIndex = 0;
+      int mouseIndex = -1;
       for (Item item : this.items) {
-        ++itemIndex;
-        Section section = item.getSection();
-        if (section == null || section.expanded) {
-          if (counter++ >= visibleIndex) {
+        if (item.isVisible()) {
+          if (visibleCounter++ >= visibleIndex) {
+            mouseIndex = itemIndex;
             break;
           }
         }
+        ++itemIndex;
       }
-      return itemIndex;
+      return mouseIndex;
     }
 
     private void onMousePressed(MouseEvent mouseEvent, float mx, float my) {
       this.mouseActivate = -1;
       this.mouseChevronPress = false;
+      cancelDragging();
+
       if (getScrollHeight() > getHeight() && mx >= getRowWidth()) {
-        this.dragging = true;
+        this.scrolling = true;
       } else {
-        this.dragging = false;
-        int index = getMouseItemIndex(my);
+        this.scrolling = false;
+        int index = getMousePressIndex(my - getScrollY());
         if (index >= 0) {
           setFocusIndex(index);
           if (this.showCheckboxes && (mx < (5*PADDING + CHECKBOX_SIZE))) {
@@ -709,11 +879,13 @@ public interface UIItemList {
             this.mouseChevronPress = (mx < SECTION_CHEVRON_WIDTH) && (getFocusedItem() instanceof Section);
             if (this.mouseChevronPress) {
               activate();
-            } else if (this.singleClickActivate || (mouseEvent.getCount() == 2)) {
+            } else if (this.singleClickActivate || mouseEvent.isDoubleClick()) {
               activate();
               if (this.isMomentary) {
                 this.mouseActivate = this.focusIndex;
               }
+            } else if (this.isReorderable) {
+              this.dragging = this.items.get(index);
             }
           }
         }
@@ -721,13 +893,17 @@ public interface UIItemList {
     }
 
     private void onMouseDragged(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
-      if (this.dragging) {
+      if (this.scrolling) {
+        mouseEvent.consume();
         setScrollY(getScrollY() - dy * (getScrollHeight() / getHeight()));
+      } else if (this.dragging != null) {
+        mouseEvent.consume();
+        dragItem(mx, my, false);
       }
     }
 
     private void onMouseReleased(MouseEvent mouseEvent, float mx, float my) {
-      this.dragging = false;
+      this.scrolling = false;
       if (this.mouseActivate >= 0 && this.mouseActivate < this.items.size()) {
         Item item = this.items.get(this.mouseActivate);
         item.onDeactivate();
@@ -736,6 +912,77 @@ public interface UIItemList {
         }
       }
       this.mouseActivate = -1;
+      if (this.dragging != null) {
+        dragItem(mx, my, true);
+        cancelDragging();
+        this.list.redraw();
+      }
+    }
+
+    private void cancelDragging() {
+      this.dragging = null;
+      this.dragY = -1;
+    }
+
+    private void dragItem(float mx, float my, boolean release) {
+      float dragY = -1;
+      int targetIndex = -1;
+      boolean before = true;
+
+      if (mx >= 0 && mx < getRowWidth() && my >= 0 && my < getHeight()) {
+        my -= getScrollY();
+
+        int visibleIndex = (int) (my / ROW_SPACING);
+        boolean bottomHalf = (my % ROW_SPACING) > (ROW_MARGIN + ROW_HEIGHT / 2);
+        int visibleCounter = 0;
+
+        int itemIndex = 0;
+        for (Item item : this.items) {
+          if (item.isVisible()) {
+            ++visibleCounter;
+          }
+          if (visibleCounter > visibleIndex) {
+            if (this.dragging == item) {
+              break;
+            }
+            targetIndex = itemIndex + (bottomHalf ? 1 : 0);
+            dragY = 1 + ROW_SPACING * (visibleCounter - (bottomHalf ? 0 : 1));
+            break;
+          } else if (this.dragging == item) {
+            before = false;
+          }
+          ++itemIndex;
+        }
+      }
+
+      if (!before) {
+        --targetIndex;
+      }
+
+      if (targetIndex >= 0) {
+        int dragIndex = this.items.indexOf(this.dragging);
+        if (dragIndex == targetIndex) {
+          targetIndex = -1;
+        }
+      }
+
+      if (!release && (targetIndex >= 0)) {
+        if (this.dragY != dragY) {
+          this.dragY = dragY;
+          this.list.redraw();
+        }
+      } else {
+        if (release && (targetIndex >= 0)) {
+          this.items.remove(this.dragging);
+          this.items.add(targetIndex, this.dragging);
+          this.dragging.onReorder(this.focusIndex = targetIndex);
+        }
+        if (this.dragY != -1) {
+          this.dragY = -1;
+          this.list.redraw();
+        }
+      }
+
     }
 
     private void onBlur() {
@@ -754,21 +1001,44 @@ public interface UIItemList {
           this.list.redraw();
         } else if (keyEvent.isEnter()) {
           consume = true;
-          String newName = this.renameBuffer.trim();
+          String newName = this.editState.buffer.trim();
           if (newName.length() > 0) {
             this.items.get(this.focusIndex).onRename(newName);
           }
           this.renaming = false;
           this.list.redraw();
-        } else if (keyCode == KeyEvent.VK_BACKSPACE) {
+        } else if (keyEvent.isDelete()) {
           consume = true;
-          if (this.renameBuffer.length() > 0) {
-            this.renameBuffer = this.renameBuffer.substring(0, this.renameBuffer.length() - 1);
+          if (this.editState.buffer.length() > 0) {
+            if (keyEvent.isShiftDown() || keyEvent.isCommand()) {
+              this.editState.deleteAll();
+            } else {
+              this.editState.delete();
+            }
             this.list.redraw();
           }
+        } else if (keyEvent.isCommand(KeyEvent.VK_X)) {
+          final String cut = this.editState.cut();
+          if (cut != null) {
+            consume = true;
+            this.lx.clipboard.setItem(new LXTextValue(cut));
+            this.list.redraw();
+          }
+        } else if (keyEvent.isCommand(KeyEvent.VK_A)) {
+          consume = true;
+          this.editState.selectAll();
+          this.list.redraw();
+        } else if (keyCode == KeyEvent.VK_LEFT) {
+          consume = true;
+          this.editState.cursorLeft(keyEvent);
+          this.list.redraw();
+        } else if (keyCode == KeyEvent.VK_RIGHT) {
+          consume = true;
+          this.editState.cursorRight(keyEvent);
+          this.list.redraw();
         } else if (UITextBox.isValidTextCharacter(keyChar)) {
           consume = true;
-          this.renameBuffer += keyChar;
+          this.editState.append(keyChar);
           this.list.redraw();
         }
       } else {
@@ -818,9 +1088,11 @@ public interface UIItemList {
             }
             activate();
           }
-        } else if (keyCode == KeyEvent.VK_BACKSPACE) {
-          consume = true;
-          delete();
+        } else if (keyEvent.isDelete()) {
+          if (this.isDeletable) {
+            consume = true;
+            delete();
+          }
         } else if (keyEvent.isCommand() && !keyEvent.isShiftDown()) {
           if (keyCode == KeyEvent.VK_D) {
             consume = true;
@@ -829,7 +1101,7 @@ public interface UIItemList {
             if (this.isRenamable && this.focusIndex >= 0) {
               consume = true;
               this.renaming = true;
-              this.renameBuffer = "";
+              this.editState.init(this.items.get(this.focusIndex).getLabel());
               this.list.redraw();
             }
           }
@@ -863,14 +1135,60 @@ public interface UIItemList {
     }
   }
 
-  public static class ScrollList extends UI2dScrollContext implements UIItemList, UIFocus {
+  public static class ScrollList extends UI2dContainer implements UIItemList, UIFocus {
 
     private final Impl impl;
 
+    private float scrollY = 0;
+    private float scrollHeight = 0;
+
     public ScrollList(UI ui, int x, int y, int w, int h) {
-      super(ui, x, y, w, h);
+      super(x, y, w, h);
       setScrollHeight(Impl.ROW_MARGIN);
       this.impl = new Impl(ui, this);
+    }
+
+    @Override
+    public UI2dContainer setContentSize(float w, float h) {
+      setWidth(w);
+      return setScrollHeight(h);
+    }
+
+    public ScrollList setScrollHeight(float scrollHeight) {
+      if (this.scrollHeight != scrollHeight) {
+        this.scrollHeight = scrollHeight;
+        rescroll();
+      }
+      return this;
+    }
+
+    @Override
+    public float getScrollHeight() {
+      return this.scrollHeight;
+    }
+
+    @Override
+    protected void onResize() {
+      rescroll();
+    }
+
+    public float getScrollY() {
+      return this.scrollY;
+    }
+
+    public ScrollList setScrollY(float scrollY) {
+      float minScrollY = LXUtils.minf(0, getHeight() - getScrollHeight());
+      scrollY = LXUtils.constrainf(scrollY, minScrollY, 0);
+      if (this.scrollY != scrollY) {
+        this.scrollY = scrollY;
+        redraw();
+      }
+      return this;
+    }
+
+    private void rescroll() {
+      setScrollY(this.scrollY);
+      redraw();
     }
 
     @Override
@@ -955,6 +1273,21 @@ public interface UIItemList {
     }
 
     @Override
+    public boolean isRenaming() {
+      return this.impl.isRenaming();
+    }
+
+    @Override
+    public String getRenameBuffer() {
+      return this.impl.getRenameBuffer();
+    }
+
+    @Override
+    public void renameAppend(String append) {
+      this.impl.renameAppend(append);
+    }
+
+    @Override
     public UIItemList setMomentary(boolean momentary) {
       this.impl.setMomentary(momentary);
       return this;
@@ -967,8 +1300,20 @@ public interface UIItemList {
     }
 
     @Override
-    public UIItemList setControlSurfaceFocus(int index, int length) {
-      this.impl.setControlSurfaceFocus(index, length);
+    public UIItemList setDeletable(boolean deletable) {
+      this.impl.setDeletable(deletable);
+      return this;
+    }
+
+    @Override
+    public UIItemList setFilter(String filter) {
+      this.impl.setFilter(filter);
+      return this;
+    }
+
+    @Override
+    public UIItemList setControlSurfaceFocus(int index, int length, UIColor color) {
+      this.impl.setControlSurfaceFocus(index, length, color);
       return this;
     }
 
@@ -1033,6 +1378,14 @@ public interface UIItemList {
     @Override
     public void onFocus(Event event) {
       this.impl.onFocus(event);
+    }
+
+    @Override
+    protected void onMouseScroll(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
+      if (getScrollHeight() > getHeight()) {
+        mouseEvent.consume();
+        setScrollY(this.scrollY + dy);
+      }
     }
 
   }
@@ -1129,6 +1482,21 @@ public interface UIItemList {
     }
 
     @Override
+    public boolean isRenaming() {
+      return this.impl.isRenaming();
+    }
+
+    @Override
+    public String getRenameBuffer() {
+      return this.impl.getRenameBuffer();
+    }
+
+    @Override
+    public void renameAppend(String append) {
+      this.impl.renameAppend(append);
+    }
+
+    @Override
     public UIItemList setMomentary(boolean momentary) {
       this.impl.setMomentary(momentary);
       return this;
@@ -1141,8 +1509,20 @@ public interface UIItemList {
     }
 
     @Override
-    public UIItemList setControlSurfaceFocus(int index, int length) {
-      this.impl.setControlSurfaceFocus(index, length);
+    public UIItemList setDeletable(boolean deletable) {
+      this.impl.setDeletable(deletable);
+      return this;
+    }
+
+    @Override
+    public UIItemList setFilter(String filter) {
+      this.impl.setFilter(filter);
+      return this;
+    }
+
+    @Override
+    public UIItemList setControlSurfaceFocus(int index, int length, UIColor color) {
+      this.impl.setControlSurfaceFocus(index, length, color);
       return this;
     }
 
@@ -1325,6 +1705,27 @@ public interface UIItemList {
   public UIItemList setRenamable(boolean isRenamable);
 
   /**
+   * Whether this control is in the midst of an item rename operation
+   *
+   * @return True if an item is being renamed
+   */
+  public boolean isRenaming();
+
+  /**
+   * Gets the current value in the rename buffer for copy/paste
+   *
+   * @return Rename buffer segment
+   */
+  public String getRenameBuffer();
+
+  /**
+   * Appends a string to the active rename buffer
+   *
+   * @param append Value to append to the rename buffer
+   */
+  public void renameAppend(String append);
+
+  /**
    * Sets whether the item list is momentary. If so, then clicking on an item
    * or pressing ENTER/SPACE sends a deactivate action after the click ends.
    *
@@ -1343,13 +1744,32 @@ public interface UIItemList {
   public UIItemList setReorderable(boolean reorderable);
 
   /**
+   * Sets whether items in the list are deletable. If so, then pressing the
+   * delete key will delete the focused item.
+   *
+   * @param deletable Whether items are deletable
+   * @return this
+   */
+  public UIItemList setDeletable(boolean deletable);
+
+  /**
+   * Filter the items in the list by a String, resulting list will only
+   * show items that contains the filter string
+   *
+   * @param filter Filter string
+   * @return this
+   */
+  public UIItemList setFilter(String filter);
+
+  /**
    * Sets a control focus range that is highlighted in the list
    *
    * @param index Start of the surface focus
    * @param length Length of the surface focus block
+   * @param color Color to show focus with
    * @return this
    */
-  public UIItemList setControlSurfaceFocus(int index, int length);
+  public UIItemList setControlSurfaceFocus(int index, int length, UIColor color);
 
   /**
    * Adds a listener to receive notifications about list operations

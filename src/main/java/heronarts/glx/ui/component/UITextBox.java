@@ -18,6 +18,7 @@
 
 package heronarts.glx.ui.component;
 
+import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UICopy;
 import heronarts.glx.ui.UIPaste;
@@ -47,8 +48,23 @@ public class UITextBox extends UIInputBox implements UICopy, UIPaste {
     this(0, 0, 0, 0);
   }
 
+  public UITextBox(float w, float h) {
+    this(0, 0, w, h);
+  }
+
   public UITextBox(float x, float y, float w, float h) {
     super(x, y, w, h);
+    enableImmediateAppend();
+    setMouseEditable(false);
+  }
+
+  public UITextBox(float w, float h, StringParameter parameter) {
+    this(0, 0, w, h, parameter);
+  }
+
+  public UITextBox(float x, float y, float w, float h, StringParameter parameter) {
+    this(x, y, w, h);
+    setParameter(parameter);
   }
 
   @Override
@@ -85,7 +101,7 @@ public class UITextBox extends UIInputBox implements UICopy, UIPaste {
   }
 
   @Override
-  protected String getEditBufferValue() {
+  protected String getInitialEditBufferValue() {
     return this.value;
   }
 
@@ -108,7 +124,7 @@ public class UITextBox extends UIInputBox implements UICopy, UIPaste {
           this.parameter.setValue(value);
         }
       }
-      this.onValueChange(this.value);
+      onValueChange(this.value);
       redraw();
     }
     return this;
@@ -121,10 +137,9 @@ public class UITextBox extends UIInputBox implements UICopy, UIPaste {
    */
   protected /* abstract */ void onValueChange(String value) {}
 
-
   @Override
-  protected void saveEditBuffer() {
-    String value = this.editBuffer.trim();
+  protected void saveEditBuffer(String editBuffer) {
+    String value = editBuffer.trim();
     if (this.isEmptyValueAllowed || (value.length() > 0)) {
       setValue(value);
     }
@@ -146,29 +161,48 @@ public class UITextBox extends UIInputBox implements UICopy, UIPaste {
   }
 
   @Override
-  protected boolean isValidCharacter(char keyChar) {
+  public boolean isValidCharacter(char keyChar) {
     return this.validCharacters.indexOf(keyChar) >= 0;
   }
 
   @Override
   protected void onMousePressed(MouseEvent mouseEvent, float mx, float my) {
     super.onMousePressed(mouseEvent, mx, my);
-    if (this.enabled && !this.editing) {
-      if (mouseEvent.getButton() == MouseEvent.BUTTON_LEFT && mouseEvent.getCount() == 2) {
+    if (this.enabled && !this.editing && this.editable) {
+      if (mouseEvent.getButton() == MouseEvent.BUTTON_LEFT && mouseEvent.isDoubleClick()) {
         mouseEvent.consume();
-        this.edit();
+        edit();
         redraw();
       }
     }
   }
 
+  /**
+   * Gives the text box focus and processes the key event which just occurred which would
+   * give it focus
+   *
+   * @param keyEvent Key Event
+   * @param keyChar Key character
+   * @param keyCode Key code
+   */
+  public void focusKeyPress(KeyEvent keyEvent, char keyChar, int keyCode) {
+    focus(keyEvent);
+    onKeyPressed(keyEvent, keyChar, keyCode);
+  }
+
   @Override
   public LXClipboardItem onCopy() {
-    if (this.parameter != null) {
-      return new LXTextValue(this.parameter);
+    if (this.editing) {
+      String editRange = getEditRange();
+      if (!editRange.isEmpty()) {
+        return new LXTextValue(editRange);
+      }
+    }
+    String str = (this.parameter != null) ? this.parameter.getString() : getValue();
+    if (!str.isEmpty()) {
+      return new LXTextValue(str);
     }
     return null;
-
   }
 
   @Override
@@ -176,10 +210,10 @@ public class UITextBox extends UIInputBox implements UICopy, UIPaste {
     if (item instanceof LXTextValue) {
       if (isEnabled() && isEditable()) {
         if (this.editing) {
-          this.editBuffer = this.editBuffer + ((LXTextValue) item).getValue();
-          redraw();
+          editAppend(((LXTextValue) item).getValue());
         } else {
           setValue(((LXTextValue) item).getValue());
+          onEditFinished();
         }
       }
     }

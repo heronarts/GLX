@@ -19,6 +19,7 @@
 package heronarts.glx.ui.component;
 
 import heronarts.glx.event.KeyEvent;
+import heronarts.lx.parameter.CompoundEnumParameter;
 import heronarts.lx.parameter.EnumParameter;
 
 public class UIEnumBox extends UIIntegerBox {
@@ -31,13 +32,25 @@ public class UIEnumBox extends UIIntegerBox {
     this(0, 0, w, DEFAULT_HEIGHT, parameter);
   }
 
+  public UIEnumBox(float w, CompoundEnumParameter<?> parameter) {
+    this(0, 0, w, DEFAULT_HEIGHT, parameter);
+  }
+
   public UIEnumBox(float x, float y, float w, float h) {
-    this(x, y, w, h, null);
+    this(x, y, w, h, (EnumParameter<?>) null);
   }
 
   public UIEnumBox(float x, float y, float w, float h, EnumParameter<?> parameter) {
     super(x, y, w, h);
-    enableImmediateEdit(false);
+    disableImmediateEdit();
+    if (parameter != null) {
+      setParameter(parameter);
+    }
+  }
+
+  public UIEnumBox(float x, float y, float w, float h, CompoundEnumParameter<?> parameter) {
+    super(x, y, w, h);
+    disableImmediateEdit();
     if (parameter != null) {
       setParameter(parameter);
     }
@@ -46,18 +59,36 @@ public class UIEnumBox extends UIIntegerBox {
   @Override
   public String getValueString() {
     if (this.parameter != null) {
-      return this.parameter.getOption();
+      return this.parameter.getBaseOption();
     }
     return super.getValueString();
   }
 
+  private String numericEntry = "";
+
   @Override
   public void onKeyPressed(KeyEvent keyEvent, char keyChar, int keyCode) {
-    if (this.enabled && (keyEvent.isEnter() || (keyCode == KeyEvent.VK_SPACE))) {
-      keyEvent.consume();
-      incrementValue(keyEvent);
-    } else {
-      super.onKeyPressed(keyEvent, keyChar, keyCode);
+    if (this.enabled) {
+      if (keyEvent.isEnter() || (keyCode == KeyEvent.VK_SPACE)) {
+        keyEvent.consume();
+        if (this.numericEntry.isEmpty()) {
+          incrementValue(keyEvent);
+        } else {
+          try {
+            setValue(Integer.parseInt(this.numericEntry) - 1);
+          } catch (Exception x) {}
+        }
+        this.numericEntry = "";
+        return;
+      } else if (keyEvent.isDigit()) {
+        this.numericEntry = this.numericEntry + keyChar;
+        keyEvent.consume();
+        return;
+      }
     }
+
+    // Not handled above
+    this.numericEntry = "";
+    super.onKeyPressed(keyEvent, keyChar, keyCode);
   }
 }
