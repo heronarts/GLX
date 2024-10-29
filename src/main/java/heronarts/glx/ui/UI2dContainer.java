@@ -527,7 +527,7 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
   }
 
   public List<UIObject> getChildren() {
-    return this.contentTarget.mutableChildren;
+    return this.contentTarget.children;
   }
 
   public UI2dComponent getChild(int i) {
