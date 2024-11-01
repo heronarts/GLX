@@ -1340,6 +1340,34 @@ public abstract class UI2dComponent extends UIObject {
     return this;
   }
 
+  private UI2dComponent _addRelativeToSibling(UI2dComponent sibling, int offset) {
+    final UI2dContainer parent = sibling.getContainer();
+    if (parent == null) {
+      throw new IllegalArgumentException("Cannot add component next to sibling with no container: " + sibling);
+    }
+    return addToContainer(parent, parent.children.indexOf(sibling) + offset);
+  }
+
+  /**
+   * Adds this component to the same container as a sibling, immediately before it
+   *
+   * @param sibling Sibling component
+   * @return this
+   */
+  public UI2dComponent addBeforeSibling(UI2dComponent sibling) {
+    return _addRelativeToSibling(sibling, 0);
+  }
+
+  /**
+   * Adds this component to the same container as a sibling, immediately after it
+   *
+   * @param sibling Sibling component
+   * @return this
+   */
+  public UI2dComponent addAfterSibling(UI2dComponent sibling) {
+    return _addRelativeToSibling(sibling, 1);
+  }
+
   /**
    * Subclasses may override and throw an exception if they don't want to be added to this container type
    *
