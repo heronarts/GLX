@@ -1136,7 +1136,7 @@ public interface UIItemList {
     private float scrollY = 0;
     private float scrollHeight = 0;
 
-    public ScrollList(UI ui, int x, int y, int w, int h) {
+    public ScrollList(UI ui, float x, float y, float w, float h) {
       super(x, y, w, h);
       setScrollHeight(Impl.ROW_MARGIN);
       this.impl = new Impl(ui, this);
