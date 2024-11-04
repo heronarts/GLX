@@ -204,13 +204,17 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
       vg.beginPathMoveToArcFill(ARC_CENTER_X, ARC_CENTER_Y, arcSize, Math.min(baseEnd, valueEnd), Math.max(baseEnd, valueEnd));
     }
 
-    // Center tick mark for bipolar knobs
-    if (this.polarity == LXParameter.Polarity.BIPOLAR) {
-      vg.strokeColor(ui.theme.controlDetentColor);
-      vg.beginPath();
-      vg.line(ARC_CENTER_X, ARC_CENTER_Y, ARC_CENTER_X, ARC_CENTER_Y - arcSize);
-      vg.stroke();
-    }
+    // Value indicator
+    vg.strokeWidth(2);
+    vg.strokeColor(ui.theme.controlIndicatorColor);
+    vg.beginPath();
+    vg.line(
+      ARC_CENTER_X,
+      ARC_CENTER_Y,
+      ARC_CENTER_X + arcSize * (float)Math.cos(baseEnd),
+      ARC_CENTER_Y + arcSize * (float)Math.sin(baseEnd));
+    vg.stroke();
+    vg.strokeWidth(1);
 
     // Center dot
     float detent = LXUtils.minf(arcSize - 4, ui.theme.getKnobDetentSize());

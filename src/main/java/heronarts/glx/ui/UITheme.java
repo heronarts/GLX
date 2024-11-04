@@ -84,6 +84,7 @@ public class UITheme {
       "controlBorder", "292929",
       "controlDetent", "333333",
       "controlHandle", "5f5f5f",
+      "controlIndicator", "99cc99",
       "controlText", "cccccc",
       "controlActiveText", "ffffff",
       "controlDisabled", "303030",
@@ -169,6 +170,7 @@ public class UITheme {
       "controlBorder", "444444",
       "controlDetent", "808080",
       "controlHandle", "9f9f9f",
+      "controlIndicator", "bbeebb",
       "controlText", "191919",
       "controlActiveText", "000000",
       "controlDisabled", "909090",
@@ -283,6 +285,7 @@ public class UITheme {
   public final Color controlBorderColor = new Color("controlBorder");
   public final Color controlHandleColor = new Color("controlHandle");
   public final Color controlDetentColor = new Color("controlDetent");
+  public final Color controlIndicatorColor = new Color("controlIndicator");
   public final Color controlTextColor = new Color("controlText");
   public final Color controlActiveTextColor = new Color("controlActiveText");
   public final Color controlDisabledColor = new Color("controlDisabled");
