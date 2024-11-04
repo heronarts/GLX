@@ -255,7 +255,7 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
     super.onMousePressed(mouseEvent, mx, my);
 
     this.dragValue = getBaseNormalized();
-    if (isEditable() && (this.parameter != null) && (mouseEvent.isDoubleClick())) {
+    if (isEnabled() && isEditable() && (this.parameter != null) && (mouseEvent.isDoubleClick())) {
       LXCompoundModulation modulation = getModulation(mouseEvent.isShiftDown());
       if (modulation != null && (mouseEvent.isControlDown() || mouseEvent.isMetaDown())) {
         if (this.useCommandEngine) {
