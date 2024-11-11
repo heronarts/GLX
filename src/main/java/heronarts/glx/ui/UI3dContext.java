@@ -481,24 +481,27 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   }
 
   private void setViewRect() {
-    if (this.ui.lx.isOpenGL()) {
+    /*
+    if (false && isMacOS?? && this.ui.lx.isOpenGL()) {
       // NOTE(mcslee): I really have no clue what is up with the Y-values here, this was
-      // arrived at by horrendous trial and error
+      // arrived at by horrendous trial and error and seemed to be specific to an old
+      // version of macOS. Flagging this off false and using the code beneath has restored
+      // openGL working properly on Linux
       this.view.setRect(
         (int) (this.x * this.ui.lx.getUIZoom()),
         (int) ((this.ui.getHeight() + this.y) * this.ui.lx.getUIZoom()),
         (int) (this.width * this.ui.lx.getUIZoom()),
         (int) (this.height * this.ui.lx.getUIZoom())
       );
-    } else {
-      // Note that we transform our rect by UI content scaling factor
-      this.view.setRect(
-        (int) (this.x * this.ui.getContentScaleX()),
-        (int) (this.y * this.ui.getContentScaleY()),
-        (int) Math.ceil(this.width * this.ui.getContentScaleX()),
-        (int) Math.ceil(this.height * this.ui.getContentScaleY())
-      );
-    }
+      return;
+    }*/
+    // Note that we transform our rect by UI content scaling factor
+    this.view.setRect(
+      (int) (this.x * this.ui.getContentScaleX()),
+      (int) (this.y * this.ui.getContentScaleY()),
+      (int) Math.ceil(this.width * this.ui.getContentScaleX()),
+      (int) Math.ceil(this.height * this.ui.getContentScaleY())
+    );
   }
 
   /**
