@@ -174,14 +174,18 @@ public class UIDropMenu extends UIParameterComponent implements UIFocus, UIContr
     return 4;
   }
 
-  @Override
-  public void onDraw(UI ui, VGraphics vg) {
+  protected void drawDisabledBackground(UI ui, VGraphics vg) {
     if (!this.enabled) {
       vg.fillColor(ui.theme.controlDisabledColor);
       vg.beginPath();
       vg.rect(1, 1, this.width-2, this.height-2);
       vg.fill();
     }
+  }
+
+  @Override
+  public void onDraw(UI ui, VGraphics vg) {
+    drawDisabledBackground(ui, vg);
 
     String text;
     if (this.options != null) {

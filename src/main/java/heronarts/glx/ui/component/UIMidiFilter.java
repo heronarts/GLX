@@ -24,6 +24,7 @@ import heronarts.glx.ui.UI2dComponent;
 import heronarts.glx.ui.UI2dContainer;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.command.LXCommand;
+import heronarts.lx.midi.LXMidiSource;
 import heronarts.lx.midi.MidiFilterParameter;
 
 public class UIMidiFilter extends UI2dComponent {
@@ -34,21 +35,30 @@ public class UIMidiFilter extends UI2dComponent {
   private class Overlay extends UI2dContainer {
 
     Overlay(UI ui) {
-      super(0, 0, 68, 110);
+      super(0, 0, 68, (midiSource == null) ? 110 : 128);
       setBackgroundColor(ui.theme.deviceFocusedBackgroundColor);
       setBorderColor(ui.theme.contextBorderColor);
       setBorderRounding(4);
 
+      final float yp = (midiSource == null) ? 20 : 38;
+
       addChildren(
-        new UIButton(4, 4, 60, 16).setParameter(midiFilter.enabled).setLabel("MIDI"),
-        new UIEnumBox(4, 22, 60, 16).setParameter(midiFilter.channel),
-        new UIIntegerBox(4, 40, 29, 16).setParameter(midiFilter.minNote),
-        new UIIntegerBox(35, 40, 29, 16).setParameter(midiFilter.noteRange),
-        new UILabel.Control(ui, 4, 58, 60, 12, "Range").setTextAlignment(VGraphics.Align.CENTER),
-        new UIIntegerBox(4, 74, 29, 16).setParameter(midiFilter.minVelocity),
-        new UIIntegerBox(35, 74, 29, 16).setParameter(midiFilter.velocityRange),
-        new UILabel.Control(ui, 4, 92, 60, 12, "Velocity").setTextAlignment(VGraphics.Align.CENTER)
+        new UIButton(4, 4, 60, 16, midiFilter.enabled).setLabel("MIDI"),
+        new UIEnumBox(4, yp+2, 60, 16, midiFilter.channel),
+        new UIIntegerBox(4, yp+20, 29, 16, midiFilter.minNote),
+        new UIIntegerBox(35, yp+20, 29, 16, midiFilter.noteRange),
+        new UILabel.Control(ui, 4, yp+38, 60, 12, "Range").setTextAlignment(VGraphics.Align.CENTER),
+        new UIIntegerBox(4, yp+54, 29, 16, midiFilter.minVelocity),
+        new UIIntegerBox(35, yp+54, 29, 16, midiFilter.velocityRange),
+        new UILabel.Control(ui, 4, yp+72, 60, 12, "Velocity").setTextAlignment(VGraphics.Align.CENTER)
       );
+
+      if (midiSource != null) {
+        new UIMidiSource(4, 22, 60, midiSource)
+        .setDirection(UIDropMenu.Direction.UP)
+        .setMenuWidth(190)
+        .addToContainer(this, 1);
+      }
 
     }
   }
@@ -63,14 +73,20 @@ public class UIMidiFilter extends UI2dComponent {
   private final UI ui;
   private final Overlay overlay;
   private final MidiFilterParameter midiFilter;
+  private final LXMidiSource.Selector midiSource;
   private OverlayPosition overlayPosition = OverlayPosition.BOTTOM_LEFT;
 
-  public UIMidiFilter(UI ui, float x, float y, MidiFilterParameter midiFilter) {
+  public UIMidiFilter(UI ui, float x, float y, MidiFilterParameter midiFilter, LXMidiSource.Selector midiSource) {
     super(x, y, WIDTH, HEIGHT);
     this.ui = ui;
     this.midiFilter = midiFilter;
+    this.midiSource = midiSource;
     this.overlay = new Overlay(ui);
     addListener(midiFilter.enabled, this.redraw);
+  }
+
+  public UIMidiFilter(UI ui, float x, float y, MidiFilterParameter midiFilter) {
+    this(ui, x, y, midiFilter, null);
   }
 
   public UIMidiFilter setOverlayPosition(OverlayPosition overlayPosition) {
