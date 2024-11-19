@@ -47,7 +47,12 @@ public class UIMidiSource extends UIDropMenu {
       vg.fillColor(ui.theme.controlDisabledTextColor);
       vg.beginPath();
       vg.textAlign(VGraphics.Align.LEFT, VGraphics.Align.MIDDLE);
-      vg.text(4 + this.textOffsetX, this.height / 2 + 1 + this.textOffsetY, clipTextToWidth(vg, this.selector.name.getString(), this.width - 12));
+
+      String name = this.selector.name.getString();
+      if (name == null) {
+        name = "<None>";
+      }
+      vg.text(4 + this.textOffsetX, this.height / 2 + 1 + this.textOffsetY, clipTextToWidth(vg, name, this.width - 12));
 
       drawTriangle(ui, this, vg, this.textOffsetY);
 
