@@ -20,19 +20,19 @@ package heronarts.glx.ui.component;
 
 import heronarts.glx.ui.UI;
 import heronarts.glx.ui.vg.VGraphics;
-import heronarts.lx.midi.LXMidiSource;
+import heronarts.lx.midi.MidiSelector;
 
-public class UIMidiSource extends UIDropMenu {
+public class UIMidiSelector extends UIDropMenu {
 
-  private final LXMidiSource.Selector selector;
+  private final MidiSelector<?> selector;
 
-  public UIMidiSource(float x, float y, float w, LXMidiSource.Selector selector) {
-    super(x, y, w, selector.source);
+  public UIMidiSelector(float x, float y, float w, MidiSelector<?> selector) {
+    super(x, y, w, selector.terminal);
     this.selector = selector;
     addListener(selector, this.redraw);
   }
 
-  public UIMidiSource(float w, LXMidiSource.Selector selector) {
+  public UIMidiSelector(float w, MidiSelector<?> selector) {
     this(0, 0, w, selector);
   }
 

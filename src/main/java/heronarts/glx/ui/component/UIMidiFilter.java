@@ -24,8 +24,8 @@ import heronarts.glx.ui.UI2dComponent;
 import heronarts.glx.ui.UI2dContainer;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.command.LXCommand;
-import heronarts.lx.midi.LXMidiSource;
 import heronarts.lx.midi.MidiFilterParameter;
+import heronarts.lx.midi.MidiSelector;
 
 public class UIMidiFilter extends UI2dComponent {
 
@@ -54,7 +54,7 @@ public class UIMidiFilter extends UI2dComponent {
       );
 
       if (midiSource != null) {
-        new UIMidiSource(4, 22, 60, midiSource)
+        new UIMidiSelector(4, 22, 60, midiSource)
         .setDirection(UIDropMenu.Direction.UP)
         .setMenuWidth(190)
         .addToContainer(this, 1);
@@ -73,10 +73,10 @@ public class UIMidiFilter extends UI2dComponent {
   private final UI ui;
   private final Overlay overlay;
   private final MidiFilterParameter midiFilter;
-  private final LXMidiSource.Selector midiSource;
+  private final MidiSelector.Source midiSource;
   private OverlayPosition overlayPosition = OverlayPosition.BOTTOM_LEFT;
 
-  public UIMidiFilter(UI ui, float x, float y, MidiFilterParameter midiFilter, LXMidiSource.Selector midiSource) {
+  public UIMidiFilter(UI ui, float x, float y, MidiFilterParameter midiFilter, MidiSelector.Source midiSource) {
     super(x, y, WIDTH, HEIGHT);
     this.ui = ui;
     this.midiFilter = midiFilter;
