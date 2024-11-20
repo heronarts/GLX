@@ -463,7 +463,7 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
    * @param baseColor Base color to determine modulated color from
    * @return Color to use for modulated value
    */
-   public int getModulatedValueColor(int baseColor) {
+  public static int getModulatedValueColor(int baseColor) {
     int DIM_AMOUNT = 20;
     float h = LXColor.h(baseColor);
     float s = LXColor.s(baseColor);
