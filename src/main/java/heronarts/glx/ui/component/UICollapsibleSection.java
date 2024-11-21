@@ -46,6 +46,7 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
   private boolean expanded = true;
   private float expandedHeight;
   private BooleanParameter expandedParameter = null;
+  private UI2dComponent footer = null;
 
   private final LXParameterListener expandedListener = p -> {
     _setExpanded(((BooleanParameter) p).isOn(), false);
@@ -81,13 +82,14 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
     this.title.setTextAlignment(VGraphics.Align.LEFT, VGraphics.Align.MIDDLE);
     addTopLevelComponent(this.title);
 
-    setHeight(this.expandedHeight = (int) Math.max(CLOSED_HEIGHT, h));
+    this.expandedHeight = (int) Math.max(CLOSED_HEIGHT, h);
+    updateHeight();
     this.content = new UI2dContainer(PADDING, CONTENT_Y, this.width - 2*PADDING, Math.max(0, this.expandedHeight - PADDING - CONTENT_Y)) {
       @Override
       public void onResize() {
         expandedHeight = (this.height <= 0 ? CLOSED_HEIGHT : CONTENT_Y + this.height + PADDING);
         if (expanded) {
-          UICollapsibleSection.this.setHeight(expandedHeight);
+          updateHeight();
         }
       }
     };
@@ -185,7 +187,10 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
     if (this.expanded != expanded) {
       this.expanded = expanded;
       this.content.setVisible(this.expanded);
-      setHeight(this.expanded ? this.expandedHeight : CLOSED_HEIGHT);
+      if (this.footer != null) {
+        this.footer.setVisible(this.expanded);
+      }
+      updateHeight();
       redraw();
 
       // Push change to parameter
@@ -194,6 +199,27 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
       }
     }
     return this;
+  }
+
+  protected void updateHeight() {
+    float contentHeight = this.expanded ? this.expandedHeight : CLOSED_HEIGHT;
+    if (this.footer != null) {
+      this.footer.setY(contentHeight);
+      float footerHeight = this.footer.isVisible() ? this.footer.getHeight() : 0;
+      if (footerHeight > 0) {
+        footerHeight += PADDING;
+      }
+      contentHeight += footerHeight;
+    }
+    setHeight(contentHeight);
+  }
+
+  protected void setFooter(UI2dComponent footer) {
+    if (this.footer != null) {
+      throw new IllegalArgumentException("Cannot set footer twice on UICollapsibleSection: " + footer);
+    }
+    this.footer = footer;
+    addTopLevelComponent(footer);
   }
 
   @Override
