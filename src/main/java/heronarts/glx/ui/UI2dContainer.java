@@ -526,6 +526,10 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
     return this.contentTarget.mutableChildren.iterator();
   }
 
+  public boolean isEmpty() {
+    return this.contentTarget.children.isEmpty();
+  }
+
   public List<UIObject> getChildren() {
     return this.contentTarget.children;
   }
