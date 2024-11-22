@@ -72,6 +72,7 @@ public class UIDropMenu extends UIParameterComponent implements UIFocus, UIContr
     setParameter(parameter);
     setBackgroundColor(UI.get().theme.controlBackgroundColor);
     setBorderColor(UI.get().theme.controlBorderColor);
+    setFontColor(UI.get().theme.controlTextColor);
   }
 
   public UIDropMenu setMenuWidth(float menuWidth) {
@@ -195,7 +196,7 @@ public class UIDropMenu extends UIParameterComponent implements UIFocus, UIContr
     }
 
     vg.fontFace(hasFont() ? getFont() : ui.theme.getControlFont());
-    vg.fillColor(this.enabled ? ui.theme.controlTextColor : ui.theme.controlDisabledTextColor);
+    vg.fillColor(this.enabled ? getFontColor() : ui.theme.controlDisabledTextColor);
     vg.beginPath();
     vg.textAlign(VGraphics.Align.LEFT, VGraphics.Align.MIDDLE);
     vg.text(4 + this.textOffsetX, this.height / 2 + 1 + this.textOffsetY, clipTextToWidth(vg, text, this.width - 12));
