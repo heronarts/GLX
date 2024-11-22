@@ -47,6 +47,7 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
   private float expandedHeight;
   private BooleanParameter expandedParameter = null;
   private UI2dComponent footer = null;
+  private boolean footerVisible = true;
 
   private final LXParameterListener expandedListener = p -> {
     _setExpanded(((BooleanParameter) p).isOn(), false);
@@ -188,7 +189,7 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
       this.expanded = expanded;
       this.content.setVisible(this.expanded);
       if (this.footer != null) {
-        this.footer.setVisible(this.expanded);
+        this.footer.setVisible(this.expanded && this.footerVisible);
       }
       updateHeight();
       redraw();
@@ -218,8 +219,20 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
     if (this.footer != null) {
       throw new IllegalArgumentException("Cannot set footer twice on UICollapsibleSection: " + footer);
     }
+    if (footer == null) {
+      throw new IllegalArgumentException("Cannot set null footer on UICollapsibleSection");
+    }
     this.footer = footer;
+    this.footer.setVisible(this.expanded && this.footerVisible);
     addTopLevelComponent(footer);
+  }
+
+  protected void setFooterVisible(boolean footerVisible) {
+    this.footerVisible = footerVisible;
+    if (this.footer != null) {
+      this.footer.setVisible(this.expanded && this.footerVisible);
+      updateHeight();
+    }
   }
 
   @Override
