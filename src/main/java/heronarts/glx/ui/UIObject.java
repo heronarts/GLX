@@ -156,6 +156,9 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    * @return this
    */
   public UIObject addLoopTask(LXLoopTask loopTask) {
+    if (this.loopTasks.contains(loopTask)) {
+      throw new IllegalStateException("Cannot add same loop task to UI object multiple times: " + this + " " + loopTask);
+    }
     this.loopTasks.add(loopTask);
     return this;
   }
