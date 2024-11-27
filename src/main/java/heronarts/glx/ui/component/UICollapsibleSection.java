@@ -25,6 +25,7 @@ import heronarts.glx.ui.UI2dComponent;
 import heronarts.glx.ui.UI2dContainer;
 import heronarts.glx.ui.UIMouseFocus;
 import heronarts.glx.ui.vg.VGraphics;
+import heronarts.lx.LX;
 import heronarts.lx.parameter.BooleanParameter;
 import heronarts.lx.parameter.BoundedParameter;
 import heronarts.lx.parameter.LXParameterListener;
@@ -48,6 +49,7 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
   private BooleanParameter expandedParameter = null;
   private UI2dComponent footer = null;
   private boolean footerVisible = true;
+  private boolean alwaysOpen = false;
 
   private final LXParameterListener expandedListener = p -> {
     _setExpanded(((BooleanParameter) p).isOn(), false);
@@ -95,6 +97,15 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
       }
     };
     setContentTarget(this.content);
+  }
+
+  public UICollapsibleSection setAlwaysOpen() {
+    if (this.expandedParameter != null) {
+      throw new IllegalStateException("Cannot setAlwaysOpen() on UICollapsibleSection with expansion parameter");
+    }
+    setExpanded(true);
+    this.alwaysOpen = true;
+    return this;
   }
 
   /**
@@ -185,6 +196,10 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
   }
 
   private UICollapsibleSection _setExpanded(boolean expanded, boolean pushToParam) {
+    if (this.alwaysOpen) {
+      LX.warning("Should not call setExpanded() on UICollapsibleSection that has setAlwaysOpen()");
+      return this;
+    }
     if (this.expanded != expanded) {
       this.expanded = expanded;
       this.content.setVisible(this.expanded);
@@ -237,6 +252,9 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
 
   @Override
   public void onMousePressed(MouseEvent mouseEvent, float mx, float my) {
+    if (this.alwaysOpen) {
+      return;
+    }
     if (my < CONTENT_Y) {
       if ((mx < this.title.getX()) || mouseEvent.isDoubleClick()) {
         mouseEvent.consume();
@@ -248,6 +266,9 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
   @Override
   public void onKeyPressed(KeyEvent keyEvent, char keyChar, int keyCode) {
     super.onKeyPressed(keyEvent, keyChar, keyCode);
+    if (this.alwaysOpen) {
+      return;
+    }
     if (keyCode == KeyEvent.VK_SPACE) {
       keyEvent.consume();
       toggle();
