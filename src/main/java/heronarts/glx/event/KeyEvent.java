@@ -164,6 +164,39 @@ public class KeyEvent extends Event {
     throw new IllegalArgumentException("Unknown GLFW key action code: " + glfwAction);
   }
 
+  /**
+   * Class that represents a keyboard shortcut
+   */
+  public static class Shortcut {
+
+    public interface Action {
+      public void onShortcut(KeyEvent keyEvent);
+    }
+
+    private static final int MODIFIER_MASK = KeyEvent.ALT | KeyEvent.SHIFT | KeyEvent.COMMAND;
+
+    public final int keyCode;
+    public final int modifiers;
+    public final Action action;
+
+    public Shortcut(int keyCode, int modifiers, Action action) {
+      if ((modifiers & ~MODIFIER_MASK) != 0) {
+
+      }
+
+      this.keyCode = keyCode;
+      this.modifiers = modifiers & MODIFIER_MASK;;
+      this.action = action;
+      if (this.modifiers == 0) {
+        throw new IllegalArgumentException("Keyboard Shortcut must have a valid shortcut modifier set (ALT, SHIFT, COMMAND)");
+      }
+    }
+
+    public boolean matches(int modifiers) {
+      return this.modifiers == (modifiers & MODIFIER_MASK);
+    }
+  }
+
   public final Action action;
   public final int keyCode;
   public final int scanCode;
@@ -215,6 +248,22 @@ public class KeyEvent extends Event {
 
   public boolean isCommand(int keyCode) {
     return isCommand() && (this.keyCode == keyCode);
+  }
+
+  public boolean isShortcut(int keyCode, int modifiers) {
+    return
+      (this.keyCode == keyCode) &&
+      ((this.modifiers & Shortcut.MODIFIER_MASK) == (modifiers & Shortcut.MODIFIER_MASK));
+  }
+
+  public boolean isShortcut(Shortcut shortcut) {
+    return
+      (this.keyCode == shortcut.keyCode) &&
+      shortcut.matches(this.modifiers);
+  }
+
+  public boolean hasShortcutModifiers() {
+    return (this.modifiers & Shortcut.MODIFIER_MASK) != 0;
   }
 
   public boolean isShiftDown(int keyCode) {
