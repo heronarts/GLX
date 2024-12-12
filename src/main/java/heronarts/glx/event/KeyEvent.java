@@ -181,11 +181,10 @@ public class KeyEvent extends Event {
 
     public Shortcut(int keyCode, int modifiers, Action action) {
       if ((modifiers & ~MODIFIER_MASK) != 0) {
-
+        throw new IllegalArgumentException("Keyboard Shortcut modifiers may only contain ALT, SHIFT, COMMAND");
       }
-
       this.keyCode = keyCode;
-      this.modifiers = modifiers & MODIFIER_MASK;;
+      this.modifiers = modifiers & MODIFIER_MASK;
       this.action = action;
       if (this.modifiers == 0) {
         throw new IllegalArgumentException("Keyboard Shortcut must have a valid shortcut modifier set (ALT, SHIFT, COMMAND)");
@@ -248,6 +247,10 @@ public class KeyEvent extends Event {
 
   public boolean isCommand(int keyCode) {
     return isCommand() && (this.keyCode == keyCode);
+  }
+
+  public boolean isShortcutCommand(int keyCode) {
+    return isShortcut(keyCode, COMMAND);
   }
 
   public boolean isShortcut(int keyCode, int modifiers) {
