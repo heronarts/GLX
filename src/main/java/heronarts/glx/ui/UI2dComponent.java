@@ -141,9 +141,9 @@ public abstract class UI2dComponent extends UIObject {
 
   private int borderWeight = 1;
 
-  private boolean hasBorderRounding = false;
+  protected boolean hasBorderRounding = false;
 
-  int
+  protected int
     borderRoundingTopLeft = 0,
     borderRoundingTopRight = 0,
     borderRoundingBottomRight = 0,
