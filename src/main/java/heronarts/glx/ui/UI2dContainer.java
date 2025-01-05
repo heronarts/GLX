@@ -208,11 +208,39 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
     return setChildSpacing(childSpacing, childSpacing);
   }
 
-  public UI2dContainer setChildSpacing(float childSpacingY, float childSpacingX) {
-    if ((this.contentTarget.childSpacingX != childSpacingX) || (this.contentTarget.childSpacingY != childSpacingY)) {
-      this.contentTarget.childSpacingX = childSpacingX;
-      this.contentTarget.childSpacingY = childSpacingY;
-      this.contentTarget.reflow();
+  public UI2dContainer setChildSpacingX(float childSpacingX) {
+    if (this.contentTarget != this) {
+      this.contentTarget.setChildSpacingX(childSpacingX);
+    } else {
+      if (this.childSpacingX != childSpacingX) {
+        this.childSpacingX = childSpacingX;
+        reflow();
+      }
+    }
+    return this;
+  }
+
+  public UI2dContainer setChildSpacingY(float childSpacingY) {
+    if (this.contentTarget != this) {
+      this.contentTarget.setChildSpacingY(childSpacingY);
+    } else {
+      if (this.childSpacingY != childSpacingY) {
+        this.childSpacingY = childSpacingY;
+        reflow();
+      }
+    }
+    return this;
+  }
+
+  public UI2dContainer setChildSpacing(float childSpacingX, float childSpacingY) {
+    if (this.contentTarget != this) {
+      this.contentTarget.setChildSpacing(childSpacingX, childSpacingY);
+    } else {
+      if ((this.childSpacingX != childSpacingX) || (this.childSpacingY != childSpacingY)) {
+        this.childSpacingX = childSpacingX;
+        this.childSpacingY = childSpacingY;
+        reflow();
+      }
     }
     return this;
   }
