@@ -217,6 +217,20 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
     return this;
   }
 
+  public float getChildSpacingX() {
+    if (this.contentTarget != this) {
+      return this.contentTarget.getChildSpacingX();
+    }
+    return this.childSpacingX;
+  }
+
+  public float getChildSpacingY() {
+    if (this.contentTarget != this) {
+      return this.contentTarget.getChildSpacingY();
+    }
+    return this.childSpacingY;
+  }
+
   public UI2dContainer setMinWidth(float minWidth) {
     if (this.contentTarget.minWidth != minWidth) {
       this.contentTarget.minWidth = minWidth;
