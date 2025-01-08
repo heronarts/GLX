@@ -222,10 +222,18 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
   }
 
   public UI2dContainer setChildSpacingX(float childSpacingX) {
+    if (this.contentTarget != this) {
+      this.contentTarget.setChildSpacingX(childSpacingX);
+      return this;
+    }
     return setChildSpacing(this.contentTarget.childSpacingY, childSpacingX);
   }
 
   public UI2dContainer setChildSpacingY(float childSpacingY) {
+    if (this.contentTarget != this) {
+      this.contentTarget.setChildSpacingY(childSpacingY);
+      return this;
+    }
     return setChildSpacing(childSpacingY, this.contentTarget.childSpacingX);
   }
 
