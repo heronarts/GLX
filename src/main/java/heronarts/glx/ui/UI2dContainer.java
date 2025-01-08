@@ -154,25 +154,30 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
   }
 
   public UI2dContainer setPadding(float topPadding, float rightPadding, float bottomPadding, float leftPadding) {
+    if (this.contentTarget != this) {
+      this.contentTarget.setPadding(topPadding, rightPadding, bottomPadding, leftPadding);
+      return this;
+    }
+
     boolean reflow = false;
-    if (this.contentTarget.topPadding != topPadding) {
-      this.contentTarget.topPadding = topPadding;
+    if (this.topPadding != topPadding) {
+      this.topPadding = topPadding;
       reflow = true;
     }
-    if (this.contentTarget.rightPadding != rightPadding) {
-      this.contentTarget.rightPadding = rightPadding;
+    if (this.rightPadding != rightPadding) {
+      this.rightPadding = rightPadding;
       reflow = true;
     }
-    if (this.contentTarget.bottomPadding != bottomPadding) {
-      this.contentTarget.bottomPadding = bottomPadding;
+    if (this.bottomPadding != bottomPadding) {
+      this.bottomPadding = bottomPadding;
       reflow = true;
     }
-    if (this.contentTarget.leftPadding != leftPadding) {
-      this.contentTarget.leftPadding = leftPadding;
+    if (this.leftPadding != leftPadding) {
+      this.leftPadding = leftPadding;
       reflow = true;
     }
     if (reflow) {
-      this.contentTarget.reflow();
+      reflow();
     }
     return this;
   }
@@ -225,10 +230,14 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
   }
 
   public UI2dContainer setChildSpacing(float childSpacingY, float childSpacingX) {
-    if ((this.contentTarget.childSpacingX != childSpacingX) || (this.contentTarget.childSpacingY != childSpacingY)) {
-      this.contentTarget.childSpacingX = childSpacingX;
-      this.contentTarget.childSpacingY = childSpacingY;
-      this.contentTarget.reflow();
+    if (this.contentTarget != this) {
+      this.contentTarget.setChildSpacing(childSpacingY, childSpacingX);
+      return this;
+    }
+    if ((this.childSpacingX != childSpacingX) || (this.childSpacingY != childSpacingY)) {
+      this.childSpacingX = childSpacingX;
+      this.childSpacingY = childSpacingY;
+      reflow();
     }
     return this;
   }
