@@ -1404,7 +1404,7 @@ public abstract class UI2dComponent extends UIObject {
     case MIDDLE_LEFT:
     case BOTTOM_LEFT:
       setX = true;
-      x = target.getLeftPadding() + this.marginLeft;
+      x = target.leftPadding + this.marginLeft;
       break;
 
     case CENTER:
@@ -1412,7 +1412,7 @@ public abstract class UI2dComponent extends UIObject {
     case MIDDLE_CENTER:
     case BOTTOM_CENTER:
       setX = true;
-      x = .5f * (target.getWidth() + target.getLeftPadding() - target.getRightPadding() - this.width);
+      x = .5f * (target.getWidth() + target.leftPadding - target.rightPadding - this.width);
       break;
 
     case RIGHT:
@@ -1420,7 +1420,7 @@ public abstract class UI2dComponent extends UIObject {
     case MIDDLE_RIGHT:
     case BOTTOM_RIGHT:
       setX = true;
-      x = target.getWidth() - target.getRightPadding() - this.width - this.marginRight;
+      x = target.getWidth() - target.rightPadding - this.width - this.marginRight;
       break;
 
     default:
@@ -1434,7 +1434,7 @@ public abstract class UI2dComponent extends UIObject {
     case TOP_CENTER:
     case TOP_RIGHT:
       setY = true;
-      y = target.getTopPadding() + this.marginTop;
+      y = target.topPadding + this.marginTop;
       break;
 
     case MIDDLE:
@@ -1442,7 +1442,7 @@ public abstract class UI2dComponent extends UIObject {
     case MIDDLE_CENTER:
     case MIDDLE_RIGHT:
       setY = true;
-      y = .5f * (target.getHeight() + target.getTopPadding() - target.getBottomPadding() - this.height);
+      y = .5f * (target.getHeight() + target.topPadding - target.bottomPadding - this.height);
       break;
 
     case BOTTOM:
@@ -1450,7 +1450,7 @@ public abstract class UI2dComponent extends UIObject {
     case BOTTOM_RIGHT:
     case BOTTOM_CENTER:
       setY = true;
-      y = target.getHeight() - target.getBottomPadding() - this.height - this.marginBottom;
+      y = target.getHeight() - target.bottomPadding - this.height - this.marginBottom;
       break;
 
     default:

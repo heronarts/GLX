@@ -92,9 +92,9 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
 
   ArrowKeyFocus arrowKeyFocus = ArrowKeyFocus.NONE;
 
-  private float topPadding = 0, rightPadding = 0, bottomPadding = 0, leftPadding = 0;
+  protected float topPadding = 0, rightPadding = 0, bottomPadding = 0, leftPadding = 0;
 
-  private float childSpacingX = 0, childSpacingY = 0;
+  protected float childSpacingX = 0, childSpacingY = 0;
 
   private float minHeight = 0, minWidth = 0;
 
@@ -193,6 +193,14 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
     return this.leftPadding;
   }
 
+  public float getChildSpacingX() {
+    return this.childSpacingX;
+  }
+
+  public float getChildSpacingY() {
+    return this.childSpacingY;
+  }
+
   /**
    * Deprecated. Use {@link #setChildSpacing(float)} instead
    *
@@ -206,6 +214,14 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
 
   public UI2dContainer setChildSpacing(float childSpacing) {
     return setChildSpacing(childSpacing, childSpacing);
+  }
+
+  public UI2dContainer setChildSpacingX(float childSpacingX) {
+    return setChildSpacing(this.contentTarget.childSpacingY, childSpacingX);
+  }
+
+  public UI2dContainer setChildSpacingY(float childSpacingY) {
+    return setChildSpacing(childSpacingY, this.contentTarget.childSpacingX);
   }
 
   public UI2dContainer setChildSpacing(float childSpacingY, float childSpacingX) {
