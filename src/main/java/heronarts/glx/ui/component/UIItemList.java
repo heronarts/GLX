@@ -99,6 +99,15 @@ public interface UIItemList {
     public abstract String getLabel();
 
     /**
+     * Description of this item that will show in the help status bar
+     *
+     * @return Optional string to display in the help status bar
+     */
+    public String getDescription() {
+      return null;
+    }
+
+    /**
      * Action handler, invoked when item is activated
      */
     public void onActivate() {}
@@ -220,6 +229,7 @@ public interface UIItemList {
     private static final int CHECKBOX_SIZE = 8;
     private static final int SECTION_CHEVRON_WIDTH = 14;
 
+    private final UI ui;
     private final LX lx;
 
     private final UI2dContainer list;
@@ -263,6 +273,7 @@ public interface UIItemList {
     private String filter = null;
 
     private Impl(UI ui, UI2dContainer list) {
+      this.ui = ui;
       this.lx = ui.lx;
       this.list = list;
       list.setBackgroundColor(ui.theme.listBackgroundColor);;
@@ -343,6 +354,10 @@ public interface UIItemList {
           item.onFocus();
           for (Listener listener : this.listeners) {
             listener.onItemFocused(item);
+          }
+          String description = item.getDescription();
+          if (description != null) {
+            this.ui.setMouseoverHelpText(description);
           }
         }
         this.list.redraw();
