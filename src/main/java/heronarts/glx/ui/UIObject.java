@@ -732,25 +732,38 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     if (!overAnyChild && (this.overChild != null)) {
       this.overChild.mouseOut(mouseEvent);
       this.overChild = null;
+
+      // This is like we've done "mouseOver" on the parent again,
+      // as the mouse is not over any of its children anymore, so if
+      // we have a help text tip, let's show it again
+      showHelpText();
     }
     onMouseMoved(mouseEvent, mx, my);
   }
 
   private String setDescription;
 
-  void mouseOver(MouseEvent mouseEvent) {
+  private void showHelpText() {
     this.setDescription = getDescription();
     if (this.setDescription != null) {
       getUI().setMouseoverHelpText(this.setDescription);
     }
-    onMouseOver(mouseEvent);
   }
 
-  void mouseOut(MouseEvent mouseEvent) {
+  private void clearHelpText() {
     if (this.setDescription != null) {
       getUI().clearMouseoverHelpText();
       this.setDescription = null;
     }
+  }
+
+  void mouseOver(MouseEvent mouseEvent) {
+    showHelpText();
+    onMouseOver(mouseEvent);
+  }
+
+  void mouseOut(MouseEvent mouseEvent) {
+    clearHelpText();
     if (this.overChild != null) {
       this.overChild.mouseOut(mouseEvent);
       this.overChild = null;
