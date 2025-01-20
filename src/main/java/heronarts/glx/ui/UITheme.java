@@ -375,6 +375,8 @@ public class UITheme {
   public final VGraphics.Image iconSearch;
   public final VGraphics.Image iconLock;
   public final VGraphics.Image iconMidi;
+  public final VGraphics.Image iconSnapshot;
+  public final VGraphics.Image iconAutomation;
 
   UITheme(VGraphics vg) throws IOException {
     this.controlFont = loadFont(vg, "Inter-SemiBold", "Inter-SemiBold.otf");
@@ -420,6 +422,8 @@ public class UITheme {
     this.iconSearch = loadIcon(vg, "icon-search@2x.png");
     this.iconLock = loadIcon(vg, "icon-lock@2x.png");
     this.iconMidi = loadIcon(vg, "icon-midi@2x.png");
+    this.iconSnapshot = loadIcon(vg, "icon-snapshot@2x.png");
+    this.iconAutomation = loadIcon(vg, "icon-automation@2x.png");
     LX.initProfiler.log("GLX: UI: Theme: Icons");
   }
 
