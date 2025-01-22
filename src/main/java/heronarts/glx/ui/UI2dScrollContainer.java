@@ -203,10 +203,16 @@ public class UI2dScrollContainer extends UI2dContainer implements UI2dScrollInte
     return this;
   }
 
+  public boolean hasScrollX() {
+    return (getScrollWidth() > getWidth());
+  }
+
+  public boolean hasScrollY() {
+    return getScrollHeight() > getHeight();
+  }
+
   public boolean hasScroll() {
-    return
-      (getScrollWidth() > getWidth()) ||
-      (getScrollHeight() > getHeight());
+    return hasScrollX() || hasScrollY();
   }
 
   @Override
