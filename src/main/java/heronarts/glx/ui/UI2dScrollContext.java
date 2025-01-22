@@ -270,14 +270,24 @@ public class UI2dScrollContext extends UI2dContext implements UI2dScrollInterfac
   @Override
   protected void onMouseScroll(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
     if (this.horizontalScrollingEnabled) {
-      if (this.scrollWidth > this.width) {
-        mouseEvent.consume();
-        setScrollX(this.scrollX + (mouseEvent.isShiftDown() ? dy : -dx));
+      if (hasScrollX()) {
+        // Holding shift can side-scroll using the Y scroll
+        if (mouseEvent.isShiftDown()) {
+          if (!mouseEvent.isScrollYConsumed()) {
+            mouseEvent.consumeScrollY();
+            setScrollX(this.scrollX + (mouseEvent.isShiftDown() ? dy : -dx));
+          }
+        } else {
+          if (!mouseEvent.isScrollXConsumed()) {
+            mouseEvent.consumeScrollX();
+            setScrollX(this.scrollX - dx);
+          }
+        }
       }
     }
     if (this.verticalScrollingEnabled) {
-      if (this.scrollHeight > this.height) {
-        mouseEvent.consume();
+      if (hasScrollY() && !mouseEvent.isScrollYConsumed()) {
+        mouseEvent.consumeScrollY();
         setScrollY(this.scrollY + dy);
       }
     }

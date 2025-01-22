@@ -20,6 +20,10 @@ package heronarts.glx.ui;
 
 public interface UI2dScrollInterface {
 
+  public float getWidth();
+
+  public float getHeight();
+
   public float getScrollHeight();
 
   public UI2dScrollInterface setScrollHeight(float scrollHeight);
@@ -37,5 +41,17 @@ public interface UI2dScrollInterface {
   public UI2dScrollInterface setScrollX(float scrollX);
 
   public UI2dScrollInterface setScrollY(float scrollY);
+
+  public default boolean hasScrollX() {
+    return getScrollWidth() > getWidth();
+  }
+
+  public default boolean hasScrollY() {
+    return getScrollHeight() > getHeight();
+  }
+
+  public default boolean hasScroll() {
+    return hasScrollX() || hasScrollY();
+  }
 
 }

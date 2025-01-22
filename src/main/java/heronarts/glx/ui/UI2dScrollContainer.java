@@ -203,18 +203,6 @@ public class UI2dScrollContainer extends UI2dContainer implements UI2dScrollInte
     return this;
   }
 
-  public boolean hasScrollX() {
-    return (getScrollWidth() > getWidth());
-  }
-
-  public boolean hasScrollY() {
-    return getScrollHeight() > getHeight();
-  }
-
-  public boolean hasScroll() {
-    return hasScrollX() || hasScrollY();
-  }
-
   @Override
   protected void onResize() {
     super.onResize();
@@ -314,14 +302,24 @@ public class UI2dScrollContainer extends UI2dContainer implements UI2dScrollInte
   @Override
   protected void onMouseScroll(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
     if (this.horizontalScrollingEnabled) {
-      if (this.scrollWidth > this.width) {
-        mouseEvent.consume();
-        setScrollX(this.scrollX + (mouseEvent.isShiftDown() ? dy : -dx));
+      if (hasScrollX()) {
+        // Holding shift can side-scroll using the Y scroll
+        if (mouseEvent.isShiftDown()) {
+          if (!mouseEvent.isScrollYConsumed()) {
+            mouseEvent.consumeScrollY();
+            setScrollX(this.scrollX + (mouseEvent.isShiftDown() ? dy : -dx));
+          }
+        } else {
+          if (!mouseEvent.isScrollXConsumed()) {
+            mouseEvent.consumeScrollX();
+            setScrollX(this.scrollX - dx);
+          }
+        }
       }
     }
     if (this.verticalScrollingEnabled) {
-      if (this.scrollHeight > this.height) {
-        mouseEvent.consume();
+      if (hasScrollY() && !mouseEvent.isScrollYConsumed()) {
+        mouseEvent.consumeScrollY();
         setScrollY(this.scrollY + dy);
       }
     }

@@ -65,6 +65,8 @@ public class MouseEvent extends Event {
   public final float dy;
 
   private boolean consumeDropMenu = false;
+  private boolean consumeScrollX = false;
+  private boolean consumeScrollY = false;
 
   public MouseEvent(int glfwAction, int button, float x, float y, int modifiers) {
     super(modifiers);
@@ -122,6 +124,30 @@ public class MouseEvent extends Event {
     this.consumeDropMenu = true;
   }
 
+  public MouseEvent consumeScrollX() {
+    this.consumeScrollX = true;
+    if (this.consumeScrollY) {
+      consume();
+    }
+    return this;
+  }
+
+  public MouseEvent consumeScrollY() {
+    this.consumeScrollY = true;
+    if (this.consumeScrollX) {
+      consume();
+    }
+    return this;
+  }
+
+  @Override
+  public MouseEvent consume() {
+    super.consume();
+    this.consumeScrollX = true;
+    this.consumeScrollY = true;
+    return this;
+  }
+
   /**
    * Check whether mouse press was responsible for a context menu opening
    *
@@ -129,6 +155,14 @@ public class MouseEvent extends Event {
    */
   public boolean isDropMenuConsumed() {
     return this.consumeDropMenu;
+  }
+
+  public boolean isScrollXConsumed() {
+    return this.consumeScrollX;
+  }
+
+  public boolean isScrollYConsumed() {
+    return this.consumeScrollY;
   }
 
   public MouseEvent setCount(int count) {
