@@ -98,8 +98,8 @@ public class UI2dScrollPane extends UI2dContainer {
       }
     };
     this.scrollContent.setBackgroundColor(this.contentBackgroundColor);
-    this.verticalScrollBar = new ScrollBar(ScrollBar.Orientation.VERTICAL, 0, 0, 0, 0);
-    this.horizontalScrollBar = new ScrollBar(ScrollBar.Orientation.HORIZONTAL, 0, 0, 0, 0);
+    this.verticalScrollBar = new ScrollBar(this.scrollContent, ScrollBar.Orientation.VERTICAL, 0, 0, 0, 0);
+    this.horizontalScrollBar = new ScrollBar(this.scrollContent, ScrollBar.Orientation.HORIZONTAL, 0, 0, 0, 0);
     addChildren(this.verticalScrollBar, this.horizontalScrollBar);
     setContentTarget(this.scrollContent);
   }
@@ -339,19 +339,21 @@ public class UI2dScrollPane extends UI2dContainer {
     super.drawBorder(ui, vg);
   }
 
-  private class ScrollBar extends UI2dComponent {
+  public static class ScrollBar extends UI2dComponent {
 
     public enum Orientation {
       VERTICAL,
       HORIZONTAL;
     }
 
+    private final UI2dScrollInterface scrollContent;
     private final Orientation orientation;
 
     private boolean scrolling = false;
 
-    private ScrollBar(Orientation orientation, float x, float y, float w, float h) {
+    public ScrollBar(UI2dScrollInterface scrollContent, Orientation orientation, float x, float y, float w, float h) {
       super(x, y, w, h);
+      this.scrollContent = scrollContent;
       this.orientation = orientation;
       setVisible(false);
     }
@@ -360,11 +362,11 @@ public class UI2dScrollPane extends UI2dContainer {
     public void onDraw(UI ui, VGraphics vg) {
       switch (this.orientation){
         case VERTICAL:
-          float scrollHeight = scrollContent.getScrollHeight();
-          float insetHeight = scrollContent.getHeight();
+          float scrollHeight = this.scrollContent.getScrollHeight();
+          float insetHeight = this.scrollContent.getHeight();
           if (scrollHeight > insetHeight) {
             float barHeight = this.height * insetHeight / scrollHeight;
-            float barY = (this.height - barHeight) * scrollContent.getScrollY() / (insetHeight - scrollHeight);
+            float barY = (this.height - barHeight) * this.scrollContent.getScrollY() / (insetHeight - scrollHeight);
             vg.beginPath();
             vg.fillColor(ui.theme.paneScrollBarColor);
             vg.rect(2, barY, this.width - 4, barHeight, 1);
@@ -373,11 +375,11 @@ public class UI2dScrollPane extends UI2dContainer {
           break;
 
         case HORIZONTAL:
-          float scrollWidth = scrollContent.getScrollWidth();
-          float insetWidth = scrollContent.getWidth();
+          float scrollWidth = this.scrollContent.getScrollWidth();
+          float insetWidth = this.scrollContent.getWidth();
           if (scrollWidth > insetWidth) {
             float barWidth = this.height * insetWidth / scrollWidth;
-            float barX = (this.width - barWidth) * scrollContent.getScrollX() / (insetWidth - scrollWidth);
+            float barX = (this.width - barWidth) * this.scrollContent.getScrollX() / (insetWidth - scrollWidth);
             vg.beginPath();
             vg.fillColor(ui.theme.paneScrollBarColor);
             vg.rect(barX, 2, barWidth, this.height - 4, 1);
@@ -391,10 +393,10 @@ public class UI2dScrollPane extends UI2dContainer {
     public void onMousePressed(MouseEvent mouseEvent, float mx, float my) {
       switch (this.orientation) {
       case VERTICAL:
-        this.scrolling = scrollContent.getScrollHeight() > scrollContent.getHeight();
+        this.scrolling = this.scrollContent.getScrollHeight() > this.scrollContent.getHeight();
         break;
       case HORIZONTAL:
-        this.scrolling = scrollContent.getScrollWidth() > scrollContent.getWidth();
+        this.scrolling = this.scrollContent.getScrollWidth() > this.scrollContent.getWidth();
         break;
       }
     }
@@ -404,16 +406,16 @@ public class UI2dScrollPane extends UI2dContainer {
       if (this.scrolling) {
         switch (this.orientation) {
         case VERTICAL:
-          float scrollHeight = scrollContent.getScrollHeight();
-          float insetHeight = scrollContent.getHeight();
+          float scrollHeight = this.scrollContent.getScrollHeight();
+          float insetHeight = this.scrollContent.getHeight();
           float barHeight = this.height * insetHeight / scrollHeight;
-          scrollContent.setScrollY(scrollContent.getScrollY() - dy * (scrollHeight - insetHeight) / (this.height - barHeight));
+          this.scrollContent.setScrollY(this.scrollContent.getScrollY() - dy * (scrollHeight - insetHeight) / (this.height - barHeight));
           break;
         case HORIZONTAL:
-          float scrollWidth = scrollContent.getScrollWidth();
-          float insetWidth = scrollContent.getWidth();
+          float scrollWidth = this.scrollContent.getScrollWidth();
+          float insetWidth = this.scrollContent.getWidth();
           float barWidth = this.width * insetWidth / scrollWidth;
-          scrollContent.setScrollX(scrollContent.getScrollX() - dx * (scrollWidth - insetWidth) / (this.width - barWidth));
+          this.scrollContent.setScrollX(this.scrollContent.getScrollX() - dx * (scrollWidth - insetWidth) / (this.width - barWidth));
           break;
         }
       }
