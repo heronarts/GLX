@@ -1751,12 +1751,16 @@ public abstract class UI2dComponent extends UIObject {
     }
 
     if (ownBackground) {
-      int borderWeight = this.hasBorder ? this.borderWeight : 0;
-      vg.beginPath();
-      vgRoundedRect(vg, borderWeight * .5f, borderWeight * .5f, this.width - borderWeight, this.height - borderWeight);
-      vg.fillColor((this.hasFocus && this.hasFocusBackground) ? this.focusBackgroundColor : this.backgroundColor);
-      vg.fill();
+      drawComponentBackground(ui, vg);
     }
+  }
+
+  protected void drawComponentBackground(UI ui, VGraphics vg) {
+    int borderWeight = this.hasBorder ? this.borderWeight : 0;
+    vg.beginPath();
+    vgRoundedRect(vg, borderWeight * .5f, borderWeight * .5f, this.width - borderWeight, this.height - borderWeight);
+    vg.fillColor((this.hasFocus && this.hasFocusBackground) ? this.focusBackgroundColor : this.backgroundColor);
+    vg.fill();
   }
 
   protected void drawParentBackground(UI ui, VGraphics vg) {
