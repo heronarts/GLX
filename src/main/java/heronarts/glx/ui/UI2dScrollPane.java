@@ -20,6 +20,7 @@
 package heronarts.glx.ui;
 
 import heronarts.glx.event.MouseEvent;
+import heronarts.glx.ui.UI2dScrollInterface.ScrollChange;
 import heronarts.glx.ui.vg.VGraphics;
 
 /**
@@ -87,14 +88,6 @@ public class UI2dScrollPane extends UI2dContainer {
         if (hasDynamicWidth()) {
           UI2dScrollPane.this.setWidth(this.width + insetLeft + insetRight + paddingLeft + paddingRight);
         }
-      }
-
-      @Override
-      protected void onScrollChange() {
-        super.onScrollChange();
-        verticalScrollBar.redraw();
-        horizontalScrollBar.redraw();
-
       }
     };
     this.scrollContent.setBackgroundColor(this.contentBackgroundColor);
@@ -339,11 +332,21 @@ public class UI2dScrollPane extends UI2dContainer {
     super.drawBorder(ui, vg);
   }
 
-  public static class ScrollBar extends UI2dComponent {
+  public static class ScrollBar extends UI2dComponent implements UI2dScrollInterface.ScrollListener {
 
     public enum Orientation {
       VERTICAL,
       HORIZONTAL;
+
+      private boolean isChanged(ScrollChange change) {
+        switch (this) {
+        case VERTICAL:
+          return change.y || change.height;
+        case HORIZONTAL:
+          return change.x || change.width;
+        }
+        return false;
+      }
     }
 
     private final UI2dScrollInterface scrollContent;
@@ -354,8 +357,22 @@ public class UI2dScrollPane extends UI2dContainer {
     public ScrollBar(UI2dScrollInterface scrollContent, Orientation orientation, float x, float y, float w, float h) {
       super(x, y, w, h);
       this.scrollContent = scrollContent;
+      this.scrollContent.addScrollListener(this);
       this.orientation = orientation;
       setVisible(false);
+    }
+
+    @Override
+    public void onScrollChange(UI2dScrollInterface scroll, ScrollChange change) {
+      if (this.orientation.isChanged(change)) {
+        redraw();
+      }
+    }
+
+    @Override
+    public void dispose() {
+      this.scrollContent.removeScrollListener(this);
+      super.dispose();
     }
 
     @Override

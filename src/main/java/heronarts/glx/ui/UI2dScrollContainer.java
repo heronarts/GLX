@@ -18,6 +18,10 @@
 
 package heronarts.glx.ui;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Objects;
+
 import heronarts.glx.event.MouseEvent;
 import heronarts.lx.utils.LXUtils;
 
@@ -41,6 +45,25 @@ public class UI2dScrollContainer extends UI2dContainer implements UI2dScrollInte
     super(x, y, w, h);
     this.scrollWidth = w;
     this.scrollHeight = h;
+  }
+
+  private final List<ScrollListener> listeners = new ArrayList<>();
+
+  public UI2dScrollContainer addScrollListener(ScrollListener listener) {
+    Objects.requireNonNull(listener, "May not add null ScrollListener");
+    if (this.listeners.contains(listener)) {
+      throw new IllegalStateException("May not add duplicate ScrollListener: " + listener);
+    }
+    this.listeners.add(listener);
+    return this;
+  }
+
+  public UI2dScrollContainer removeScrollListener(ScrollListener listener) {
+    if (!this.listeners.contains(listener)) {
+      throw new IllegalStateException("May not remove non-registered ScrollListener: " + listener);
+    }
+    this.listeners.remove(listener);
+    return this;
   }
 
   public boolean hasDynamicHeight() {
@@ -141,10 +164,17 @@ public class UI2dScrollContainer extends UI2dContainer implements UI2dScrollInte
    */
   @Override
   public UI2dScrollContainer setScrollSize(float scrollWidth, float scrollHeight) {
-    if ((this.scrollWidth != scrollWidth) || (this.scrollHeight != scrollHeight)) {
+    boolean widthChange = false, heightChange = false;
+    if (this.scrollWidth != scrollWidth) {
+      widthChange = true;
       this.scrollWidth = scrollWidth;
-      this.scrollHeight = scrollHeight;
-      rescroll();
+    }
+    if (this.scrollHeight != scrollHeight) {
+      heightChange = true;
+      this.scrollHeight = scrollWidth;
+    }
+    if (widthChange || heightChange) {
+      rescroll(widthChange, heightChange);
     }
     return this;
   }
@@ -162,7 +192,7 @@ public class UI2dScrollContainer extends UI2dContainer implements UI2dScrollInte
   public UI2dScrollContainer setScrollHeight(float scrollHeight) {
     if (this.scrollHeight != scrollHeight) {
       this.scrollHeight = scrollHeight;
-      rescroll();
+      rescroll(false, true);
     }
     return this;
   }
@@ -180,7 +210,7 @@ public class UI2dScrollContainer extends UI2dContainer implements UI2dScrollInte
   public UI2dScrollContainer setScrollWidth(float scrollWidth) {
     if (this.scrollWidth != scrollWidth) {
       this.scrollWidth = scrollWidth;
-      rescroll();
+      rescroll(true, false);
     }
     return this;
   }
@@ -206,7 +236,7 @@ public class UI2dScrollContainer extends UI2dContainer implements UI2dScrollInte
   @Override
   protected void onResize() {
     super.onResize();
-    rescroll();
+    rescroll(true, true);
   }
 
   private float minScrollX() {
@@ -227,14 +257,28 @@ public class UI2dScrollContainer extends UI2dContainer implements UI2dScrollInte
     return this.scrollY;
   }
 
+  @Deprecated
+  /**
+   * @deprecated Use onScrollChange(x, y)
+   */
   protected void onScrollChange() {}
+
+  protected void onScrollChange(ScrollChange scrollChange) {}
+
+  private void fireScrollChange(ScrollChange scrollChange) {
+    onScrollChange();
+    onScrollChange(scrollChange);
+    for (ScrollListener listener : this.listeners) {
+      listener.onScrollChange(this, scrollChange);
+    }
+  }
 
   @Override
   public UI2dScrollContainer setScrollX(float scrollX) {
     scrollX = LXUtils.constrainf(scrollX, minScrollX(), 0);
     if (this.scrollX != scrollX) {
       this.scrollX = scrollX;
-      onScrollChange();
+      fireScrollChange(ScrollChange.X);
       redraw();
     }
     return this;
@@ -245,21 +289,28 @@ public class UI2dScrollContainer extends UI2dContainer implements UI2dScrollInte
     scrollY = LXUtils.constrainf(scrollY, minScrollY(), 0);
     if (this.scrollY != scrollY) {
       this.scrollY = scrollY;
-      onScrollChange();
+      fireScrollChange(ScrollChange.Y);
       redraw();
     }
     return this;
   }
 
-  private void rescroll() {
+  private void rescroll(boolean widthChange, boolean heightChange) {
     float minScrollX = minScrollX();
     float minScrollY = minScrollY();
-    if ((this.scrollX < minScrollX) || (this.scrollY < minScrollY)) {
+    boolean xChange = false, yChange = false;
+    if (this.scrollX < minScrollX) {
+      xChange = true;
       this.scrollX = Math.max(this.scrollX, minScrollX);
+    }
+    if (this.scrollY < minScrollY) {
+      yChange = true;
       this.scrollY = Math.max(this.scrollY, minScrollY);
+    }
+    if (xChange || yChange) {
       redraw();
     }
-    onScrollChange();
+    fireScrollChange(new ScrollChange(xChange, yChange, widthChange, heightChange));
   }
 
   @Override
