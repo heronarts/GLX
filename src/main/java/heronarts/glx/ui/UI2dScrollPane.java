@@ -341,9 +341,9 @@ public class UI2dScrollPane extends UI2dContainer {
       private boolean isChanged(ScrollChange change) {
         switch (this) {
         case VERTICAL:
-          return change.y || change.height;
+          return change.isVertical();
         case HORIZONTAL:
-          return change.x || change.width;
+          return change.isHorizontal();
         }
         return false;
       }

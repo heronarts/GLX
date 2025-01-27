@@ -33,6 +33,14 @@ public interface UI2dScrollInterface {
       this.height = height;
     }
 
+    public boolean isVertical() {
+      return this.y || this.height;
+    }
+
+    public boolean isHorizontal() {
+      return this.x || this.width;
+    }
+
     public static final ScrollChange X = new ScrollChange(true, false, false, false);
     public static final ScrollChange Y = new ScrollChange(false, true, false, false);
     public static final ScrollChange WIDTH = new ScrollChange(false, false, true, false);
