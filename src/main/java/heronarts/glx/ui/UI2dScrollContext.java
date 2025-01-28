@@ -155,7 +155,7 @@ public class UI2dScrollContext extends UI2dContext implements UI2dScrollInterfac
     }
     if (this.scrollHeight != scrollHeight) {
       heightChange = true;
-      this.scrollHeight = scrollWidth;
+      this.scrollHeight = scrollHeight;
     }
     if (widthChange || heightChange) {
       rescroll(widthChange, heightChange);

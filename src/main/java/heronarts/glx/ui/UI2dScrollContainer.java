@@ -171,7 +171,7 @@ public class UI2dScrollContainer extends UI2dContainer implements UI2dScrollInte
     }
     if (this.scrollHeight != scrollHeight) {
       heightChange = true;
-      this.scrollHeight = scrollWidth;
+      this.scrollHeight = scrollHeight;
     }
     if (widthChange || heightChange) {
       rescroll(widthChange, heightChange);
