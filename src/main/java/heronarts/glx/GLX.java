@@ -26,6 +26,7 @@ import static org.lwjgl.util.tinyfd.TinyFileDialogs.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.nio.ByteBuffer;
 import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -40,11 +41,14 @@ import org.lwjgl.bgfx.BGFXPlatformData;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWDropCallback;
 import org.lwjgl.glfw.GLFWErrorCallback;
+import org.lwjgl.glfw.GLFWImage;
 import org.lwjgl.glfw.GLFWNativeCocoa;
 import org.lwjgl.glfw.GLFWNativeWin32;
 import org.lwjgl.glfw.GLFWNativeX11;
+import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.APIUtil;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.MemoryUtil;
 import org.lwjgl.system.Platform;
 import org.lwjgl.system.macosx.ObjCRuntime;
 
@@ -112,13 +116,69 @@ public class GLX extends LX {
     ARROW(GLFW_ARROW_CURSOR),
     HAND(GLFW_HAND_CURSOR),
     HRESIZE(GLFW_HRESIZE_CURSOR),
-    VRESIZE(GLFW_VRESIZE_CURSOR);
+    VRESIZE(GLFW_VRESIZE_CURSOR),
+    MAGNIFYING_GLASS("magnifying.png", 4, 4),
+    LEFT_BRACE("left-brace.png", 2, 7),
+    RIGHT_BRACE("right-brace.png", 2, 7);
 
     private final int glfwShape;
+    private final String resourceName;
+    private final int xhot, yhot;
+    private ByteBuffer stbiBuffer;
+    private GLFWImage glfwImage;
     private long handle;
 
     private MouseCursor(int glfwShape) {
       this.glfwShape = glfwShape;
+      this.resourceName = null;
+      this.xhot = this.yhot = 0;
+    }
+
+    private MouseCursor(String resourceName) {
+      this(resourceName, 0, 0);
+    }
+
+    private MouseCursor(String resourceName, int xhot, int yhot) {
+      this.glfwShape = -1;
+      this.resourceName = resourceName;
+      this.xhot = xhot;
+      this.yhot = yhot;
+    }
+
+    private void initialize() {
+      if (this.resourceName != null) {
+        this.glfwImage = GLFWImage.create();
+        ByteBuffer buffer = null;
+        try (MemoryStack stack = MemoryStack.stackPush()) {
+          buffer = GLXUtils.loadResource("cursors/" + this.resourceName);
+
+          IntBuffer width = stack.mallocInt(1);
+          IntBuffer height = stack.mallocInt(1);
+          IntBuffer components = stack.mallocInt(1);
+
+          this.stbiBuffer = STBImage.stbi_load_from_memory(buffer, width, height, components, STBImage.STBI_rgb_alpha);
+          this.glfwImage.set(width.get(), height.get(), this.stbiBuffer);
+          this.handle = glfwCreateCursor(this.glfwImage, this.xhot, this.yhot);
+
+        } catch (Exception x) {
+          GLX.error(x, "Cannot load mouse cursor: " + this.resourceName);
+        } finally {
+          if (buffer != null) {
+            MemoryUtil.memFree(buffer);
+          }
+        }
+
+      } else {
+        this.handle = glfwCreateStandardCursor(this.glfwShape);
+      }
+    }
+
+    private void dispose() {
+      glfwDestroyCursor(this.handle);
+      if (this.stbiBuffer != null) {
+        STBImage.stbi_image_free(this.stbiBuffer);
+      }
+
     }
   };
 
@@ -545,7 +605,7 @@ public class GLX extends LX {
 
     // Initialize standard mouse cursors
     for (MouseCursor cursor : MouseCursor.values()) {
-      cursor.handle = glfwCreateStandardCursor(cursor.glfwShape);
+      cursor.initialize();
     }
 
     // Initialize BGFX platform data
@@ -722,7 +782,7 @@ public class GLX extends LX {
   @Override
   public void dispose() {
     for (MouseCursor cursor : MouseCursor.values()) {
-      glfwDestroyCursor(cursor.handle);
+      cursor.dispose();
     }
     this.program.dispose();
 
