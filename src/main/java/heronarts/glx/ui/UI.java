@@ -19,6 +19,7 @@
 package heronarts.glx.ui;
 
 import heronarts.glx.GLX;
+import heronarts.glx.GLX.MouseCursor;
 import heronarts.glx.View;
 import heronarts.glx.event.Event;
 import heronarts.glx.event.GamepadEvent;
@@ -790,6 +791,10 @@ public class UI {
     if (!isMapping()) {
       this.contextualHelpText.setValue("");
     }
+  }
+
+  public MouseCursor getMouseCursor() {
+    return this.root._getMouseCursor();
   }
 
   /**

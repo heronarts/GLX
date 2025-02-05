@@ -70,8 +70,7 @@ public class GLX extends LX {
 
   private long window;
 
-  private long handCursor;
-  private long useCursor = 0;
+  private MouseCursor mouseCursor = null;
   private boolean needsCursorUpdate = false;
 
   private int displayX = -1;
@@ -108,6 +107,20 @@ public class GLX extends LX {
 
   public final UI ui;
   public final LXEngine.Frame uiFrame;
+
+  public enum MouseCursor {
+    ARROW(GLFW_ARROW_CURSOR),
+    HAND(GLFW_HAND_CURSOR),
+    HRESIZE(GLFW_HRESIZE_CURSOR),
+    VRESIZE(GLFW_VRESIZE_CURSOR);
+
+    private final int glfwShape;
+    private long handle;
+
+    private MouseCursor(int glfwShape) {
+      this.glfwShape = glfwShape;
+    }
+  };
 
   public final class Programs {
 
@@ -530,8 +543,10 @@ public class GLX extends LX {
     glfwSetMouseButtonCallback(this.window, this.inputDispatch::glfwMouseButtonCallback);
     glfwSetScrollCallback(window, this.inputDispatch::glfwScrollCallback);
 
-    // Create hand editing cursor
-    this.handCursor = glfwCreateStandardCursor(GLFW_HAND_CURSOR);
+    // Initialize standard mouse cursors
+    for (MouseCursor cursor : MouseCursor.values()) {
+      cursor.handle = glfwCreateStandardCursor(cursor.glfwShape);
+    }
 
     // Initialize BGFX platform data
     initializePlatformData();
@@ -642,8 +657,9 @@ public class GLX extends LX {
       // Poll for input events
       this.inputDispatch.poll();
 
+      // Update mouse cursor if needed
       if (this.needsCursorUpdate) {
-        glfwSetCursor(this.window, this.useCursor);
+        glfwSetCursor(this.window, (this.mouseCursor != null) ? this.mouseCursor.handle : 0);
         this.needsCursorUpdate = false;
       }
 
@@ -705,7 +721,9 @@ public class GLX extends LX {
 
   @Override
   public void dispose() {
-    glfwDestroyCursor(this.handCursor);
+    for (MouseCursor cursor : MouseCursor.values()) {
+      glfwDestroyCursor(cursor.handle);
+    }
     this.program.dispose();
 
     // NOTE: destroy the whole UI first, rip down all the listeners
@@ -715,9 +733,11 @@ public class GLX extends LX {
     super.dispose();
   }
 
-  public void useHandCursor(boolean useHandCursor) {
-    this.useCursor = useHandCursor ? this.handCursor : 0;
-    this.needsCursorUpdate = true;
+  public void setMouseCursor(MouseCursor mouseCursor) {
+    if (this.mouseCursor != mouseCursor) {
+      this.mouseCursor = mouseCursor;
+      this.needsCursorUpdate = true;
+    }
   }
 
   public void importContentJar(File file, boolean overwrite) {

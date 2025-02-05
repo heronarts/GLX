@@ -267,9 +267,11 @@ public class InputDispatch implements LXEngine.Dispatch {
     }
 
     // Now process all of them in the UI layer
+    boolean updateCursor = false;
     for (Event event : this.lxThreadEventQueue) {
       if (event instanceof MouseEvent) {
         this.lx.ui.mouseEvent((MouseEvent) event);
+        updateCursor = true;
       } else if (event instanceof KeyEvent) {
         this.lx.ui.keyEvent((KeyEvent) event);
       } else if (event instanceof GamepadEvent) {
@@ -277,6 +279,11 @@ public class InputDispatch implements LXEngine.Dispatch {
       } else {
         throw new IllegalStateException("Illegal event type in queue: " + event);
       }
+    }
+
+    // Set the cursor if any mouse events may have changed it
+    if (updateCursor) {
+      this.lx.setMouseCursor(this.lx.ui.getMouseCursor());
     }
   }
 

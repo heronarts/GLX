@@ -19,6 +19,7 @@
 package heronarts.glx.ui;
 
 import heronarts.glx.GLX;
+import heronarts.glx.GLX.MouseCursor;
 import heronarts.glx.event.Event;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
@@ -65,6 +66,8 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
 
   UIObject pressedChild = null;
   UIObject overChild = null;
+
+  private MouseCursor mouseCursor = null;
 
   private boolean consumeMousePress = false;
 
@@ -585,6 +588,27 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    * @param ui The UI object
    */
   protected void onUIResize(UI ui) {}
+
+  protected void setMouseCursor(MouseCursor mouseCursor) {
+    this.mouseCursor = mouseCursor;
+  }
+
+  /**
+   * Gets the mouse cursor that should be displayed for a mouse position over
+   * this object. Delegates first to any pressed child and subsequently to a nested child
+   * that the mouse is over. If neither of those conditions are met, then we use the
+   * object's cursor setting directly.
+   *
+   * @return MouseCursor to show
+   */
+  MouseCursor _getMouseCursor() {
+    if (this.pressedChild != null) {
+      return this.pressedChild._getMouseCursor();
+    } else if (this.overChild != null) {
+      return this.overChild._getMouseCursor();
+    }
+    return this.mouseCursor;
+  }
 
   UI2dContainer dragging = null;
 
