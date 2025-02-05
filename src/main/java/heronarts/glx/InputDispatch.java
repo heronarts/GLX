@@ -274,6 +274,7 @@ public class InputDispatch implements LXEngine.Dispatch {
         updateCursor = true;
       } else if (event instanceof KeyEvent) {
         this.lx.ui.keyEvent((KeyEvent) event);
+        updateCursor = true;
       } else if (event instanceof GamepadEvent) {
         this.lx.ui.gamepadEvent((GamepadEvent) event);
       } else {
