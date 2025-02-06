@@ -138,7 +138,21 @@ public class UITheme {
       "modulationSourceMapping", "00ff00",
       "modulationTargetMapping", "00cccc",
 
-      "projectFileIcon", "999999"
+      "projectFileIcon", "999999",
+
+      "timelineBackground", "191919",
+
+      "gridBackgroundA", "404040",
+      "gridBackgroundB", "4c4c4c",
+      "gridBackgroundAInactive", "303030",
+      "gridBackgroundBInactive", "333333",
+      "gridLineMajor", "292929",
+
+      "gridCursor", "99cc99",
+
+      "loopBraceActive", "669966",
+      "loopBraceInactive", "333333",
+      "loopBraceSelected", "99cc99"
     ),
 
     LIGHT("Light", 8,
@@ -224,7 +238,20 @@ public class UITheme {
       "modulationSourceMapping", "00ff00",
       "modulationTargetMapping", "00cccc",
 
-      "projectFileIcon", "444444"
+      "projectFileIcon", "444444",
+
+      "timelineBackground", "606060",
+
+      "gridBackgroundA", "888888",
+      "gridBackgroundB", "8f8f8f",
+      "gridBackgroundAInactive", "808080",
+      "gridBackgroundBInactive", "8f8f8f",
+      "gridLineMajor", "444444",
+      "gridCursor", "040404",
+
+      "loopBraceActive", "8cd867",
+      "loopBraceInactive", "808080",
+      "loopBraceSelected", "bbeebb"
     );
 
     public final String name;
@@ -341,6 +368,18 @@ public class UITheme {
   public final Color modulationTargetMappingColor = new Color("modulationTargetMapping");
 
   public final Color projectFileIconColor = new Color("projectFileIcon");
+
+  public final Color timelineBackgroundColor = new Color("timelineBackground");
+  public final Color gridBackgroundAColor = new Color("gridBackgroundA");
+  public final Color gridBackgroundBColor = new Color("gridBackgroundB");
+  public final Color gridBackgroundAInactiveColor = new Color("gridBackgroundAInactive");
+  public final Color gridBackgroundBInactiveColor = new Color("gridBackgroundBInactive");
+  public final Color gridLineMajorColor = new Color("gridLineMajor");
+  public final Color gridCursorColor = new Color("gridCursor");
+
+  public final Color loopBraceActiveColor = new Color("loopBraceActive");
+  public final Color loopBraceInactiveColor = new Color("loopBraceInactive");
+  public final Color loopBraceSelectedColor = new Color("loopBraceSelected");
 
   public final VGraphics.Image iconNote;
   public final VGraphics.Image iconTempo;
