@@ -289,6 +289,9 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   private boolean hasActiveFontColor = false;
   private UIColor activeFontColor = UIColor.NONE;
 
+  private boolean hasInactiveFontColor = false;
+  private UIColor inactiveFontColor = UIColor.NONE;
+
   private VGraphics.Image activeIcon = null;
   private VGraphics.Image inactiveIcon = null;
 
@@ -362,6 +365,31 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     setBorderColor(UI.get().theme.controlBorderColor);
     setFontColor(UI.get().theme.controlTextColor);
     setBackgroundColor(this.inactiveColor);
+  }
+
+  /**
+   * Sets the active font color
+   *
+   * @param activeFontColor color
+   * @return this
+   */
+  public UIButton setInactiveFontColor(int inactiveFontColor) {
+    return setInactiveFontColor(new UIColor(inactiveFontColor));
+  }
+
+  /**
+   * Sets the active font color
+   *
+   * @param activeFontColor color
+   * @return this
+   */
+  public UIButton setInactiveFontColor(UIColor inactiveFontColor) {
+    if (!this.hasInactiveFontColor || (inactiveFontColor != this.inactiveFontColor)) {
+      this.hasInactiveFontColor = true;
+      this.inactiveFontColor = inactiveFontColor;
+      redraw();
+    }
+    return this;
   }
 
   /**
@@ -522,6 +550,14 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     return this;
   }
 
+  private UIColor _getLabelColor(UI ui) {
+    if (this.active || this.momentaryPressEngaged) {
+      return this.hasActiveFontColor ? this.activeFontColor : ui.theme.controlActiveTextColor;
+    } else {
+      return this.hasInactiveFontColor ? this.inactiveFontColor : getFontColor();
+    }
+  }
+
   @Override
   protected void onDraw(UI ui, VGraphics vg) {
     // A lighter gray background color when the button is disabled, or it's engaged
@@ -540,11 +576,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
 
     VGraphics.Image icon = this.active ? this.activeIcon : this.inactiveIcon;
     if (icon != null) {
-      if (this.active || this.momentaryPressEngaged) {
-        icon.setTint(this.hasActiveFontColor ? this.activeFontColor : ui.theme.controlActiveTextColor);
-      } else {
-        icon.setTint(this.hasIconColor ? this.iconColor : getFontColor());
-      }
+      icon.setTint(_getLabelColor(ui));
       vg.beginPath();
       vg.image(icon, this.width/2 - icon.width/2 + this.iconOffsetX, this.height/2 - icon.height/2 + this.iconOffsetY);
       vg.fill();
@@ -552,10 +584,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     } else {
       String label = this.active ? this.activeLabel : this.inactiveLabel;
       if ((label != null) && (label.length() > 0)) {
-        vg.fillColor((this.active || this.momentaryPressEngaged) ?
-          (this.hasActiveFontColor ? this.activeFontColor : ui.theme.controlActiveTextColor) :
-          getFontColor()
-        );
+        vg.fillColor(_getLabelColor(ui));
         vg.fontFace(hasFont() ? getFont() : ui.theme.getControlFont());
         if (this.textAlignVertical == VGraphics.Align.MIDDLE) {
           vg.textAlign(VGraphics.Align.CENTER, VGraphics.Align.MIDDLE);
