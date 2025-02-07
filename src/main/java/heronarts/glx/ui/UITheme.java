@@ -147,6 +147,7 @@ public class UITheme {
       "gridBackgroundAInactive", "303030",
       "gridBackgroundBInactive", "333333",
       "gridLineMajor", "292929",
+      "gridLineDisabled", "393939",
 
       "gridCursor", "99cc99",
 
@@ -247,6 +248,7 @@ public class UITheme {
       "gridBackgroundAInactive", "808080",
       "gridBackgroundBInactive", "8f8f8f",
       "gridLineMajor", "444444",
+      "gridLineDisabled", "797979",
       "gridCursor", "040404",
 
       "loopBraceActive", "8cd867",
@@ -375,6 +377,7 @@ public class UITheme {
   public final Color gridBackgroundAInactiveColor = new Color("gridBackgroundAInactive");
   public final Color gridBackgroundBInactiveColor = new Color("gridBackgroundBInactive");
   public final Color gridLineMajorColor = new Color("gridLineMajor");
+  public final Color gridLineDisabledColor = new Color("gridLineDisabled");
   public final Color gridCursorColor = new Color("gridCursor");
 
   public final Color loopBraceActiveColor = new Color("loopBraceActive");
