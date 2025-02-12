@@ -368,9 +368,9 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   }
 
   /**
-   * Sets the active font color
+   * Sets the inactive font color
    *
-   * @param activeFontColor color
+   * @param inactiveFontColor color
    * @return this
    */
   public UIButton setInactiveFontColor(int inactiveFontColor) {
@@ -378,9 +378,9 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   }
 
   /**
-   * Sets the active font color
+   * Sets the inactive font color
    *
-   * @param activeFontColor color
+   * @param inactiveFontColor color
    * @return this
    */
   public UIButton setInactiveFontColor(UIColor inactiveFontColor) {
