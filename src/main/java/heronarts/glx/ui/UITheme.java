@@ -421,6 +421,7 @@ public class UITheme {
   public final VGraphics.Image iconAutomation;
   public final VGraphics.Image iconGrid;
   public final VGraphics.Image iconFollow;
+  public final VGraphics.Image iconClock;
 
   UITheme(VGraphics vg) throws IOException {
     this.controlFont = loadFont(vg, "Inter-SemiBold", "Inter-SemiBold.otf");
@@ -470,6 +471,7 @@ public class UITheme {
     this.iconAutomation = loadIcon(vg, "icon-automation@2x.png");
     this.iconGrid = loadIcon(vg, "icon-grid@2x.png");
     this.iconFollow = loadIcon(vg, "icon-follow@2x.png");
+    this.iconClock = loadIcon(vg, "icon-clock@2x.png");
     LX.initProfiler.log("GLX: UI: Theme: Icons");
   }
 

@@ -305,6 +305,11 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   private BooleanParameter booleanParameter = null;
 
   private EnumFormatter enumFormatter = EnumFormatter.DEFAULT;
+  private EnumIcon enumIcon = null;
+
+  public interface EnumIcon {
+    public VGraphics.Image getIcon(Enum<?> value);
+  }
 
   public interface EnumFormatter {
     public String toString(EnumParameter<? extends Object> enumParameter);
@@ -494,6 +499,11 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     return this;
   }
 
+  public UIButton setEnumIcon(EnumIcon enumIcon) {
+    this.enumIcon = enumIcon;
+    return this;
+  }
+
   public UIButton setEnumFormatter(EnumFormatter formatter) {
     this.enumFormatter = formatter;
     return this;
@@ -575,6 +585,10 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     }
 
     VGraphics.Image icon = this.active ? this.activeIcon : this.inactiveIcon;
+    if ((this.enumIcon != null) && (this.enumParameter != null)) {
+      icon = this.enumIcon.getIcon(this.enumParameter.getEnum());
+    }
+
     if (icon != null) {
       icon.setTint(_getLabelColor(ui));
       vg.beginPath();
