@@ -121,7 +121,8 @@ public class GLX extends LX {
     LEFT_BRACE("left-brace.png", 2, 7),
     RIGHT_BRACE("right-brace.png", 2, 7),
     START_MARKER("start-marker.png", 1, 4),
-    END_MARKER("end-marker.png", 8, 4);
+    END_MARKER("end-marker.png", 8, 4),
+    CLIP_PLAY("clip-play.png", 1, 5);
 
     private final int glfwShape;
     private final String resourceName;
