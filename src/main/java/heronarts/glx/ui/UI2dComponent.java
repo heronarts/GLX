@@ -517,6 +517,42 @@ public abstract class UI2dComponent extends UIObject {
   }
 
   /**
+   * Top margin
+   *
+   * @return top margin
+   */
+  public float getTopMargin() {
+    return this.marginTop;
+  }
+
+  /**
+   * Bottom margin
+   *
+   * @return bottom margin
+   */
+  public float getBottomMargin() {
+    return this.marginBottom;
+  }
+
+  /**
+   * Left margin
+   *
+   * @return left margin
+   */
+  public float getLeftMargin() {
+    return this.marginLeft;
+  }
+
+  /**
+   * Right margin
+   *
+   * @return right margin
+   */
+  public float getRightMargin() {
+    return this.marginRight;
+  }
+
+  /**
    * Sets the margins around this object when inside of a UI2dContainer with layout
    *
    * @param margin Margin on all sides
