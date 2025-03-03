@@ -295,6 +295,8 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   private VGraphics.Image activeIcon = null;
   private VGraphics.Image inactiveIcon = null;
 
+  private String iconLabel = null;
+
   private boolean triggerable = false;
   protected boolean enabled = true;
 
@@ -590,11 +592,24 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     }
 
     if (icon != null) {
-      icon.setTint(_getLabelColor(ui));
+      final UIColor iconColor = _getLabelColor(ui);
+      final float iconX = this.width/2 - icon.width/2 + this.iconOffsetX;
+      icon.setTint(iconColor);
       vg.beginPath();
-      vg.image(icon, this.width/2 - icon.width/2 + this.iconOffsetX, this.height/2 - icon.height/2 + this.iconOffsetY);
+      vg.image(icon, iconX, this.height/2 - icon.height/2 + this.iconOffsetY);
       vg.fill();
       icon.noTint();
+
+      final String label = this.iconLabel;
+      if (label != null) {
+        vg.fillColor(iconColor);
+        vg.fontFace(hasFont() ? getFont() : ui.theme.getControlFont());
+        vg.beginPath();
+        vg.textAlign(VGraphics.Align.LEFT, VGraphics.Align.MIDDLE);
+        vg.text(iconX + icon.width + this.textOffsetX, this.height / 2 + this.iconOffsetY + this.textOffsetY, label);
+        vg.fill();
+      }
+
     } else {
       String label = this.active ? this.activeLabel : this.inactiveLabel;
       if ((label != null) && (label.length() > 0)) {
@@ -805,6 +820,14 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   public UIButton setIcon(VGraphics.Image icon) {
     setActiveIcon(icon);
     setInactiveIcon(icon);
+    return this;
+  }
+
+  public UIButton setIconLabel(String iconLabel) {
+    if (this.iconLabel != iconLabel) {
+      this.iconLabel = iconLabel;
+      redraw();
+    }
     return this;
   }
 

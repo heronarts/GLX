@@ -566,6 +566,11 @@ public abstract class UIInputBox extends UIParameterComponent implements UIFocus
         vg.textAlign(VGraphics.Align.LEFT, VGraphics.Align.MIDDLE);
         vg.text(x + TEXT_MARGIN, y + height / 2 + 1, clippedString);
         vg.fill();
+      } else if (textAlignHorizontal == VGraphics.Align.RIGHT) {
+        vg.beginPath();
+        vg.textAlign(VGraphics.Align.RIGHT, VGraphics.Align.MIDDLE);
+        vg.text(width - TEXT_MARGIN, y + height / 2 + 1, clippedString);
+        vg.fill();
       } else {
         vg.beginPath();
         vg.textAlign(VGraphics.Align.CENTER, VGraphics.Align.MIDDLE);
@@ -594,6 +599,9 @@ public abstract class UIInputBox extends UIParameterComponent implements UIFocus
         if (textAlignHorizontal == VGraphics.Align.LEFT) {
           rangeStartX = TEXT_MARGIN + rangeStartWidth;
           rangeEndX = TEXT_MARGIN + rangeEndWidth;
+        } else if (textAlignHorizontal == VGraphics.Align.RIGHT) {
+          rangeStartX = width - TEXT_MARGIN - fullWidth + rangeStartWidth;
+          rangeEndX = width - TEXT_MARGIN - fullWidth + rangeEndWidth;
         } else {
           rangeStartX = (width - fullWidth) / 2f + rangeStartWidth;
           rangeEndX = (width - fullWidth) / 2f + rangeEndWidth;
@@ -611,6 +619,8 @@ public abstract class UIInputBox extends UIParameterComponent implements UIFocus
       }
       if (textAlignHorizontal == VGraphics.Align.LEFT) {
         cursorX = TEXT_MARGIN + cursorWidth;
+      } else if (textAlignHorizontal == VGraphics.Align.RIGHT) {
+        cursorX = width - TEXT_MARGIN - fullWidth + cursorWidth;
       } else {
         cursorX = (width - fullWidth) / 2f + cursorWidth;
       }
