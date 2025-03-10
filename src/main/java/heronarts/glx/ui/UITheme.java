@@ -142,8 +142,8 @@ public class UITheme {
 
       "timelineBackground", "191919",
 
-      "gridBackgroundDark", "404040",
-      "gridBackgroundLight", "4c4c4c",
+      "gridBackgroundDark", "444444",
+      "gridBackgroundLight", "494949",
       "gridBackgroundDarkInactive", "303030",
       "gridBackgroundLightInactive", "333333",
       "gridLineMajor", "292929",
@@ -243,11 +243,11 @@ public class UITheme {
 
       "timelineBackground", "606060",
 
-      "gridBackgroundDark", "888888",
-      "gridBackgroundLight", "8f8f8f",
+      "gridBackgroundDark", "878787",
+      "gridBackgroundLight", "8c8c8c",
       "gridBackgroundDarkInactive", "808080",
       "gridBackgroundLightInactive", "8f8f8f",
-      "gridLineMajor", "444444",
+      "gridLineMajor", "606060",
       "gridLineDisabled", "797979",
       "gridCursor", "040404",
 
