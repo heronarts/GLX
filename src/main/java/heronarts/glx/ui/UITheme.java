@@ -142,10 +142,10 @@ public class UITheme {
 
       "timelineBackground", "191919",
 
-      "gridBackgroundA", "404040",
-      "gridBackgroundB", "4c4c4c",
-      "gridBackgroundAInactive", "303030",
-      "gridBackgroundBInactive", "333333",
+      "gridBackgroundDark", "404040",
+      "gridBackgroundLight", "4c4c4c",
+      "gridBackgroundDarkInactive", "303030",
+      "gridBackgroundLightInactive", "333333",
       "gridLineMajor", "292929",
       "gridLineDisabled", "393939",
 
@@ -243,10 +243,10 @@ public class UITheme {
 
       "timelineBackground", "606060",
 
-      "gridBackgroundA", "888888",
-      "gridBackgroundB", "8f8f8f",
-      "gridBackgroundAInactive", "808080",
-      "gridBackgroundBInactive", "8f8f8f",
+      "gridBackgroundDark", "888888",
+      "gridBackgroundLight", "8f8f8f",
+      "gridBackgroundDarkInactive", "808080",
+      "gridBackgroundLightInactive", "8f8f8f",
       "gridLineMajor", "444444",
       "gridLineDisabled", "797979",
       "gridCursor", "040404",
@@ -372,10 +372,10 @@ public class UITheme {
   public final Color projectFileIconColor = new Color("projectFileIcon");
 
   public final Color timelineBackgroundColor = new Color("timelineBackground");
-  public final Color gridBackgroundAColor = new Color("gridBackgroundA");
-  public final Color gridBackgroundBColor = new Color("gridBackgroundB");
-  public final Color gridBackgroundAInactiveColor = new Color("gridBackgroundAInactive");
-  public final Color gridBackgroundBInactiveColor = new Color("gridBackgroundBInactive");
+  public final Color gridBackgroundDarkColor = new Color("gridBackgroundDark");
+  public final Color gridBackgroundLightColor = new Color("gridBackgroundLight");
+  public final Color gridBackgroundDarkInactiveColor = new Color("gridBackgroundDarkInactive");
+  public final Color gridBackgroundLightInactiveColor = new Color("gridBackgroundLightInactive");
   public final Color gridLineMajorColor = new Color("gridLineMajor");
   public final Color gridLineDisabledColor = new Color("gridLineDisabled");
   public final Color gridCursorColor = new Color("gridCursor");
