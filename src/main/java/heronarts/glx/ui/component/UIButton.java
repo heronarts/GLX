@@ -144,8 +144,12 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     }
 
     public Expander(float x, float y, BooleanParameter param) {
-      super(x, y, 12, 12);
+      this(x, y);
       setParameter(param);
+    }
+
+    public Expander(float x, float y) {
+      super(x, y, 12, 12);
     }
 
     public Expander setDirection(Direction direction) {
@@ -161,13 +165,27 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     @Override
     protected void drawBorder(UI ui, VGraphics vg) {}
 
+    /**
+     * Subclasses may override if implementation is not simple
+     * parameter-driven
+     *
+     * @return Whether expander should be expanded
+     */
+    protected boolean isExpanded() {
+      var param = getParameter();
+      if (param != null) {
+        return param.getValue() > 0;
+      }
+      return false;
+    }
+
     @Override
     @SuppressWarnings("fallthrough")
     protected void onDraw(UI ui, VGraphics vg) {
       vg.beginPath();
       vg.fillColor(ui.theme.sectionExpanderBackgroundColor);
 
-      boolean isOn = getParameter().getValue() > 0;
+      boolean isOn = isExpanded();
 
       switch (this.direction) {
       case TOP_RIGHT:
