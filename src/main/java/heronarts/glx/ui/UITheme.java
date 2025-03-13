@@ -402,6 +402,7 @@ public class UITheme {
   public final VGraphics.Image iconPreferences;
   public final VGraphics.Image iconUndo;
   public final VGraphics.Image iconRedo;
+  public final VGraphics.Image iconLaunch;
   public final VGraphics.Image iconTempoDown;
   public final VGraphics.Image iconTempoUp;
   public final VGraphics.Image iconOscInput;
@@ -452,6 +453,7 @@ public class UITheme {
     this.iconPreferences = loadIcon(vg, "icon-preferences@2x.png");
     this.iconUndo = loadIcon(vg, "icon-undo@2x.png");
     this.iconRedo = loadIcon(vg, "icon-redo@2x.png");
+    this.iconLaunch = loadIcon(vg, "icon-launch@2x.png");
     this.iconTempoDown = loadIcon(vg, "icon-tempo-down@2x.png");
     this.iconTempoUp = loadIcon(vg, "icon-tempo-up@2x.png");
     this.iconOscInput = loadIcon(vg, "icon-osc-input@2x.png");

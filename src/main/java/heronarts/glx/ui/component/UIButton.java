@@ -37,6 +37,7 @@ import heronarts.lx.parameter.EnumParameter;
 import heronarts.lx.parameter.LXListenableNormalizedParameter;
 import heronarts.lx.parameter.LXNormalizedParameter;
 import heronarts.lx.parameter.LXParameterListener;
+import heronarts.lx.utils.LXUtils;
 
 public class UIButton extends UIParameterComponent implements UIControlTarget, UITriggerSource, UITriggerTarget, UIFocus {
 
@@ -580,6 +581,14 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     return this;
   }
 
+  private UIColor _getIconColor(UI ui) {
+    if (this.active || this.momentaryPressEngaged) {
+      return this.hasActiveFontColor ? this.activeFontColor : ui.theme.controlActiveTextColor;
+    } else {
+      return this.hasIconColor ? this.iconColor : _getLabelColor(ui);
+    }
+  }
+
   private UIColor _getLabelColor(UI ui) {
     if (this.active || this.momentaryPressEngaged) {
       return this.hasActiveFontColor ? this.activeFontColor : ui.theme.controlActiveTextColor;
@@ -610,7 +619,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     }
 
     if (icon != null) {
-      final UIColor iconColor = _getLabelColor(ui);
+      final UIColor iconColor = _getIconColor(ui);
       final float iconX = this.width/2 - icon.width/2 + this.iconOffsetX;
       icon.setTint(iconColor);
       vg.beginPath();
@@ -630,7 +639,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
 
     } else {
       String label = this.active ? this.activeLabel : this.inactiveLabel;
-      if ((label != null) && (label.length() > 0)) {
+      if (!LXUtils.isEmpty(label)) {
         vg.fillColor(_getLabelColor(ui));
         vg.fontFace(hasFont() ? getFont() : ui.theme.getControlFont());
         if (this.textAlignVertical == VGraphics.Align.MIDDLE) {
