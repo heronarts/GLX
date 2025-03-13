@@ -85,10 +85,20 @@ public abstract class UI2dComponent extends UIObject {
     }
 
     protected boolean intersect(Scissor that, float ox, float oy, float ow, float oh) {
-      this.x = LXUtils.maxf(0, that.x - ox);
-      this.y = LXUtils.maxf(0, that.y - oy);
-      this.width = LXUtils.minf(ow - this.x, that.x + that.width - ox);
-      this.height = LXUtils.minf(oh - this.y, that.y + that.height - oy);
+      // Compute minimum bounds of overlapping space, these coordinates are in the
+      // parent object's frame of reference (e.g. "that")
+      final float left = LXUtils.maxf(that.x, ox);
+      final float right = LXUtils.minf(that.x + that.width, ox + ow);
+      final float top = LXUtils.maxf(that.y, oy);
+      final float bottom = LXUtils.minf(that.y + that.height, oy + oh);
+
+      // Scissor is difference between original coordinates and bounds
+      this.x = left - ox;
+      this.y = top - oy;
+      this.width = right - left;
+      this.height = bottom - top;
+
+      // There must be something left!
       return (this.width > 0) && (this.height > 0);
     }
   }
