@@ -322,17 +322,15 @@ public class UI2dScrollContext extends UI2dContext implements UI2dScrollInterfac
   protected void onMouseScroll(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
     if (this.horizontalScrollingEnabled) {
       if (hasScrollX()) {
-        // Holding shift can side-scroll using the Y scroll
-        if (mouseEvent.isShiftDown()) {
-          if (!mouseEvent.isScrollYConsumed() && (dy != 0)) {
-            mouseEvent.consumeScrollY();
-            setScrollX(this.scrollX + dy);
-          }
-        } else {
-          if (!mouseEvent.isScrollXConsumed() && (dx != 0)) {
-            mouseEvent.consumeScrollX();
-            setScrollX(this.scrollX - dx);
-          }
+        // Holding shift can optionally side-scroll using the Y scroll, but note
+        // that MacOS may have already translated it for non-touchpad devices with
+        // separate wheels, so check that whether dy exceeds dx
+        if (mouseEvent.isShiftDown() && (Math.abs(dy) > Math.abs(dx)) && !mouseEvent.isScrollYConsumed()) {
+          mouseEvent.consumeScrollY();
+          setScrollX(this.scrollX + dy);
+        } else if (!mouseEvent.isScrollXConsumed() && (dx != 0)) {
+          mouseEvent.consumeScrollX();
+          setScrollX(this.scrollX - dx);
         }
       }
     }
