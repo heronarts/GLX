@@ -166,7 +166,7 @@ public class UIIntegerBox extends UINumberBox implements UIControlTarget, UIModu
     if (wrappable) {
       final int range = (max - min + 1);
       if (value < min) {
-        value = max + ((value - min) % range);
+        value = max + ((value + 1 - min) % range);
       } else if (value > max) {
         value = min + ((value - min) % range);
       }
