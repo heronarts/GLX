@@ -114,6 +114,7 @@ public class UIButtonGroup extends UI2dContainer implements UIControlTarget, UIC
     if (oscAddress != null) {
       List<Action> list = new ArrayList<Action>();
       list.add(new UIContextActions.Action.CopyOscAddress(oscAddress));
+      return list;
     }
     return null;
   }
