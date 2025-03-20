@@ -153,7 +153,11 @@ public class UITheme {
 
       "loopBraceActive", "669966",
       "loopBraceInactive", "333333",
-      "loopBraceSelected", "99cc99"
+      "loopBraceSelected", "99cc99",
+
+      "markerActive", "777777",
+      "markerInactive", "333333",
+      "markerSelected", "669966"
     ),
 
     LIGHT("Light", 8,
@@ -253,7 +257,11 @@ public class UITheme {
 
       "loopBraceActive", "8cd867",
       "loopBraceInactive", "808080",
-      "loopBraceSelected", "bbeebb"
+      "loopBraceSelected", "bbeebb",
+
+      "markerActive", "999999",
+      "markerInactive", "606060",
+      "markerSelected", "8cd867"
     );
 
     public final String name;
@@ -383,6 +391,10 @@ public class UITheme {
   public final Color loopBraceActiveColor = new Color("loopBraceActive");
   public final Color loopBraceInactiveColor = new Color("loopBraceInactive");
   public final Color loopBraceSelectedColor = new Color("loopBraceSelected");
+
+  public final Color markerSelectedColor = new Color("markerSelected");
+  public final Color markerActiveColor = new Color("markerActive");
+  public final Color markerInactiveColor = new Color("markerInactive");
 
   public final VGraphics.Image iconNote;
   public final VGraphics.Image iconTempo;
