@@ -18,7 +18,6 @@
 
 package heronarts.glx.ui.component;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import heronarts.glx.event.MouseEvent;
@@ -71,8 +70,6 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
     this.keyEditable = true;
   }
 
-  private final List<LXCompoundModulation> uiModulations = new ArrayList<LXCompoundModulation>();
-
   @Override
   protected void onDraw(UI ui, VGraphics vg) {
     // value refers to the current, possibly-modulated value of the control's parameter.
@@ -91,16 +88,14 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
     float arcSize = KNOB_SIZE / 2;
 
     // Modulations!
-    if (this.parameter instanceof LXCompoundModulation.Target) {
-      final LXCompoundModulation.Target compound = (LXCompoundModulation.Target) this.parameter;
+    if (this.parameter instanceof LXCompoundModulation.Target compound) {
       // Note: the UI thread is separate from the engine thread, modulations could in theory change
-      // *while* we are rendering here. So we lean on the fact that the parameters use a
-      // CopyOnWriteArrayList and shuffle everything into our own ui-thread-local copy here
-      this.uiModulations.clear();
-      this.uiModulations.addAll(compound.getModulations());
-      for (int i = this.uiModulations.size() - 1; i >= 0; --i) {
-        LXCompoundModulation modulation = this.uiModulations.get(i);
-        registerModulation(modulation);
+      // *while* we are rendering here. So explicitly get a UI thread copy
+      final List<LXCompoundModulation> uiModulations = compound.getUIThreadModulations();
+
+      for (int i = uiModulations.size() - 1; i >= 0; --i) {
+        LXCompoundModulation modulation = uiModulations.get(i);
+        enableModulationRedraw(modulation);
 
         float modStart, modEnd;
         switch (modulation.getPolarity()) {

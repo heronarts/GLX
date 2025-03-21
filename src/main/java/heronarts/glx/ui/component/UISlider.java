@@ -18,7 +18,6 @@
 
 package heronarts.glx.ui.component;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import heronarts.glx.event.MouseEvent;
@@ -110,8 +109,6 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
     return this;
   }
 
-  private final List<LXCompoundModulation> uiModulations = new ArrayList<LXCompoundModulation>();
-
   @Override
   @SuppressWarnings("fallthrough")
   protected void onDraw(UI ui, VGraphics vg) {
@@ -137,15 +134,12 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
     int baseHandleCenter = baseHandleEdge + 1 + HANDLE_SIZE/2;
 
     // Modulations!
-    if (this.parameter instanceof LXCompoundModulation.Target) {
-      LXCompoundModulation.Target compound = (LXCompoundModulation.Target) this.parameter;
+    if (this.parameter instanceof LXCompoundModulation.Target compound) {
       // Note: the UI thread is separate from the engine thread, modulations could in theory change
-      // *while* we are rendering here. So we lean on the fact that the parameters use a
-      // CopyOnWriteArrayList and shuffle everything into our own ui-thread-local copy here
-      this.uiModulations.clear();
-      this.uiModulations.addAll(compound.getModulations());
-      for (int i = 0; i < this.uiModulations.size() && i < 3; ++i) {
-        LXCompoundModulation modulation = this.uiModulations.get(i);
+      // *while* we are rendering here. So explicitly get a UI thread copy
+      final List<LXCompoundModulation> uiModulations = compound.getUIThreadModulations();
+      for (int i = 0; i < uiModulations.size() && i < 3; ++i) {
+        LXCompoundModulation modulation = uiModulations.get(i);
         int modColor = ui.theme.controlDisabledColor.get();
         int modColorInv = modColor;
         if (isEnabled() && modulation.enabled.isOn()) {
@@ -205,7 +199,7 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
           break;
         }
         if (drawn) {
-          registerModulation(modulation);
+          enableModulationRedraw(modulation);
         }
       }
     }

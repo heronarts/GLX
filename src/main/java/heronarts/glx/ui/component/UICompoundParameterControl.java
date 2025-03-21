@@ -48,7 +48,7 @@ public class UICompoundParameterControl extends UIParameterControl {
   private class ModulationRedrawListener implements LXParameterListener {
 
     private final LXCompoundModulation modulation;
-    private boolean registered = false;
+    private boolean enabled = false;
 
     private ModulationRedrawListener(LXCompoundModulation modulation) {
       this.modulation = modulation;
@@ -58,13 +58,17 @@ public class UICompoundParameterControl extends UIParameterControl {
       this.modulation.color.addListener(this);
     }
 
-    private void register() {
-      this.registered = true;
+    private void enable() {
+      // We register listeners for all modulations, but only enable actual redraw
+      // calls for those that have actually been shown by devices on-screen (e.g.
+      // if there are so many that a knob/slider only shows the first few, no need
+      // to redraw for the ones not displayed)
+      this.enabled = true;
     }
 
     @Override
     public void onParameterChanged(LXParameter parameter) {
-      if (this.registered) {
+      if (this.enabled) {
         redraw();
       }
     }
@@ -133,12 +137,12 @@ public class UICompoundParameterControl extends UIParameterControl {
     return 0;
   }
 
-  protected void registerModulation(LXCompoundModulation modulation) {
+  protected void enableModulationRedraw(LXCompoundModulation modulation) {
     ModulationRedrawListener listener = this.modulationRedrawListeners.get(modulation);
     if (listener != null) {
-      listener.register();
+      listener.enable();
     } else {
-      LX.error(new IllegalStateException(getClass().getSimpleName() + " cannot register modulation with no listener: " + modulation));
+      LX.error(new IllegalStateException(getClass().getSimpleName() + " cannot enable modulation redraw for unregistered modulation: " + modulation));
     }
   }
 
