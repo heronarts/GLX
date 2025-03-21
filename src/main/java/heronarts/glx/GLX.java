@@ -74,8 +74,8 @@ public class GLX extends LX {
 
   private long window;
 
-  private MouseCursor mouseCursor = null;
-  private boolean needsCursorUpdate = false;
+  private volatile MouseCursor mouseCursor = null;
+  private volatile boolean needsCursorUpdate = false;
 
   private int displayX = -1;
   private int displayY = -1;
@@ -722,7 +722,8 @@ public class GLX extends LX {
 
       // Update mouse cursor if needed
       if (this.needsCursorUpdate) {
-        glfwSetCursor(this.window, (this.mouseCursor != null) ? this.mouseCursor.handle : 0);
+        final MouseCursor mc = this.mouseCursor;
+        glfwSetCursor(this.window, (mc != null) ? mc.handle : 0);
         this.needsCursorUpdate = false;
       }
 
