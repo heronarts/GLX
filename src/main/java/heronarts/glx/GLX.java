@@ -853,7 +853,7 @@ public class GLX extends LX {
         "Project File",
         new String[] { "lxp" },
         getMediaFile(LX.Media.PROJECTS, "default.lxp").toString(),
-        (path) -> { openProject(new File(path)); }
+        (path) -> { openProject(new File(path), true); }
       );
     });
   }
@@ -1002,6 +1002,7 @@ public class GLX extends LX {
     );
   }
 
+  @Override
   public void showConfirmDialog(String message, Runnable confirm) {
     this.ui.showContextOverlay(new UIDialogBox(this.ui,
       message,
