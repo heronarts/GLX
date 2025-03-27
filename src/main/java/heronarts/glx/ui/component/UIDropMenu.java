@@ -107,9 +107,11 @@ public class UIDropMenu extends UIParameterComponent implements UIFocus, UIContr
       this.parameter.optionsChanged.removeListener(this);
     }
     this.parameter = parameter;
-    updateActions();
-    this.parameter.addListener(this);
-    this.parameter.optionsChanged.addListener(this);
+    if (this.parameter != null) {
+      updateActions();
+      this.parameter.addListener(this);
+      this.parameter.optionsChanged.addListener(this);
+    }
     return this;
   }
 
