@@ -203,7 +203,7 @@ public class UITheme {
       "primary", "8cd867",
       "secondary", "7ddbf3",
       "focus", "c9c9c9",
-      "attention", "ff3333",
+      "attention", "cc0000",
       "restrictions", "292929",
       "cue", "7ddbf3",
       "aux", "f67247",
