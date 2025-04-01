@@ -23,9 +23,9 @@ import heronarts.lx.clipboard.LXClipboardItem;
 
 public interface UIDuplicate extends UICopy, UIPaste {
   public default void onDuplicate(KeyEvent keyEvent) {
-    LXClipboardItem item = ((UICopy) this).onCopy();
+    LXClipboardItem item = onCopy();
     if (item != null) {
-      ((UIPaste) this).onPaste(item);
+      onPaste(item);
       keyEvent.consume();
     }
   }
