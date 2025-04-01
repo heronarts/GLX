@@ -113,7 +113,7 @@ public class UIToggleSet extends UIParameterComponent implements UIFocus, UICont
         this.parameter.addListener(this);
         String[] options = this.parameter.getOptions();
         if (options == null) {
-          options = new String[this.parameter.getRange()];
+          options = new String[this.parameter.getRangei()];
           for (int i = 0; i < options.length; ++i) {
             options[i] = Integer.toString(this.parameter.getMinValue() + i);
           }

@@ -213,7 +213,7 @@ public class UIIntegerBox extends UINumberBox implements UIControlTarget, UIModu
       if (this.hasShiftMultiplier) {
         increment = LXUtils.max(1, (int) (increment * this.shiftMultiplier));
       } else if (this.parameter != null) {
-        increment = Math.max(1, this.parameter.getRange() / 10);
+        increment = Math.max(1, (int) (this.parameter.getRange() / 10));
       } else {
         increment *= 10;
       }

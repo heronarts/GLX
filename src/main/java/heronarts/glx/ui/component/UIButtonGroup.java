@@ -49,7 +49,7 @@ public class UIButtonGroup extends UI2dContainer implements UIControlTarget, UIC
     setLayout(UI2dContainer.Layout.HORIZONTAL, DEFAULT_BUTTON_MARGIN);
 
     this.parameter = parameter;
-    final int range = parameter.getRange();
+    final int range = parameter.getRangei();
 
     this.buttons = new UIButton[range];
     final LX lx = this.parameter.getParent().getLX();

@@ -139,7 +139,7 @@ public class UIDropMenu extends UIParameterComponent implements UIFocus, UIContr
       this.contextMenu.setActions(this.actions);
       this.contextMenu.setHighlight(-1);
     } else {
-      this.actions = new UIContextActions.Action[this.parameter.getRange()];
+      this.actions = new UIContextActions.Action[this.parameter.getRangei()];
       for (int i = 0; i < this.actions.length; ++i) {
         final int ii = i;
         this.actions[i] = UIContextActions.createAction(String.valueOf(i), ui -> {

@@ -332,12 +332,12 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
   protected void decrementValue(KeyEvent keyEvent) {
     if (this.parameter != null) {
       keyEvent.consume();
-      if (this.parameter instanceof DiscreteParameter) {
-        DiscreteParameter dp = (DiscreteParameter) this.parameter;
+      if (this.parameter instanceof DiscreteParameter dp) {
+        final int decrement = keyEvent.isShiftDown() ? (int) (dp.getRange() / 10) : 1;
         if (this.useCommandEngine) {
-          getLX().command.perform(new LXCommand.Parameter.Decrement(dp, keyEvent.isShiftDown() ? dp.getRange() / 10 : 1));
+          getLX().command.perform(new LXCommand.Parameter.Decrement(dp, decrement));
         } else {
-          dp.decrement(keyEvent.isShiftDown() ? dp.getRange() / 10 : 1);
+          dp.decrement(decrement);
         }
       } else if (this.parameter instanceof BooleanParameter) {
         boolean value = isWrappable() ? !((BooleanParameter)this.parameter).isOn() : false;
@@ -366,12 +366,12 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
   protected void incrementValue(KeyEvent keyEvent) {
     if (this.parameter != null) {
       keyEvent.consume();
-      if (this.parameter instanceof DiscreteParameter) {
-        DiscreteParameter dp = (DiscreteParameter) this.parameter;
+      if (this.parameter instanceof DiscreteParameter dp) {
+        final int increment = keyEvent.isShiftDown() ? (int) (dp.getRange() / 10) : 1;
         if (this.useCommandEngine) {
-          getLX().command.perform(new LXCommand.Parameter.Increment(dp, keyEvent.isShiftDown() ? dp.getRange() / 10 : 1));
+          getLX().command.perform(new LXCommand.Parameter.Increment(dp, increment));
         } else {
-          dp.increment(keyEvent.isShiftDown() ? dp.getRange() / 10 : 1);
+          dp.increment(increment);
         }
       } else if (this.parameter instanceof BooleanParameter) {
         boolean value = isWrappable() ? !((BooleanParameter)this.parameter).isOn() : true;
