@@ -368,6 +368,10 @@ public interface UIItemList {
       return this.focusIndex;
     }
 
+    private void setFocusItem(Item item) {
+      setFocusIndex(this.items.indexOf(item));
+    }
+
     /**
      * Retrieves the currently focused item in the list.
      *
@@ -1212,6 +1216,12 @@ public interface UIItemList {
     }
 
     @Override
+    public UIItemList setFocusItem(Item focusItem) {
+      this.impl.setFocusItem(focusItem);
+      return this;
+    }
+
+    @Override
     public UIItemList.Item getFocusedItem() {
       return this.impl.getFocusedItem();
     }
@@ -1428,6 +1438,12 @@ public interface UIItemList {
     }
 
     @Override
+    public UIItemList setFocusItem(Item focusItem) {
+      this.impl.setFocusItem(focusItem);
+      return this;
+    }
+
+    @Override
     public UIItemList.Item getFocusedItem() {
       return this.impl.getFocusedItem();
     }
@@ -1636,6 +1652,15 @@ public interface UIItemList {
    * @return Focused item, or null if none is focused
    */
   public UIItemList.Item getFocusedItem();
+
+  /**
+   * Sets the focused item. Checks the bounds
+   * and adjusts the scroll position if necessary.
+   *
+   * @param focusItem Item to focus
+   * @return this
+   */
+  public UIItemList setFocusItem(Item item);
 
   /**
    * Adds an item to the list
