@@ -1657,7 +1657,7 @@ public interface UIItemList {
    * Sets the focused item. Checks the bounds
    * and adjusts the scroll position if necessary.
    *
-   * @param focusItem Item to focus
+   * @param item Item to focus
    * @return this
    */
   public UIItemList setFocusItem(Item item);
