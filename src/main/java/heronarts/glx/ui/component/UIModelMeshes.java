@@ -39,7 +39,7 @@ import heronarts.lx.LXEngine;
 import heronarts.lx.model.LXModel;
 import heronarts.lx.transform.LXVector;
 
-public class UIModelMesh extends UI3dComponent {
+public class UIModelMeshes extends UI3dComponent {
 
   private final GLX lx;
 
@@ -71,7 +71,7 @@ public class UIModelMesh extends UI3dComponent {
     }
   }
 
-  public UIModelMesh(GLX lx) {
+  public UIModelMeshes(GLX lx) {
     this.lx = lx;
     this.modelMatrixBuf = MemoryUtil.memAllocFloat(16);
   }
@@ -88,7 +88,7 @@ public class UIModelMesh extends UI3dComponent {
 
     // Draw all the vertex buffers
     for (Mesh mesh : this.meshes) {
-      bgfx_set_transform(mesh.model.transform.putTransposed(this.modelMatrixBuf));
+      bgfx_set_transform(mesh.model.transform.put(this.modelMatrixBuf, true));
       this.lx.program.uniformFill.setFillColor(mesh.mesh.color);
       this.lx.program.uniformFill.submit(
         view,
