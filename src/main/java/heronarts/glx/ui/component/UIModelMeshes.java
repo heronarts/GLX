@@ -92,7 +92,9 @@ public class UIModelMeshes extends UI3dComponent {
       this.lx.program.uniformFill.setFillColor(mesh.mesh.color);
       this.lx.program.uniformFill.submit(
         view,
-        BGFX.BGFX_STATE_WRITE_MASK |
+        BGFX.BGFX_STATE_WRITE_RGB |
+        BGFX.BGFX_STATE_WRITE_A |
+        BGFX.BGFX_STATE_WRITE_Z |
         BGFX.BGFX_STATE_BLEND_ALPHA |
         BGFX.BGFX_STATE_DEPTH_TEST_LESS,
         mesh.vertexBuffer
