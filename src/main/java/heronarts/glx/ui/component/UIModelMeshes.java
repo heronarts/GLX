@@ -37,6 +37,7 @@ import heronarts.glx.ui.UI;
 import heronarts.glx.ui.UI3dComponent;
 import heronarts.lx.LXEngine;
 import heronarts.lx.model.LXModel;
+import heronarts.lx.transform.LXMatrix;
 import heronarts.lx.transform.LXVector;
 
 public class UIModelMeshes extends UI3dComponent {
@@ -88,7 +89,7 @@ public class UIModelMeshes extends UI3dComponent {
 
     // Draw all the vertex buffers
     for (Mesh mesh : this.meshes) {
-      bgfx_set_transform(mesh.model.transform.put(this.modelMatrixBuf, true));
+      bgfx_set_transform(mesh.model.transform.put(this.modelMatrixBuf, LXMatrix.BufferOrder.COLUMN_MAJOR));
       this.lx.program.uniformFill.setFillColor(mesh.mesh.color);
       this.lx.program.uniformFill.submit(
         view,
