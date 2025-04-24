@@ -432,6 +432,12 @@ public class UI {
       setBackgroundColor(0);
     }
 
+    private void resizeContent(UI2dComponent overlayContent) {
+      if (this.overlayContent == overlayContent) {
+        _setOverlaySize();
+      }
+    }
+
     private void clearContent(UI2dComponent overlayContent) {
       if (this.overlayContent == overlayContent) {
         setContent(null);
@@ -454,17 +460,7 @@ public class UI {
         // If new content has been just set this frame as a result of some action,
         // then do not hide the overlay!
         this.hideOnMousePress = false;
-        float contentWidth = overlayContent.getWidth();
-        float contentHeight = overlayContent.getHeight();
-        if (overlayContent instanceof UIContextMenu) {
-          this.contextMenu = (UIContextMenu) overlayContent;
-          float scrollHeight = contextMenu.getScrollHeight();
-          setSize(contentWidth, scrollHeight);
-          setScrollSize(contentWidth, contentHeight);
-        } else {
-          setScrollSize(contentWidth, contentHeight);
-          setSize(contentWidth, contentHeight);
-        }
+        _setOverlaySize();
 
         float x = 0;
         float y = 0;
@@ -484,6 +480,20 @@ public class UI {
         overlayContent.setPosition(0, 0);
         overlayContent.addToContainer(this);
         root.mutableChildren.add(this);
+      }
+    }
+
+    private void _setOverlaySize() {
+      float contentWidth = overlayContent.getWidth();
+      float contentHeight = overlayContent.getHeight();
+      if (overlayContent instanceof UIContextMenu) {
+        this.contextMenu = (UIContextMenu) overlayContent;
+        float scrollHeight = contextMenu.getScrollHeight();
+        setSize(contentWidth, scrollHeight);
+        setScrollSize(contentWidth, contentHeight);
+      } else {
+        setScrollSize(contentWidth, contentHeight);
+        setSize(contentWidth, contentHeight);
       }
     }
 
@@ -972,6 +982,11 @@ public class UI {
 
   public UI showContextOverlay(UI2dComponent contextOverlay) {
     this.contextOverlay.setContent(contextOverlay);
+    return this;
+  }
+
+  public UI resizeContextOverlay(UI2dComponent contextOverlay) {
+    this.contextOverlay.resizeContent(contextOverlay);
     return this;
   }
 
