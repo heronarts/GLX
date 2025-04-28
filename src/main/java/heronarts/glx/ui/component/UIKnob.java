@@ -18,7 +18,6 @@
 
 package heronarts.glx.ui.component;
 
-import java.util.ArrayList;
 import java.util.List;
 
 import heronarts.glx.event.MouseEvent;
@@ -71,8 +70,6 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
     this.keyEditable = true;
   }
 
-  private final List<LXCompoundModulation> uiModulations = new ArrayList<LXCompoundModulation>();
-
   @Override
   protected void onDraw(UI ui, VGraphics vg) {
     // value refers to the current, possibly-modulated value of the control's parameter.
@@ -91,16 +88,14 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
     float arcSize = KNOB_SIZE / 2;
 
     // Modulations!
-    if (this.parameter instanceof LXCompoundModulation.Target) {
-      final LXCompoundModulation.Target compound = (LXCompoundModulation.Target) this.parameter;
+    if (this.parameter instanceof LXCompoundModulation.Target compound) {
       // Note: the UI thread is separate from the engine thread, modulations could in theory change
-      // *while* we are rendering here. So we lean on the fact that the parameters use a
-      // CopyOnWriteArrayList and shuffle everything into our own ui-thread-local copy here
-      this.uiModulations.clear();
-      this.uiModulations.addAll(compound.getModulations());
-      for (int i = this.uiModulations.size() - 1; i >= 0; --i) {
-        LXCompoundModulation modulation = this.uiModulations.get(i);
-        registerModulation(modulation);
+      // *while* we are rendering here. So explicitly get a UI thread copy
+      final List<LXCompoundModulation> uiModulations = compound.getUIThreadModulations();
+
+      for (int i = uiModulations.size() - 1; i >= 0; --i) {
+        LXCompoundModulation modulation = uiModulations.get(i);
+        enableModulationRedraw(modulation);
 
         float modStart, modEnd;
         switch (modulation.getPolarity()) {
@@ -204,13 +199,17 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
       vg.beginPathMoveToArcFill(ARC_CENTER_X, ARC_CENTER_Y, arcSize, Math.min(baseEnd, valueEnd), Math.max(baseEnd, valueEnd));
     }
 
-    // Center tick mark for bipolar knobs
-    if (this.polarity == LXParameter.Polarity.BIPOLAR) {
-      vg.strokeColor(ui.theme.controlDetentColor);
-      vg.beginPath();
-      vg.line(ARC_CENTER_X, ARC_CENTER_Y, ARC_CENTER_X, ARC_CENTER_Y - arcSize);
-      vg.stroke();
-    }
+    // Value indicator
+    vg.strokeWidth(2);
+    vg.strokeColor(ui.theme.controlIndicatorColor);
+    vg.beginPath();
+    vg.line(
+      ARC_CENTER_X,
+      ARC_CENTER_Y,
+      ARC_CENTER_X + arcSize * (float)Math.cos(baseEnd),
+      ARC_CENTER_Y + arcSize * (float)Math.sin(baseEnd));
+    vg.stroke();
+    vg.strokeWidth(1);
 
     // Center dot
     float detent = LXUtils.minf(arcSize - 4, ui.theme.getKnobDetentSize());
@@ -251,7 +250,7 @@ public class UIKnob extends UICompoundParameterControl implements UIFocus {
     super.onMousePressed(mouseEvent, mx, my);
 
     this.dragValue = getBaseNormalized();
-    if (isEditable() && (this.parameter != null) && (mouseEvent.isDoubleClick())) {
+    if (isEnabled() && isEditable() && (this.parameter != null) && (mouseEvent.isDoubleClick())) {
       LXCompoundModulation modulation = getModulation(mouseEvent.isShiftDown());
       if (modulation != null && (mouseEvent.isControlDown() || mouseEvent.isMetaDown())) {
         if (this.useCommandEngine) {

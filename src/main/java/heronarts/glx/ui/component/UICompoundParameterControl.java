@@ -18,11 +18,12 @@
 
 package heronarts.glx.ui.component;
 
-import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-
-import heronarts.lx.parameter.LXListenableParameter;
+import java.util.Map;
 import heronarts.lx.parameter.LXNormalizedParameter;
+import heronarts.lx.parameter.LXParameter;
+import heronarts.lx.parameter.LXParameterListener;
 import heronarts.lx.LX;
 import heronarts.lx.command.LXCommand;
 import heronarts.lx.modulation.LXCompoundModulation;
@@ -32,8 +33,6 @@ import heronarts.glx.ui.UITimerTask;
 
 public class UICompoundParameterControl extends UIParameterControl {
   private double lastParameterValue = 0;
-
-  private final List<LXListenableParameter> modulationParameters = new ArrayList<LXListenableParameter>();
 
   private final UITimerTask checkRedrawTask = new UITimerTask(30, UITimerTask.Mode.FPS) {
     @Override
@@ -46,27 +45,63 @@ public class UICompoundParameterControl extends UIParameterControl {
     }
   };
 
+  private class ModulationRedrawListener implements LXParameterListener {
+
+    private final LXCompoundModulation modulation;
+    private boolean enabled = false;
+
+    private ModulationRedrawListener(LXCompoundModulation modulation) {
+      this.modulation = modulation;
+      this.modulation.range.addListener(this);
+      this.modulation.polarity.addListener(this);
+      this.modulation.enabled.addListener(this);
+      this.modulation.color.addListener(this);
+    }
+
+    private void enable() {
+      // We register listeners for all modulations, but only enable actual redraw
+      // calls for those that have actually been shown by devices on-screen (e.g.
+      // if there are so many that a knob/slider only shows the first few, no need
+      // to redraw for the ones not displayed)
+      this.enabled = true;
+    }
+
+    @Override
+    public void onParameterChanged(LXParameter parameter) {
+      if (this.enabled) {
+        redraw();
+      }
+    }
+
+    private void dispose() {
+      this.modulation.range.removeListener(this);
+      this.modulation.polarity.removeListener(this);
+      this.modulation.enabled.removeListener(this);
+      this.modulation.color.removeListener(this);
+    }
+  }
+
+  private final Map<LXCompoundModulation, ModulationRedrawListener> modulationRedrawListeners = new HashMap<>();
+
   private final LXCompoundModulation.Listener modulationListener = new LXCompoundModulation.Listener() {
 
     @Override
     public void modulationAdded(LXCompoundModulation.Target parameter, LXCompoundModulation modulation) {
-
+      ModulationRedrawListener existing = modulationRedrawListeners.get(modulation);
+      if (existing != null) {
+        LX.error(new IllegalStateException("Cannot add redundant LXCompoundModulation to " + UICompoundParameterControl.this.getClass().getSimpleName() + ": " + this + " -> " + modulation));
+      } else {
+        modulationRedrawListeners.put(modulation, new ModulationRedrawListener(modulation));
+      }
     }
 
     @Override
     public void modulationRemoved(LXCompoundModulation.Target parameter, LXCompoundModulation modulation) {
-      removeModulationParameter(modulation.range);
-      removeModulationParameter(modulation.polarity);
-      removeModulationParameter(modulation.enabled);
-    }
-
-    private void removeModulationParameter(LXListenableParameter parameter) {
-      if (modulationParameters.contains(parameter)) {
-        parameter.removeListener(redraw);
-        modulationParameters.remove(parameter);
+      ModulationRedrawListener listener = modulationRedrawListeners.remove(modulation);
+      if (listener != null) {
+        listener.dispose();
       }
     }
-
   };
 
   protected UICompoundParameterControl(float x, float y, float w, float h) {
@@ -74,17 +109,22 @@ public class UICompoundParameterControl extends UIParameterControl {
     addLoopTask(this.checkRedrawTask);
   }
 
+  private void clearModulationRedrawListeners() {
+    for (ModulationRedrawListener modulation : this.modulationRedrawListeners.values()) {
+      modulation.dispose();
+    }
+    this.modulationRedrawListeners.clear();
+  }
+
   @Override
   public UIParameterControl setParameter(LXNormalizedParameter parameter) {
     if (this.parameter instanceof LXCompoundModulation.Target) {
       ((LXCompoundModulation.Target) this.parameter).removeModulationListener(this.modulationListener);
     }
-    for (LXListenableParameter p : this.modulationParameters) {
-      p.removeListener(this.redraw);
-    }
-    this.modulationParameters.clear();
+    clearModulationRedrawListeners();
     super.setParameter(parameter);
-    if (parameter instanceof LXCompoundModulation.Target) {
+    if (parameter instanceof LXCompoundModulation.Target target) {
+      target.getModulations().forEach(modulation -> this.modulationListener.modulationAdded(target, modulation));
       ((LXCompoundModulation.Target) parameter).addModulationListener(this.modulationListener);
     }
     return this;
@@ -97,20 +137,12 @@ public class UICompoundParameterControl extends UIParameterControl {
     return 0;
   }
 
-  protected void registerModulation(LXCompoundModulation modulation) {
-    if (!this.modulationParameters.contains(modulation.range)) {
-      this.modulationParameters.add(modulation.range);
-      this.modulationParameters.add(modulation.polarity);
-      this.modulationParameters.add(modulation.enabled);
-      modulation.range.addListener(this.redraw);
-      modulation.polarity.addListener(this.redraw);
-      modulation.enabled.addListener(this.redraw);
-
-      // Colors may be shared across multiple modulations from same source component
-      if (!this.modulationParameters.contains(modulation.color)) {
-        this.modulationParameters.add(modulation.color);
-        modulation.color.addListener(this.redraw);
-      }
+  protected void enableModulationRedraw(LXCompoundModulation modulation) {
+    ModulationRedrawListener listener = this.modulationRedrawListeners.get(modulation);
+    if (listener != null) {
+      listener.enable();
+    } else {
+      LX.error(new IllegalStateException(getClass().getSimpleName() + " cannot enable modulation redraw for unregistered modulation: " + modulation));
     }
   }
 
@@ -153,10 +185,7 @@ public class UICompoundParameterControl extends UIParameterControl {
     if (this.parameter instanceof LXCompoundModulation.Target) {
       ((LXCompoundModulation.Target) this.parameter).removeModulationListener(this.modulationListener);
     }
-    for (LXListenableParameter parameter : this.modulationParameters) {
-      parameter.removeListener(this.redraw);
-    }
-    this.modulationParameters.clear();
+    clearModulationRedrawListeners();
     super.dispose();
   }
 }

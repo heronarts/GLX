@@ -71,6 +71,7 @@ public class UITheme {
 
       "toolbarBackground", "242424",
       "toolbarSectionBackground", "404040",
+      "toolbarActivator", "888888",
       "helpBackground", "242424",
       "helpText", "c0c0c0",
 
@@ -83,6 +84,7 @@ public class UITheme {
       "controlBorder", "292929",
       "controlDetent", "333333",
       "controlHandle", "5f5f5f",
+      "controlIndicator", "99cc99",
       "controlText", "cccccc",
       "controlActiveText", "ffffff",
       "controlDisabled", "303030",
@@ -102,7 +104,7 @@ public class UITheme {
       "aux", "996666",
       "busA", "669966",
       "busB", "a66812",
-      "surface", "666699",
+      "surface", "e5b242",
       "recording", "a00044",
       "cursor", "555555",
       "selection", "333333",
@@ -136,7 +138,26 @@ public class UITheme {
       "modulationSourceMapping", "00ff00",
       "modulationTargetMapping", "00cccc",
 
-      "projectFileIcon", "999999"
+      "projectFileIcon", "999999",
+
+      "timelineBackground", "191919",
+
+      "gridBackgroundDark", "444444",
+      "gridBackgroundLight", "494949",
+      "gridBackgroundDarkInactive", "303030",
+      "gridBackgroundLightInactive", "333333",
+      "gridLineMajor", "292929",
+      "gridLineDisabled", "393939",
+
+      "gridCursor", "99cc99",
+
+      "loopBraceActive", "669966",
+      "loopBraceInactive", "333333",
+      "loopBraceSelected", "99cc99",
+
+      "markerActive", "777777",
+      "markerInactive", "333333",
+      "markerSelected", "669966"
     ),
 
     LIGHT("Light", 8,
@@ -155,6 +176,7 @@ public class UITheme {
 
       "toolbarBackground", "7f7f7f",
       "toolbarSectionBackground", "7f7f7f",
+      "toolbarActivator", "505050",
       "helpBackground", "808080",
       "helpText", "111111",
 
@@ -167,6 +189,7 @@ public class UITheme {
       "controlBorder", "444444",
       "controlDetent", "808080",
       "controlHandle", "9f9f9f",
+      "controlIndicator", "bbeebb",
       "controlText", "191919",
       "controlActiveText", "000000",
       "controlDisabled", "909090",
@@ -180,13 +203,13 @@ public class UITheme {
       "primary", "8cd867",
       "secondary", "7ddbf3",
       "focus", "c9c9c9",
-      "attention", "ff3333",
+      "attention", "cc0000",
       "restrictions", "292929",
       "cue", "7ddbf3",
       "aux", "f67247",
       "busA", "8cd867",
       "busB", "d88c67",
-      "surface", "8080bf",
+      "surface", "e5b242",
       "recording", "ec624a",
       "cursor", "555555",
       "selection", "cccccc",
@@ -220,7 +243,25 @@ public class UITheme {
       "modulationSourceMapping", "00ff00",
       "modulationTargetMapping", "00cccc",
 
-      "projectFileIcon", "444444"
+      "projectFileIcon", "444444",
+
+      "timelineBackground", "606060",
+
+      "gridBackgroundDark", "878787",
+      "gridBackgroundLight", "8c8c8c",
+      "gridBackgroundDarkInactive", "808080",
+      "gridBackgroundLightInactive", "8f8f8f",
+      "gridLineMajor", "606060",
+      "gridLineDisabled", "797979",
+      "gridCursor", "040404",
+
+      "loopBraceActive", "8cd867",
+      "loopBraceInactive", "808080",
+      "loopBraceSelected", "bbeebb",
+
+      "markerActive", "999999",
+      "markerInactive", "606060",
+      "markerSelected", "8cd867"
     );
 
     public final String name;
@@ -268,6 +309,7 @@ public class UITheme {
 
   public final Color toolbarBackgroundColor = new Color("toolbarBackground");
   public final Color toolbarSectionBackgroundColor = new Color("toolbarSectionBackground");
+  public final Color toolbarActivatorColor = new Color("toolbarActivator");
   public final Color helpBackgroundColor = new Color("helpBackground");
   public final Color helpTextColor = new Color("helpText");
 
@@ -280,6 +322,7 @@ public class UITheme {
   public final Color controlBorderColor = new Color("controlBorder");
   public final Color controlHandleColor = new Color("controlHandle");
   public final Color controlDetentColor = new Color("controlDetent");
+  public final Color controlIndicatorColor = new Color("controlIndicator");
   public final Color controlTextColor = new Color("controlText");
   public final Color controlActiveTextColor = new Color("controlActiveText");
   public final Color controlDisabledColor = new Color("controlDisabled");
@@ -336,6 +379,23 @@ public class UITheme {
 
   public final Color projectFileIconColor = new Color("projectFileIcon");
 
+  public final Color timelineBackgroundColor = new Color("timelineBackground");
+  public final Color gridBackgroundDarkColor = new Color("gridBackgroundDark");
+  public final Color gridBackgroundLightColor = new Color("gridBackgroundLight");
+  public final Color gridBackgroundDarkInactiveColor = new Color("gridBackgroundDarkInactive");
+  public final Color gridBackgroundLightInactiveColor = new Color("gridBackgroundLightInactive");
+  public final Color gridLineMajorColor = new Color("gridLineMajor");
+  public final Color gridLineDisabledColor = new Color("gridLineDisabled");
+  public final Color gridCursorColor = new Color("gridCursor");
+
+  public final Color loopBraceActiveColor = new Color("loopBraceActive");
+  public final Color loopBraceInactiveColor = new Color("loopBraceInactive");
+  public final Color loopBraceSelectedColor = new Color("loopBraceSelected");
+
+  public final Color markerSelectedColor = new Color("markerSelected");
+  public final Color markerActiveColor = new Color("markerActive");
+  public final Color markerInactiveColor = new Color("markerInactive");
+
   public final VGraphics.Image iconNote;
   public final VGraphics.Image iconTempo;
   public final VGraphics.Image iconControl;
@@ -354,6 +414,7 @@ public class UITheme {
   public final VGraphics.Image iconPreferences;
   public final VGraphics.Image iconUndo;
   public final VGraphics.Image iconRedo;
+  public final VGraphics.Image iconLaunch;
   public final VGraphics.Image iconTempoDown;
   public final VGraphics.Image iconTempoUp;
   public final VGraphics.Image iconOscInput;
@@ -367,6 +428,15 @@ public class UITheme {
   public final VGraphics.Image iconBlend;
   public final VGraphics.Image iconAdd;
   public final VGraphics.Image iconSearch;
+  public final VGraphics.Image iconLock;
+  public final VGraphics.Image iconMidi;
+  public final VGraphics.Image iconSnapshot;
+  public final VGraphics.Image iconAutomation;
+  public final VGraphics.Image iconGrid;
+  public final VGraphics.Image iconFollow;
+  public final VGraphics.Image iconClock;
+  public final VGraphics.Image iconNext;
+  public final VGraphics.Image iconPrev;
 
   UITheme(VGraphics vg) throws IOException {
     this.controlFont = loadFont(vg, "Inter-SemiBold", "Inter-SemiBold.otf");
@@ -397,6 +467,7 @@ public class UITheme {
     this.iconPreferences = loadIcon(vg, "icon-preferences@2x.png");
     this.iconUndo = loadIcon(vg, "icon-undo@2x.png");
     this.iconRedo = loadIcon(vg, "icon-redo@2x.png");
+    this.iconLaunch = loadIcon(vg, "icon-launch@2x.png");
     this.iconTempoDown = loadIcon(vg, "icon-tempo-down@2x.png");
     this.iconTempoUp = loadIcon(vg, "icon-tempo-up@2x.png");
     this.iconOscInput = loadIcon(vg, "icon-osc-input@2x.png");
@@ -410,6 +481,15 @@ public class UITheme {
     this.iconBlend = loadIcon(vg, "icon-blend@2x.png");
     this.iconAdd = loadIcon(vg, "icon-add@2x.png");
     this.iconSearch = loadIcon(vg, "icon-search@2x.png");
+    this.iconLock = loadIcon(vg, "icon-lock@2x.png");
+    this.iconMidi = loadIcon(vg, "icon-midi@2x.png");
+    this.iconSnapshot = loadIcon(vg, "icon-snapshot@2x.png");
+    this.iconAutomation = loadIcon(vg, "icon-automation@2x.png");
+    this.iconGrid = loadIcon(vg, "icon-grid@2x.png");
+    this.iconFollow = loadIcon(vg, "icon-follow@2x.png");
+    this.iconClock = loadIcon(vg, "icon-clock@2x.png");
+    this.iconNext = loadIcon(vg, "icon-next@2x.png");
+    this.iconPrev = loadIcon(vg, "icon-prev@2x.png");
     LX.initProfiler.log("GLX: UI: Theme: Icons");
   }
 

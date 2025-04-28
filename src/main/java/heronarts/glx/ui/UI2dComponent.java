@@ -85,10 +85,20 @@ public abstract class UI2dComponent extends UIObject {
     }
 
     protected boolean intersect(Scissor that, float ox, float oy, float ow, float oh) {
-      this.x = LXUtils.maxf(0, that.x - ox);
-      this.y = LXUtils.maxf(0, that.y - oy);
-      this.width = LXUtils.minf(ow - this.x, that.x + that.width - ox);
-      this.height = LXUtils.minf(oh - this.y, that.y + that.height - oy);
+      // Compute minimum bounds of overlapping space, these coordinates are in the
+      // parent object's frame of reference (e.g. "that")
+      final float left = LXUtils.maxf(that.x, ox);
+      final float right = LXUtils.minf(that.x + that.width, ox + ow);
+      final float top = LXUtils.maxf(that.y, oy);
+      final float bottom = LXUtils.minf(that.y + that.height, oy + oh);
+
+      // Scissor is difference between original coordinates and bounds
+      this.x = left - ox;
+      this.y = top - oy;
+      this.width = right - left;
+      this.height = bottom - top;
+
+      // There must be something left!
       return (this.width > 0) && (this.height > 0);
     }
   }
@@ -141,9 +151,9 @@ public abstract class UI2dComponent extends UIObject {
 
   private int borderWeight = 1;
 
-  private boolean hasBorderRounding = false;
+  protected boolean hasBorderRounding = false;
 
-  int
+  protected int
     borderRoundingTopLeft = 0,
     borderRoundingTopRight = 0,
     borderRoundingBottomRight = 0,
@@ -514,6 +524,42 @@ public abstract class UI2dComponent extends UIObject {
       redrawContainer();
     }
     return this;
+  }
+
+  /**
+   * Top margin
+   *
+   * @return top margin
+   */
+  public float getTopMargin() {
+    return this.marginTop;
+  }
+
+  /**
+   * Bottom margin
+   *
+   * @return bottom margin
+   */
+  public float getBottomMargin() {
+    return this.marginBottom;
+  }
+
+  /**
+   * Left margin
+   *
+   * @return left margin
+   */
+  public float getLeftMargin() {
+    return this.marginLeft;
+  }
+
+  /**
+   * Right margin
+   *
+   * @return right margin
+   */
+  public float getRightMargin() {
+    return this.marginRight;
   }
 
   /**
@@ -1128,6 +1174,16 @@ public abstract class UI2dComponent extends UIObject {
    * @return The previous UI object in the hierarchy adjacent to this one
    */
   public UI2dComponent getPrevSibling() {
+    return getPrevSibling(false);
+  }
+
+  /**
+   * Returns the adjacent object in the hierarchy
+   *
+   * @param visible Whether to filter on visible siblings only
+   * @return The previous UI object in the hierarchy adjacent to this one
+   */
+  public UI2dComponent getPrevSibling(boolean visible) {
     UI2dContainer container = getContainer();
     UI2dComponent prev = null;
     if (container != null) {
@@ -1135,7 +1191,9 @@ public abstract class UI2dComponent extends UIObject {
         if (child == this) {
           return prev;
         }
-        prev = (UI2dComponent) child;
+        if (!visible || child.isVisible()) {
+          prev = (UI2dComponent) child;
+        }
       }
     }
     return null;
@@ -1147,11 +1205,21 @@ public abstract class UI2dComponent extends UIObject {
    * @return The next UI object in the hierarchy adjacent to this one
    */
   public UI2dComponent getNextSibling() {
+    return getNextSibling(false);
+  }
+
+  /**
+   * Returns the adjacent object in the hierarchy
+   *
+   * @param visible Whether to filter on visible siblings only
+   * @return The next UI object in the hierarchy adjacent to this one
+   */
+  public UI2dComponent getNextSibling(boolean visible) {
     UI2dContainer container = getContainer();
     if (container != null) {
       boolean next = false;
       for (UIObject child : container) {
-        if (next) {
+        if (next && (!visible || child.isVisible())) {
           return (UI2dComponent) child;
         } else if (child == this) {
           next = true;
@@ -1318,6 +1386,34 @@ public abstract class UI2dComponent extends UIObject {
     return this;
   }
 
+  private UI2dComponent _addRelativeToSibling(UI2dComponent sibling, int offset) {
+    final UI2dContainer parent = sibling.getContainer();
+    if (parent == null) {
+      throw new IllegalArgumentException("Cannot add component next to sibling with no container: " + sibling);
+    }
+    return addToContainer(parent, parent.children.indexOf(sibling) + offset);
+  }
+
+  /**
+   * Adds this component to the same container as a sibling, immediately before it
+   *
+   * @param sibling Sibling component
+   * @return this
+   */
+  public UI2dComponent addBeforeSibling(UI2dComponent sibling) {
+    return _addRelativeToSibling(sibling, 0);
+  }
+
+  /**
+   * Adds this component to the same container as a sibling, immediately after it
+   *
+   * @param sibling Sibling component
+   * @return this
+   */
+  public UI2dComponent addAfterSibling(UI2dComponent sibling) {
+    return _addRelativeToSibling(sibling, 1);
+  }
+
   /**
    * Subclasses may override and throw an exception if they don't want to be added to this container type
    *
@@ -1354,7 +1450,7 @@ public abstract class UI2dComponent extends UIObject {
     case MIDDLE_LEFT:
     case BOTTOM_LEFT:
       setX = true;
-      x = target.getLeftPadding() + this.marginLeft;
+      x = target.leftPadding + this.marginLeft;
       break;
 
     case CENTER:
@@ -1362,7 +1458,7 @@ public abstract class UI2dComponent extends UIObject {
     case MIDDLE_CENTER:
     case BOTTOM_CENTER:
       setX = true;
-      x = .5f * (target.getWidth() + target.getLeftPadding() - target.getRightPadding() - this.width);
+      x = .5f * (target.getWidth() + target.leftPadding - target.rightPadding - this.width);
       break;
 
     case RIGHT:
@@ -1370,7 +1466,7 @@ public abstract class UI2dComponent extends UIObject {
     case MIDDLE_RIGHT:
     case BOTTOM_RIGHT:
       setX = true;
-      x = target.getWidth() - target.getRightPadding() - this.width - this.marginRight;
+      x = target.getWidth() - target.rightPadding - this.width - this.marginRight;
       break;
 
     default:
@@ -1384,7 +1480,7 @@ public abstract class UI2dComponent extends UIObject {
     case TOP_CENTER:
     case TOP_RIGHT:
       setY = true;
-      y = target.getTopPadding() + this.marginTop;
+      y = target.topPadding + this.marginTop;
       break;
 
     case MIDDLE:
@@ -1392,7 +1488,7 @@ public abstract class UI2dComponent extends UIObject {
     case MIDDLE_CENTER:
     case MIDDLE_RIGHT:
       setY = true;
-      y = .5f * (target.getHeight() + target.getTopPadding() - target.getBottomPadding() - this.height);
+      y = .5f * (target.getHeight() + target.topPadding - target.bottomPadding - this.height);
       break;
 
     case BOTTOM:
@@ -1400,7 +1496,7 @@ public abstract class UI2dComponent extends UIObject {
     case BOTTOM_RIGHT:
     case BOTTOM_CENTER:
       setY = true;
-      y = target.getHeight() - target.getBottomPadding() - this.height - this.marginBottom;
+      y = target.getHeight() - target.bottomPadding - this.height - this.marginBottom;
       break;
 
     default:
@@ -1544,11 +1640,23 @@ public abstract class UI2dComponent extends UIObject {
     final float sx = this.scrollX;
     final float sy = this.scrollY;
 
-    final boolean needsVgScissor =
-      (this.needsRedraw || this.childNeedsRedraw) && (
-        (this instanceof Scissored) ||
-        ((this instanceof UI2dScrollContainer) && ((UI2dScrollContainer) this).hasScroll())
-      );
+    boolean needsVgScissor = false;
+    float scissorX = 0, scissorY = 0;
+    if (this.needsRedraw || this.childNeedsRedraw) {
+      if (this instanceof Scissored) {
+        needsVgScissor = true;
+        scissorX = scissorY = .5f;
+      } else if (this instanceof UI2dScrollContainer scroll) {
+        if (scroll.hasScrollX()) {
+          needsVgScissor = true;
+          scissorX = .5f;
+        }
+        if (scroll.hasScrollY()) {
+          needsVgScissor = true;
+          scissorY = .5f;
+        }
+      }
+    }
 
     // Put down the background first, before scissoring
     if (this.needsRedraw) {
@@ -1557,7 +1665,7 @@ public abstract class UI2dComponent extends UIObject {
 
     // Scissor all the content and children
     if (needsVgScissor) {
-      vg.scissorPush(this.scissor.x + .5f, this.scissor.y + .5f, this.scissor.width-1, this.scissor.height-1);
+      vg.scissorPush(this.scissor.x + scissorX, this.scissor.y + scissorY, this.scissor.width - 2*scissorX, this.scissor.height - 2*scissorY);
     }
 
     // Redraw ourselves, just our immediate content
@@ -1689,11 +1797,16 @@ public abstract class UI2dComponent extends UIObject {
     }
 
     if (ownBackground) {
-      vg.beginPath();
-      vgRoundedRect(vg);
-      vg.fillColor((this.hasFocus && this.hasFocusBackground) ? this.focusBackgroundColor : this.backgroundColor);
-      vg.fill();
+      drawComponentBackground(ui, vg);
     }
+  }
+
+  protected void drawComponentBackground(UI ui, VGraphics vg) {
+    int borderWeight = this.hasBorder ? this.borderWeight : 0;
+    vg.beginPath();
+    vgRoundedRect(vg, borderWeight * .5f, borderWeight * .5f, this.width - borderWeight, this.height - borderWeight);
+    vg.fillColor((this.hasFocus && this.hasFocusBackground) ? this.focusBackgroundColor : this.backgroundColor);
+    vg.fill();
   }
 
   protected void drawParentBackground(UI ui, VGraphics vg) {

@@ -21,6 +21,7 @@ package heronarts.glx.ui.component;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
+import heronarts.glx.ui.UI2dComponent;
 import heronarts.glx.ui.UIContextActions;
 import heronarts.glx.ui.UIControlTarget;
 import heronarts.glx.ui.UIFocus;
@@ -53,16 +54,32 @@ public class UIDropMenu extends UIParameterComponent implements UIFocus, UIContr
 
   private float menuWidth = -1;
 
+  public UIDropMenu(float x, float y, float w) {
+    this(x, y, w, null);
+  }
+
   public UIDropMenu(float x, float y, float w, DiscreteParameter parameter) {
     this(x, y, w, DEFAULT_HEIGHT, parameter);
+  }
+
+  public UIDropMenu(float w) {
+    this(w, null);
   }
 
   public UIDropMenu(float w, DiscreteParameter parameter) {
     this(w, DEFAULT_HEIGHT, parameter);
   }
 
+  public UIDropMenu(float w, float h) {
+    this(w, h, null);
+  }
+
   public UIDropMenu(float w, float h, DiscreteParameter parameter) {
     this(0, 0, w, h, parameter);
+  }
+
+  public UIDropMenu(float x, float y, float w, float h) {
+    this(x, y, w, h, null);
   }
 
   public UIDropMenu(float x, float y, float w, float h, DiscreteParameter parameter) {
@@ -71,6 +88,7 @@ public class UIDropMenu extends UIParameterComponent implements UIFocus, UIContr
     setParameter(parameter);
     setBackgroundColor(UI.get().theme.controlBackgroundColor);
     setBorderColor(UI.get().theme.controlBorderColor);
+    setFontColor(UI.get().theme.controlTextColor);
   }
 
   public UIDropMenu setMenuWidth(float menuWidth) {
@@ -105,30 +123,37 @@ public class UIDropMenu extends UIParameterComponent implements UIFocus, UIContr
       this.parameter.optionsChanged.removeListener(this);
     }
     this.parameter = parameter;
+    setExpanded(false);
     updateActions();
-    this.parameter.addListener(this);
-    this.parameter.optionsChanged.addListener(this);
+    if (parameter != null) {
+      this.parameter.addListener(this);
+      this.parameter.optionsChanged.addListener(this);
+    }
     return this;
   }
 
   private void updateActions() {
-    this.actions = new UIContextActions.Action[parameter.getRange()];
-    for (int i = 0; i < this.actions.length; ++i) {
-      final int ii = i;
-      this.actions[i] = new UIContextActions.Action(String.valueOf(i)) {
-        @Override
-        public void onContextAction(UI ui) {
-          if (useCommandEngine) {
-            getLX().command.perform(new LXCommand.Parameter.SetIndex(parameter, ii));
+    if (this.parameter == null) {
+      this.actions = new UIContextActions.Action[0];
+      setOptions(new String[0]);
+      this.contextMenu.setActions(this.actions);
+      this.contextMenu.setHighlight(-1);
+    } else {
+      this.actions = new UIContextActions.Action[this.parameter.getRangei()];
+      for (int i = 0; i < this.actions.length; ++i) {
+        final int ii = i;
+        this.actions[i] = UIContextActions.createAction(String.valueOf(i), ui -> {
+          if (this.useCommandEngine) {
+            getLX().command.perform(new LXCommand.Parameter.SetIndex(this.parameter, ii));
           } else {
-            parameter.setIndex(ii);
+            this.parameter.setIndex(ii);
           }
-        }
-      };
+        });
+      }
+      setOptions(this.parameter.getOptions());
+      this.contextMenu.setActions(this.actions);
+      this.contextMenu.setHighlight(this.parameter.getBaseIndex());
     }
-    setOptions(this.parameter.getOptions());
-    this.contextMenu.setActions(this.actions);
-    this.contextMenu.setHighlight(this.parameter.getBaseIndex());
     redraw();
   }
 
@@ -173,32 +198,45 @@ public class UIDropMenu extends UIParameterComponent implements UIFocus, UIContr
     return 4;
   }
 
-  @Override
-  public void onDraw(UI ui, VGraphics vg) {
+  protected void drawDisabledBackground(UI ui, VGraphics vg) {
     if (!this.enabled) {
       vg.fillColor(ui.theme.controlDisabledColor);
       vg.beginPath();
       vg.rect(1, 1, this.width-2, this.height-2);
       vg.fill();
     }
+  }
+
+  @Override
+  public void onDraw(UI ui, VGraphics vg) {
+    drawDisabledBackground(ui, vg);
+
+    if (this.parameter == null) {
+      return;
+    }
 
     String text;
     if (this.options != null) {
       text = this.options[this.parameter.getBaseIndex()];
     } else {
-      text = Integer.toString(this.parameter.getBaseValuei());
+      text = this.parameter.getFormatter().format(this.parameter.getBaseValue());
     }
-
     vg.fontFace(hasFont() ? getFont() : ui.theme.getControlFont());
-    vg.fillColor(this.enabled ? ui.theme.controlTextColor : ui.theme.controlDisabledTextColor);
+    vg.fillColor(this.enabled ? getFontColor() : ui.theme.controlDisabledTextColor);
     vg.beginPath();
     vg.textAlign(VGraphics.Align.LEFT, VGraphics.Align.MIDDLE);
     vg.text(4 + this.textOffsetX, this.height / 2 + 1 + this.textOffsetY, clipTextToWidth(vg, text, this.width - 12));
 
+    drawTriangle(ui, this, vg, this.textOffsetY);
+  }
+
+  public static void drawTriangle(UI ui, UI2dComponent component, VGraphics vg, float textOffsetY) {
+    final float width = component.getWidth();
+    final float height = component.getHeight();
     vg.beginPath();
-    vg.moveTo(this.width-4, this.height / 2 + this.textOffsetY - 2);
-    vg.lineTo(this.width-10, this.height / 2 + this.textOffsetY - 2);
-    vg.lineTo(this.width-7, this.height / 2 + this.textOffsetY + 2);
+    vg.moveTo(width-4, height / 2 + textOffsetY - 2);
+    vg.lineTo(width-10, height / 2 + textOffsetY - 2);
+    vg.lineTo(width-7, height / 2 + textOffsetY + 2);
     vg.closePath();
     vg.fill();
   }
@@ -209,15 +247,16 @@ public class UIDropMenu extends UIParameterComponent implements UIFocus, UIContr
 
   private void setExpanded(boolean expanded) {
     if (this.contextMenu.isVisible() != expanded) {
-      if (expanded) {
-        this.contextMenu.setHighlight(this.parameter.getBaseIndex());
+      if (expanded && (this.parameter != null)) {
+        int highlight = this.parameter.getBaseIndex();
+        this.contextMenu.setHighlight(highlight);
         if (this.direction == Direction.UP) {
           this.contextMenu.setPosition(this, 0, -this.contextMenu.getHeight());
         } else {
           this.contextMenu.setPosition(this, 0, this.height);
         }
         this.contextMenu.setWidth(this.menuWidth > 0 ? this.menuWidth : this.width);
-        getUI().showContextOverlay(this.contextMenu);
+        getUI().showDropMenu(this.contextMenu);
       } else {
         getUI().clearContextOverlay(this.contextMenu);
       }
@@ -227,13 +266,14 @@ public class UIDropMenu extends UIParameterComponent implements UIFocus, UIContr
   @Override
   public void onMousePressed(MouseEvent mouseEvent, float x, float y) {
     if (this.enabled) {
+      mouseEvent.consume();
       toggleExpanded();
     }
   }
 
   @Override
   public void onKeyPressed(KeyEvent keyEvent, char keyChar, int keyCode) {
-    if (this.enabled) {
+    if (this.enabled && (this.parameter != null)) {
       if (this.contextMenu.isVisible()) {
         this.contextMenu.onKeyPressed(keyEvent, keyChar, keyCode);
       } else if (keyEvent.isEnter() || (keyCode == KeyEvent.VK_SPACE)) {

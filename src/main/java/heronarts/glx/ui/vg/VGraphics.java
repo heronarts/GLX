@@ -38,6 +38,7 @@ import heronarts.glx.GLXUtils;
 import heronarts.glx.View;
 import heronarts.glx.ui.UI2dContext;
 import heronarts.glx.ui.UIColor;
+import heronarts.lx.color.LXColor;
 
 import static org.lwjgl.bgfx.BGFX.*;
 import static org.lwjgl.nanovg.NanoVG.*;
@@ -152,8 +153,9 @@ public class VGraphics {
     public final Paint paint;
     private final NVGColor tint = NVGColor.create();
     private final ByteBuffer imageData;
+    private final boolean isRgbData;
 
-    private Image(int id, ByteBuffer imageData, int w, int h, boolean is2x) {
+    private Image(int id, ByteBuffer imageData, int w, int h, boolean is2x, boolean isRgbData) {
       this.id = id;
       this.imageData = imageData;
       if (is2x) {
@@ -163,7 +165,32 @@ public class VGraphics {
       this.width = w;
       this.height = h;
       this.paint = imagePattern(0, 0, w, h, id);
+      this.isRgbData = isRgbData;
       noTint();
+    }
+
+    private static ByteBuffer bufferARGB(ByteBuffer rgbaData, int[] argb) {
+      for (int color : argb) {
+        rgbaData.putInt(LXColor.toABGR(color));
+      }
+      rgbaData.flip();
+      return rgbaData;
+    }
+
+    /**
+     * Updates the data in an image created from an ARGB data buffer. Can not be
+     * called on Images that were created by loading a file.
+     *
+     * @param argb ARGB data array, must have length image.width x image.height
+     */
+    public void update(int[] argb) {
+      if (!this.isRgbData) {
+        throw new IllegalStateException("Cannot update image not created with raw RGB data");
+      }
+      if (argb.length != (this.width * this.height)) {
+        throw new IllegalArgumentException("ARGB array length (" + argb.length + ") doesn't match width(" + this.width + ") x height(" + this.height +")");
+      }
+      nvgUpdateImage(vg, this.id, bufferARGB(this.imageData, argb));
     }
 
     public void noTint() {
@@ -622,6 +649,23 @@ public class VGraphics {
     return this;
   }
 
+  /**
+   * Creates an image from an array of colors
+   *
+   * @param argb Array of ARGB values
+   * @param width Width of image
+   * @param height Height of image
+   * @return Image object suitable for VGraphics painting
+   */
+  public Image createImageARGB(int[] argb, int width, int height) {
+    if (argb.length != (width * height)) {
+      throw new IllegalArgumentException("ARGB array length (" + argb.length + ") doesn't match width(" + width + ") x height(" + height +")");
+    }
+    ByteBuffer rgbaData = Image.bufferARGB(MemoryUtil.memAlloc(argb.length * 4), argb);
+    int image = nvgCreateImageRGBA(this.vg, width, height, 0, rgbaData);
+    return new Image(image, rgbaData, width, height, false, true);
+  }
+
   public Image loadImage(String imagePath) throws IOException {
     return createImageMem(GLXUtils.loadResource("images/" + imagePath), imagePath.contains("@2x."));
   }
@@ -645,7 +689,7 @@ public class VGraphics {
       IntBuffer width = stack.mallocInt(1);
       IntBuffer height = stack.mallocInt(1);
       nvgImageSize(this.vg, image, width, height);
-      return new Image(image, imageData, width.get(0), height.get(0), is2x);
+      return new Image(image, imageData, width.get(0), height.get(0), is2x, false);
     }
   }
 

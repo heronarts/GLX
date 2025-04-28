@@ -20,19 +20,29 @@ package heronarts.glx;
 
 import static org.lwjgl.glfw.GLFW.*;
 
+import java.nio.ByteBuffer;
+import java.nio.FloatBuffer;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.concurrent.atomic.AtomicBoolean;
 
+import org.lwjgl.glfw.GLFW;
+import org.lwjgl.glfw.GLFWGamepadState;
 import org.lwjgl.system.Platform;
 
 import heronarts.glx.event.Event;
+import heronarts.glx.event.GamepadEvent;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.lx.LXEngine;
 
 public class InputDispatch implements LXEngine.Dispatch {
+
+  private static final int NUM_GAMEPADS = GLFW_JOYSTICK_LAST + 1;
+  private static final int NUM_GAMEPAD_AXES = GLFW_GAMEPAD_AXIS_LAST + 1;
+  private static final int NUM_GAMEPAD_BUTTONS = GLFW_GAMEPAD_BUTTON_LAST + 1;
+  private static final float GAMEPAD_AXIS_CHANGE_THRESHOLD = 0.001f;
 
   private final GLX lx;
 
@@ -42,6 +52,10 @@ public class InputDispatch implements LXEngine.Dispatch {
   private boolean macosControlClick = false;
   private KeyEvent keyEvent = null;
   private MouseEvent previousMousePress = null;
+
+  private GLFWGamepadState gamepadState = GLFWGamepadState.create();
+  private float[][] gamepadAxes = new float[NUM_GAMEPADS][NUM_GAMEPAD_AXES];
+  private boolean[][] gamepadButtons = new boolean[NUM_GAMEPADS][NUM_GAMEPAD_BUTTONS];
 
   private final AtomicBoolean hasInputEvents = new AtomicBoolean(false);
   private final List<Event> lxThreadEventQueue = new ArrayList<Event>();
@@ -118,7 +132,7 @@ public class InputDispatch implements LXEngine.Dispatch {
 
     // Detect double-presses
     if (action == GLFW_PRESS) {
-      if ((this.previousMousePress != null) && this.previousMousePress.isRepeat(mouseEvent)) {
+      if ((this.previousMousePress != null) && !this.previousMousePress.isConsumed() && this.previousMousePress.isRepeat(mouseEvent)) {
         mouseEvent.setCount(this.previousMousePress.getCount() + 1);
       }
       this.previousMousePress = mouseEvent;
@@ -155,6 +169,34 @@ public class InputDispatch implements LXEngine.Dispatch {
     // that we'll only draw at max rate when input is active, otherwise
     // throttle to a reasonable framerate
     glfwWaitEventsTimeout(POLL_TIMEOUT);
+
+    pollGamepad();
+  }
+
+  private void pollGamepad() {
+    for (int i = 0; i < NUM_GAMEPADS; i++) {
+      if (GLFW.glfwJoystickIsGamepad(i)) {
+        if (GLFW.glfwGetGamepadState(i, gamepadState)) {
+          FloatBuffer axesBuffer = gamepadState.axes();
+          for (int a = 0; a < NUM_GAMEPAD_AXES; a++) {
+            float axisValue = axesBuffer.get(a);
+            if (Math.abs(axisValue - gamepadAxes[i][a]) > GAMEPAD_AXIS_CHANGE_THRESHOLD) {
+              queueEvent(new GamepadEvent(i, a, axisValue, this.modifiers));
+              gamepadAxes[i][a] = axisValue;
+            }
+          }
+
+          ByteBuffer buttonsBuffer = gamepadState.buttons();
+          for (int b = 0; b < NUM_GAMEPAD_BUTTONS; b++) {
+            boolean on = buttonsBuffer.get(b) == GLFW.GLFW_PRESS;
+            if (on != gamepadButtons[i][b]) {
+              queueEvent(new GamepadEvent(i, b, on ? GLFW.GLFW_PRESS : GLFW.GLFW_RELEASE, this.modifiers));
+              gamepadButtons[i][b] = on;
+            }
+          }
+        }
+      }
+    }
   }
 
   private Event coalesceEvents(Event thisEvent, Event prevEvent) {
@@ -225,14 +267,24 @@ public class InputDispatch implements LXEngine.Dispatch {
     }
 
     // Now process all of them in the UI layer
+    boolean updateCursor = false;
     for (Event event : this.lxThreadEventQueue) {
       if (event instanceof MouseEvent) {
         this.lx.ui.mouseEvent((MouseEvent) event);
+        updateCursor = true;
       } else if (event instanceof KeyEvent) {
         this.lx.ui.keyEvent((KeyEvent) event);
+        updateCursor = true;
+      } else if (event instanceof GamepadEvent) {
+        this.lx.ui.gamepadEvent((GamepadEvent) event);
       } else {
         throw new IllegalStateException("Illegal event type in queue: " + event);
       }
+    }
+
+    // Set the cursor if any mouse events may have changed it
+    if (updateCursor) {
+      this.lx.setMouseCursor(this.lx.ui.getMouseCursor());
     }
   }
 

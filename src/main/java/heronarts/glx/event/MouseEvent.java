@@ -64,7 +64,9 @@ public class MouseEvent extends Event {
   public final float dx;
   public final float dy;
 
-  private boolean consumeContextMenu = false;
+  private boolean consumeDropMenu = false;
+  private boolean consumeScrollX = false;
+  private boolean consumeScrollY = false;
 
   public MouseEvent(int glfwAction, int button, float x, float y, int modifiers) {
     super(modifiers);
@@ -112,12 +114,55 @@ public class MouseEvent extends Event {
     return this.y;
   }
 
-  public void consumeContextMenu() {
-    this.consumeContextMenu = true;
+  /**
+   * Mark this mouse press event as having been responsible for
+   * opening a drop menu. This is used to flag that this click
+   * shouldn't close that drop menu immediately, even though it
+   * did not fall within its bounds.
+   */
+  public void consumeDropMenu() {
+    this.consumeDropMenu = true;
   }
 
-  public boolean isContextMenuConsumed() {
-    return this.consumeContextMenu;
+  public MouseEvent consumeScrollX() {
+    this.consumeScrollX = true;
+    if (this.consumeScrollY) {
+      consume();
+    }
+    return this;
+  }
+
+  public MouseEvent consumeScrollY() {
+    this.consumeScrollY = true;
+    if (this.consumeScrollX) {
+      consume();
+    }
+    return this;
+  }
+
+  @Override
+  public MouseEvent consume() {
+    super.consume();
+    this.consumeScrollX = true;
+    this.consumeScrollY = true;
+    return this;
+  }
+
+  /**
+   * Check whether mouse press was responsible for a context menu opening
+   *
+   * @return Whether this mouse event opened the currently active drop menu
+   */
+  public boolean isDropMenuConsumed() {
+    return this.consumeDropMenu;
+  }
+
+  public boolean isScrollXConsumed() {
+    return this.consumeScrollX;
+  }
+
+  public boolean isScrollYConsumed() {
+    return this.consumeScrollY;
   }
 
   public MouseEvent setCount(int count) {

@@ -33,6 +33,7 @@ public class UIContextButton extends UI2dComponent implements UIFocus {
   private final UI2dComponent contextMenu;
   private float contextMenuWidth = -1;
   private Direction direction = Direction.DOWN;
+  private HorizontalDirection horizontalDirection = HorizontalDirection.RIGHT;
   private VGraphics.Image icon = null;
   private float iconOffsetX = 0, iconOffsetY = 0;
 
@@ -50,6 +51,18 @@ public class UIContextButton extends UI2dComponent implements UIFocus {
      * Menu opens upwards from bottom of button
      */
     UP
+  };
+
+  public enum HorizontalDirection {
+    /**
+     * Menu opens to the right of the button
+     */
+    RIGHT,
+
+    /**
+     * Menu opens to the left of the button
+     */
+    LEFT
   };
 
   public UIContextButton(UI ui, float x, float y, float w, float h) {
@@ -137,6 +150,17 @@ public class UIContextButton extends UI2dComponent implements UIFocus {
     return this;
   }
 
+  /**
+   * Sets the direction in which the context menu opens
+   *
+   * @param horizontalDirection Direction to open
+   * @return this
+   */
+  public UIContextButton setHorizontalDirection(HorizontalDirection horizontalDirection) {
+    this.horizontalDirection = horizontalDirection;
+    return this;
+  }
+
   @Override
   public void onDraw(UI ui, VGraphics vg) {
     if (this.icon != null) {
@@ -199,12 +223,17 @@ public class UIContextButton extends UI2dComponent implements UIFocus {
 
   private void showMenu() {
     this.contextMenu.setWidth((this.contextMenuWidth > 0) ? this.contextMenuWidth : Math.max(UIContextMenu.DEFAULT_WIDTH, this.width));
+    float hOffset = 0;
+    if (this.horizontalDirection == HorizontalDirection.LEFT) {
+      hOffset = this.width - this.contextMenu.getWidth();
+    }
+
     switch (this.direction) {
     case DOWN:
-      this.contextMenu.setPosition(this, 0, this.height);
+      this.contextMenu.setPosition(this, hOffset, this.height);
       break;
     case UP:
-      this.contextMenu.setPosition(this, 0, -this.contextMenu.getHeight());
+      this.contextMenu.setPosition(this, hOffset, -this.contextMenu.getHeight());
       break;
     }
     if (this.contextMenu instanceof UIContextMenu) {

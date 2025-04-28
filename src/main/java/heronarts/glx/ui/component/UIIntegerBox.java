@@ -166,7 +166,7 @@ public class UIIntegerBox extends UINumberBox implements UIControlTarget, UIModu
     if (wrappable) {
       final int range = (max - min + 1);
       if (value < min) {
-        value = max + ((value - min) % range);
+        value = max + ((value + 1 - min) % range);
       } else if (value > max) {
         value = min + ((value - min) % range);
       }
@@ -211,9 +211,9 @@ public class UIIntegerBox extends UINumberBox implements UIControlTarget, UIModu
     int increment = 1;
     if (inputEvent.isShiftDown()) {
       if (this.hasShiftMultiplier) {
-        increment *= this.shiftMultiplier;
+        increment = LXUtils.max(1, (int) (increment * this.shiftMultiplier));
       } else if (this.parameter != null) {
-        increment = Math.max(1, this.parameter.getRange() / 10);
+        increment = Math.max(1, (int) (this.parameter.getRange() / 10));
       } else {
         increment *= 10;
       }

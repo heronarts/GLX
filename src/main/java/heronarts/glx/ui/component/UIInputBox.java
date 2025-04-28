@@ -97,7 +97,7 @@ public abstract class UIInputBox extends UIParameterComponent implements UIFocus
       setCursor(0);
     }
 
-    public void delete() {
+    public void delete(boolean forwards) {
       if (this.rangeEnd != this.rangeStart) {
         // Range deletion, save the end point
         final int rangeEnd = this.rangeEnd;
@@ -107,11 +107,14 @@ public abstract class UIInputBox extends UIParameterComponent implements UIFocus
           this.buffer.substring(0, this.rangeStart) +
           this.buffer.substring(rangeEnd);
       } else {
-        // Single char deletion, move the cursor back one, delete from there
-        setCursor(this.cursor - 1);
-        this.buffer =
-          this.buffer.substring(0, this.cursor) +
-          this.buffer.substring(this.cursor + 1);
+        // Reset the cursor, moving it back one if this is backspace
+        // NB: the setCursor() call also updates range vars
+        setCursor(forwards ? this.cursor : this.cursor - 1);
+        if (this.cursor < this.buffer.length()) {
+          this.buffer =
+            this.buffer.substring(0, this.cursor) +
+            this.buffer.substring(this.cursor + 1);
+        }
       }
     }
 
@@ -563,6 +566,11 @@ public abstract class UIInputBox extends UIParameterComponent implements UIFocus
         vg.textAlign(VGraphics.Align.LEFT, VGraphics.Align.MIDDLE);
         vg.text(x + TEXT_MARGIN, y + height / 2 + 1, clippedString);
         vg.fill();
+      } else if (textAlignHorizontal == VGraphics.Align.RIGHT) {
+        vg.beginPath();
+        vg.textAlign(VGraphics.Align.RIGHT, VGraphics.Align.MIDDLE);
+        vg.text(width - TEXT_MARGIN, y + height / 2 + 1, clippedString);
+        vg.fill();
       } else {
         vg.beginPath();
         vg.textAlign(VGraphics.Align.CENTER, VGraphics.Align.MIDDLE);
@@ -591,6 +599,9 @@ public abstract class UIInputBox extends UIParameterComponent implements UIFocus
         if (textAlignHorizontal == VGraphics.Align.LEFT) {
           rangeStartX = TEXT_MARGIN + rangeStartWidth;
           rangeEndX = TEXT_MARGIN + rangeEndWidth;
+        } else if (textAlignHorizontal == VGraphics.Align.RIGHT) {
+          rangeStartX = width - TEXT_MARGIN - fullWidth + rangeStartWidth;
+          rangeEndX = width - TEXT_MARGIN - fullWidth + rangeEndWidth;
         } else {
           rangeStartX = (width - fullWidth) / 2f + rangeStartWidth;
           rangeEndX = (width - fullWidth) / 2f + rangeEndWidth;
@@ -608,6 +619,8 @@ public abstract class UIInputBox extends UIParameterComponent implements UIFocus
       }
       if (textAlignHorizontal == VGraphics.Align.LEFT) {
         cursorX = TEXT_MARGIN + cursorWidth;
+      } else if (textAlignHorizontal == VGraphics.Align.RIGHT) {
+        cursorX = width - TEXT_MARGIN - fullWidth + cursorWidth;
       } else {
         cursorX = (width - fullWidth) / 2f + cursorWidth;
       }
@@ -670,7 +683,7 @@ public abstract class UIInputBox extends UIParameterComponent implements UIFocus
               this.editState.deleteAll();
               onEditChange(this.editState.buffer);
             } else {
-              this.editState.delete();
+              this.editState.delete(keyCode == KeyEvent.VK_DELETE);
               onEditChange(this.editState.buffer);
             }
             redraw();

@@ -19,8 +19,10 @@
 package heronarts.glx.ui;
 
 import heronarts.glx.GLX;
+import heronarts.glx.GLX.MouseCursor;
 import heronarts.glx.View;
 import heronarts.glx.event.Event;
+import heronarts.glx.event.GamepadEvent;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.component.UIContextMenu;
@@ -145,19 +147,26 @@ public class UI {
 
     @Override
     void mousePressed(MouseEvent mouseEvent, float mx, float my) {
-      // If a context menu is open, we'll want to close it on mouse-press
+      // If a drop or context menu is open, we'll want to close it on mouse-press
       // unless the mouse-press is within the context menu itself
-      boolean hideContextOverlay = false;
-      if (contextMenuOverlay.overlayContent != null) {
-        hideContextOverlay = true;
-        contextMenuOverlay.mousePressed = false;
-      }
+      contextOverlay.mousePressed = false;
+      contextOverlay.hideOnMousePress = (contextOverlay.overlayContent != null);
+      dropMenuOverlay.mousePressed = false;
+      dropMenuOverlay.hideOnMousePress = (dropMenuOverlay.overlayContent != null);
+
       super.mousePressed(mouseEvent, mx, my);
 
-      // Note: check
-      if (hideContextOverlay && !mouseEvent.isContextMenuConsumed() && !contextMenuOverlay.mousePressed && !isErrorDialog(contextMenuOverlay.overlayContent)) {
+      if (dropMenuOverlay.hideOnMousePress) {
+        // Catch clicks on an open drop menu *within* a context overlay, in this case
+        // the click will have closed the drop menu itself if appropriate, and we don't
+        // want to hide the containing context overlay
+        if (!dropMenuOverlay.mousePressed) {
+          hideDropMenu();
+        }
+      } else if (contextOverlay.hideOnMousePress && !contextOverlay.mousePressed && !isErrorDialog(contextOverlay.overlayContent)) {
         hideContextOverlay();
       }
+
     }
 
     @Override
@@ -188,6 +197,27 @@ public class UI {
     protected void onKeyReleased(KeyEvent keyEvent, char keyChar, int keyCode) {
       if (topLevelKeyEventHandler != null) {
         topLevelKeyEventHandler.onKeyReleased(keyEvent, keyChar, keyCode);
+      }
+    }
+
+    @Override
+    protected void onGamepadButtonPressed(GamepadEvent gamepadEvent, int button) {
+      if (topLevelKeyEventHandler != null) {
+        topLevelKeyEventHandler.onGamepadButtonPressed(gamepadEvent, button);
+      }
+    }
+
+    @Override
+    protected void onGamepadButtonReleased(GamepadEvent gamepadEvent, int button) {
+      if (topLevelKeyEventHandler != null) {
+        topLevelKeyEventHandler.onGamepadButtonReleased(gamepadEvent, button);
+      }
+    }
+
+    @Override
+    protected void onGamepadAxisChanged(GamepadEvent gamepadEvent, int axis, float value) {
+      if (topLevelKeyEventHandler != null) {
+        topLevelKeyEventHandler.onGamepadAxisChanged(gamepadEvent, axis, value);
       }
     }
 
@@ -374,6 +404,10 @@ public class UI {
     new StringParameter("Contextual Help")
     .setDescription("Parameter for contextual help messages in the bottom bar");
 
+  public final StringParameter statusMessageText =
+    new StringParameter("Status Message")
+    .setDescription("Parameter for status messages in the bottom bar");
+
   protected CoordinateSystem coordinateSystem = CoordinateSystem.LEFT_HANDED;
 
   private static final long INIT_RUN = -1;
@@ -382,6 +416,8 @@ public class UI {
   private UIEventHandler topLevelKeyEventHandler = null;
 
   private class UIContextOverlay extends UI2dScrollContext {
+
+    private boolean hideOnMousePress = false;
 
     private boolean mousePressed = false;
 
@@ -396,6 +432,12 @@ public class UI {
       setBackgroundColor(0);
     }
 
+    private void resizeContent(UI2dComponent overlayContent) {
+      if (this.overlayContent == overlayContent) {
+        _setOverlaySize();
+      }
+    }
+
     private void clearContent(UI2dComponent overlayContent) {
       if (this.overlayContent == overlayContent) {
         setContent(null);
@@ -403,6 +445,10 @@ public class UI {
     }
 
     private void setContent(UI2dComponent overlayContent) {
+      if (overlayContent == this.overlayContent) {
+        // Don't re-show the same thing
+        return;
+      }
       if (this.overlayContent != null) {
         this.overlayContent.setVisible(false);
         this.overlayContent.removeFromContainer();
@@ -411,17 +457,10 @@ public class UI {
       this.overlayContent = overlayContent;
       this.contextMenu = null;
       if (overlayContent != null) {
-        float contentWidth = overlayContent.getWidth();
-        float contentHeight = overlayContent.getHeight();
-        if (overlayContent instanceof UIContextMenu) {
-          this.contextMenu = (UIContextMenu) overlayContent;
-          float scrollHeight = contextMenu.getScrollHeight();
-          setSize(contentWidth, scrollHeight);
-          setScrollSize(contentWidth, contentHeight);
-        } else {
-          setScrollSize(contentWidth, contentHeight);
-          setSize(contentWidth, contentHeight);
-        }
+        // If new content has been just set this frame as a result of some action,
+        // then do not hide the overlay!
+        this.hideOnMousePress = false;
+        _setOverlaySize();
 
         float x = 0;
         float y = 0;
@@ -441,6 +480,20 @@ public class UI {
         overlayContent.setPosition(0, 0);
         overlayContent.addToContainer(this);
         root.mutableChildren.add(this);
+      }
+    }
+
+    private void _setOverlaySize() {
+      float contentWidth = overlayContent.getWidth();
+      float contentHeight = overlayContent.getHeight();
+      if (overlayContent instanceof UIContextMenu) {
+        this.contextMenu = (UIContextMenu) overlayContent;
+        float scrollHeight = contextMenu.getScrollHeight();
+        setSize(contentWidth, scrollHeight);
+        setScrollSize(contentWidth, contentHeight);
+      } else {
+        setScrollSize(contentWidth, contentHeight);
+        setSize(contentWidth, contentHeight);
       }
     }
 
@@ -503,9 +556,16 @@ public class UI {
   }
 
   /**
-   * Drop menu overlay object
+   * Contextual window overlay object
    */
-  private UIContextOverlay contextMenuOverlay;
+  private UIContextOverlay contextOverlay;
+
+  /**
+   * Drop menu overlay object. This is distinct from the contextOverlay because it's allowed
+   * to put a drop menu within a contextOverlay, but that's the only nesting allowed (no overlays
+   * within overlays within overlays)
+   */
+  private UIContextOverlay dropMenuOverlay;
 
   /**
    * UI look and feel
@@ -541,7 +601,8 @@ public class UI {
     LX.initProfiler.log("GLX: UI: Theme");
 
     this.root = new UIRoot();
-    this.contextMenuOverlay = new UIContextOverlay();
+    this.contextOverlay = new UIContextOverlay();
+    this.dropMenuOverlay = new UIContextOverlay();
     LX.initProfiler.log("GLX: UI: Root");
 
     lx.addProjectListener(new LX.ProjectListener() {
@@ -549,16 +610,16 @@ public class UI {
       public void projectChanged(File file, Change change) {
         switch (change) {
         case TRY:
-          contextualHelpText.setValue("Loading project file: " + file.getName());
+          statusMessageText.setValue("Loading project file: " + file.getName());
           break;
         case NEW:
-          contextualHelpText.setValue("Created new project");
+          statusMessageText.setValue("Created new project");
           break;
         case SAVE:
-          contextualHelpText.setValue("Saved project file: " + file.getName());
+          statusMessageText.setValue("Saved project file: " + file.getName());
           break;
         case OPEN:
-          contextualHelpText.setValue("Opened project file: " + file.getName());
+          statusMessageText.setValue("Opened project file: " + file.getName());
           break;
         }
       }
@@ -590,22 +651,22 @@ public class UI {
       }
 
       if (this.midiMapping) {
-        this.contextualHelpText.setValue("Click on a control target to MIDI map, eligible controls are highlighted");
+        this.statusMessageText.setValue("Click on a control target to MIDI map, eligible controls are highlighted");
       } else if (this.modulationSourceMapping) {
-        this.contextualHelpText.setValue("Click on a modulation source, eligible sources are highlighted ");
+        this.statusMessageText.setValue("Click on a modulation source, eligible sources are highlighted ");
       } else if (this.modulationTargetMapping) {
         LXNormalizedParameter sourceParameter = modulationSource.getModulationSource();
         if (sourceParameter == null) {
-          this.contextualHelpText.setValue("You are somehow mapping a non-existent source parameter, choose a destination");
+          this.statusMessageText.setValue("You are somehow mapping a non-existent source parameter, choose a destination");
         } else {
-          this.contextualHelpText.setValue("Select a modulation destination for " + sourceParameter.getCanonicalLabel() + ", eligible targets are highlighted");
+          this.statusMessageText.setValue("Select a modulation destination for " + sourceParameter.getCanonicalLabel() + ", eligible targets are highlighted");
         }
       } else if (this.triggerSourceMapping) {
-        this.contextualHelpText.setValue("Click on a trigger source, eligible sources are highlighted ");
+        this.statusMessageText.setValue("Click on a trigger source, eligible sources are highlighted ");
       } else if (this.triggerTargetMapping) {
-        this.contextualHelpText.setValue("Select a trigger destination for " + triggerSource.getTriggerSource().getCanonicalLabel() + ", eligible targets are highlighted");
+        this.statusMessageText.setValue("Select a trigger destination for " + triggerSource.getTriggerSource().getCanonicalLabel() + ", eligible targets are highlighted");
       } else {
-        this.contextualHelpText.setValue("");
+        this.statusMessageText.setValue("");
       }
 
       this.root.redraw();
@@ -620,14 +681,14 @@ public class UI {
       @Override
       public void mappingAdded(LXMidiEngine engine, LXMidiMapping mapping) {
         if (midiMapping) {
-          contextualHelpText.setValue("Successfully mapped MIDI Ch." + (mapping.channel+1) + " " + mapping.getDescription() + " to " + mapping.parameter.getCanonicalLabel());
+          statusMessageText.setValue("Successfully mapped MIDI Ch." + (mapping.channel+1) + " " + mapping.getDescription() + " to " + mapping.parameter.getCanonicalLabel());
         }
       }
     });
 
     lx.statusMessage.addListener(p -> {
       if (!isMapping()) {
-        contextualHelpText.setValue(lx.statusMessage.getString());
+        statusMessageText.setValue(lx.statusMessage.getString());
       }
     });
 
@@ -742,6 +803,10 @@ public class UI {
     }
   }
 
+  public MouseCursor getMouseCursor() {
+    return this.root._getMouseCursor();
+  }
+
   /**
    * Sets an object to handle top-level input events
    *
@@ -757,9 +822,9 @@ public class UI {
     this.lx.engine.mapping.setControlTarget(controlTarget.getControlTarget());
     LXParameter midiParameter = controlTarget.getControlTarget();
     if (midiParameter == null) {
-      this.contextualHelpText.setValue("Press a MIDI key or controller to map a non-existent parameter?");
+      this.statusMessageText.setValue("Press a MIDI key or controller to map a non-existent parameter?");
     } else {
-      this.contextualHelpText.setValue("Press a MIDI key or controller to map " + midiParameter.getCanonicalLabel());
+      this.statusMessageText.setValue("Press a MIDI key or controller to map " + midiParameter.getCanonicalLabel());
     }
     if (this.controlTarget != controlTarget) {
       if (this.controlTarget != null) {
@@ -915,13 +980,29 @@ public class UI {
     return showContextOverlay(new UIDialogBox(this, message));
   }
 
-  public UI clearContextOverlay(UI2dComponent contextOverlay) {
-    this.contextMenuOverlay.clearContent(contextOverlay);
+  public UI showContextOverlay(UI2dComponent contextOverlay) {
+    this.contextOverlay.setContent(contextOverlay);
     return this;
   }
 
-  public UI showContextOverlay(UI2dComponent contextOverlay) {
-    this.contextMenuOverlay.setContent(contextOverlay);
+  public UI resizeContextOverlay(UI2dComponent contextOverlay) {
+    this.contextOverlay.resizeContent(contextOverlay);
+    return this;
+  }
+
+  public UI clearContextOverlay(UI2dComponent contextOverlay) {
+    this.contextOverlay.clearContent(contextOverlay);
+    this.dropMenuOverlay.clearContent(contextOverlay);
+    return this;
+  }
+
+  public UI hideDropMenu() {
+    showDropMenu(null);
+    return this;
+  }
+
+  public UI showDropMenu(UIContextMenu dropMenu) {
+    this.dropMenuOverlay.setContent(dropMenu);
     return this;
   }
 
@@ -1067,6 +1148,20 @@ public class UI {
         }
         break;
       }
+    }
+  }
+
+  public void gamepadEvent(GamepadEvent gamepadEvent) {
+    switch (gamepadEvent.getAction()) {
+    case BUTTON_PRESS:
+      this.root.onGamepadButtonPressed(gamepadEvent, gamepadEvent.button);
+      break;
+    case BUTTON_RELEASE:
+      this.root.onGamepadButtonReleased(gamepadEvent, gamepadEvent.button);
+      break;
+    case AXIS_CHANGE:
+      this.root.onGamepadAxisChanged(gamepadEvent, gamepadEvent.axis, gamepadEvent.axisValue);
+      break;
     }
   }
 

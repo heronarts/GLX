@@ -26,6 +26,7 @@ import heronarts.lx.parameter.LXListenableParameter;
 import heronarts.lx.parameter.LXNormalizedParameter;
 import heronarts.lx.parameter.LXParameter;
 import heronarts.lx.parameter.LXParameterListener;
+import heronarts.lx.parameter.TriggerParameter;
 import heronarts.glx.event.Event;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
@@ -307,10 +308,14 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
       vg.fill();
 
     } else {
-      String labelText = (this.showValue || (this.editTimeRemaining > 0)) ? getValueString() : getLabelString();
+      final boolean showValue = (this.showValue || (this.editTimeRemaining > 0)) && !isTriggerParameter();
+      String labelText = showValue ? getValueString() : getLabelString();
       drawParameterLabel(ui, vg, this, labelText);
-
     }
+  }
+
+  protected boolean isTriggerParameter() {
+    return this.parameter instanceof TriggerParameter;
   }
 
   private double getIncrement(Event inputEvent) {
@@ -327,12 +332,12 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
   protected void decrementValue(KeyEvent keyEvent) {
     if (this.parameter != null) {
       keyEvent.consume();
-      if (this.parameter instanceof DiscreteParameter) {
-        DiscreteParameter dp = (DiscreteParameter) this.parameter;
+      if (this.parameter instanceof DiscreteParameter dp) {
+        final int decrement = keyEvent.isShiftDown() ? (int) (dp.getRange() / 10) : 1;
         if (this.useCommandEngine) {
-          getLX().command.perform(new LXCommand.Parameter.Decrement(dp, keyEvent.isShiftDown() ? dp.getRange() / 10 : 1));
+          getLX().command.perform(new LXCommand.Parameter.Decrement(dp, decrement));
         } else {
-          dp.decrement(keyEvent.isShiftDown() ? dp.getRange() / 10 : 1);
+          dp.decrement(decrement);
         }
       } else if (this.parameter instanceof BooleanParameter) {
         boolean value = isWrappable() ? !((BooleanParameter)this.parameter).isOn() : false;
@@ -361,12 +366,12 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
   protected void incrementValue(KeyEvent keyEvent) {
     if (this.parameter != null) {
       keyEvent.consume();
-      if (this.parameter instanceof DiscreteParameter) {
-        DiscreteParameter dp = (DiscreteParameter) this.parameter;
+      if (this.parameter instanceof DiscreteParameter dp) {
+        final int increment = keyEvent.isShiftDown() ? (int) (dp.getRange() / 10) : 1;
         if (this.useCommandEngine) {
-          getLX().command.perform(new LXCommand.Parameter.Increment(dp, keyEvent.isShiftDown() ? dp.getRange() / 10 : 1));
+          getLX().command.perform(new LXCommand.Parameter.Increment(dp, increment));
         } else {
-          dp.increment(keyEvent.isShiftDown() ? dp.getRange() / 10 : 1);
+          dp.increment(increment);
         }
       } else if (this.parameter instanceof BooleanParameter) {
         boolean value = isWrappable() ? !((BooleanParameter)this.parameter).isOn() : true;
@@ -458,7 +463,7 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
    * @param baseColor Base color to determine modulated color from
    * @return Color to use for modulated value
    */
-   public int getModulatedValueColor(int baseColor) {
+  public static int getModulatedValueColor(int baseColor) {
     int DIM_AMOUNT = 20;
     float h = LXColor.h(baseColor);
     float s = LXColor.s(baseColor);

@@ -20,6 +20,45 @@ package heronarts.glx.ui;
 
 public interface UI2dScrollInterface {
 
+  public static class ScrollChange {
+    public final boolean x;
+    public final boolean y;
+    public final boolean width;
+    public final boolean height;
+
+    public ScrollChange(boolean x, boolean y, boolean width, boolean height) {
+      this.x = x;
+      this.y = y;
+      this.width = width;
+      this.height = height;
+    }
+
+    public boolean isVertical() {
+      return this.y || this.height;
+    }
+
+    public boolean isHorizontal() {
+      return this.x || this.width;
+    }
+
+    public static final ScrollChange X = new ScrollChange(true, false, false, false);
+    public static final ScrollChange Y = new ScrollChange(false, true, false, false);
+    public static final ScrollChange WIDTH = new ScrollChange(false, false, true, false);
+    public static final ScrollChange HEIGHT = new ScrollChange(false, false, false, true);
+  }
+
+  public interface ScrollListener {
+    public void onScrollChange(UI2dScrollInterface scroll, ScrollChange change);
+  }
+
+  public UI2dScrollInterface addScrollListener(ScrollListener listener);
+
+  public UI2dScrollInterface removeScrollListener(ScrollListener listener);
+
+  public float getWidth();
+
+  public float getHeight();
+
   public float getScrollHeight();
 
   public UI2dScrollInterface setScrollHeight(float scrollHeight);
@@ -37,5 +76,17 @@ public interface UI2dScrollInterface {
   public UI2dScrollInterface setScrollX(float scrollX);
 
   public UI2dScrollInterface setScrollY(float scrollY);
+
+  public default boolean hasScrollX() {
+    return getScrollWidth() > getWidth();
+  }
+
+  public default boolean hasScrollY() {
+    return getScrollHeight() > getHeight();
+  }
+
+  public default boolean hasScroll() {
+    return hasScrollX() || hasScrollY();
+  }
 
 }

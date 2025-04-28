@@ -25,9 +25,13 @@ import heronarts.glx.ui.UIFocus;
 import heronarts.glx.ui.UITriggerSource;
 import heronarts.glx.ui.UITriggerTarget;
 import heronarts.glx.ui.vg.VGraphics;
+import heronarts.lx.color.LXColor;
 import heronarts.lx.command.LXCommand;
 import heronarts.lx.parameter.BooleanParameter;
 import heronarts.lx.parameter.LXNormalizedParameter;
+import heronarts.lx.parameter.LXParameter;
+import heronarts.lx.parameter.TriggerParameter;
+import heronarts.lx.utils.LXUtils;
 
 public class UISwitch extends UIParameterControl implements UIFocus, UITriggerTarget, UITriggerSource {
 
@@ -35,10 +39,13 @@ public class UISwitch extends UIParameterControl implements UIFocus, UITriggerTa
   public final static int SWITCH_SIZE = UIKnob.KNOB_SIZE;
   public final static int WIDTH = SWITCH_SIZE + 2*SWITCH_MARGIN;
 
+  private final static double TRIGGER_DURATION_MS = UIIndicator.DEFAULT_TIMER_MS;
+
   protected boolean isMomentary = false;
 
   private boolean momentaryPressValid = false;
   private boolean momentaryPressEngaged = false;
+  private double triggerTimeoutMs = 0;
 
   public UISwitch(LXNormalizedParameter parameter) {
     this(0, 0, parameter);
@@ -56,6 +63,12 @@ public class UISwitch extends UIParameterControl implements UIFocus, UITriggerTa
   public UISwitch(float x, float y) {
     super(x, y, WIDTH, SWITCH_SIZE);
     this.keyEditable = true;
+    addLoopTask(deltaMs -> {
+      if (this.triggerTimeoutMs > 0) {
+        this.triggerTimeoutMs = LXUtils.max(0, this.triggerTimeoutMs - deltaMs);
+        redraw();
+      }
+    });
   }
 
   public UISwitch setMomentary(boolean momentary) {
@@ -71,6 +84,16 @@ public class UISwitch extends UIParameterControl implements UIFocus, UITriggerTa
     super.setParameter(parameter);
     setMomentary(getBooleanParameter().getMode() == BooleanParameter.Mode.MOMENTARY);
     return this;
+  }
+
+  @Override
+  public void onParameterChanged(LXParameter parameter) {
+    if (parameter instanceof TriggerParameter) {
+      if (((TriggerParameter) parameter).isOn() && isVisible(true)) {
+        this.triggerTimeoutMs = TRIGGER_DURATION_MS;
+      }
+    }
+    super.onParameterChanged(parameter);
   }
 
   private BooleanParameter getBooleanParameter() {
@@ -98,10 +121,18 @@ public class UISwitch extends UIParameterControl implements UIFocus, UITriggerTa
   protected void onDraw(UI ui, VGraphics vg) {
     vg.strokeColor(ui.theme.controlBorderColor);
     if (isEnabled() && (this.parameter != null)) {
-      vg.fillColor(this.momentaryPressEngaged ?
-        (this.momentaryPressValid ? ui.theme.primaryColor : ui.theme.controlDisabledColor) :
-        ((this.parameter.getValue() > 0) ? ui.theme.primaryColor : ui.theme.controlBackgroundColor)
-      );
+      if (isTriggerParameter()) {
+        vg.fillColor(LXColor.lerp(
+          ui.theme.controlBackgroundColor.get(),
+          ui.theme.primaryColor.get(),
+          this.triggerTimeoutMs / TRIGGER_DURATION_MS
+        ));
+      } else {
+        vg.fillColor(this.momentaryPressEngaged ?
+          (this.momentaryPressValid ? ui.theme.primaryColor : ui.theme.controlDisabledColor) :
+          ((this.parameter.getValue() > 0) ? ui.theme.primaryColor : ui.theme.controlBackgroundColor)
+        );
+      }
     } else {
       vg.fillColor(ui.theme.controlDisabledColor);
     }
@@ -178,6 +209,7 @@ public class UISwitch extends UIParameterControl implements UIFocus, UITriggerTa
   @Override
   protected void onMouseDragged(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
     if (isEnabled() && this.momentaryPressEngaged) {
+      mouseEvent.consume();
       boolean mouseDownMomentary = isOnSwitch(mx, my);
       if (mouseDownMomentary != this.momentaryPressValid) {
         this.momentaryPressValid = mouseDownMomentary;

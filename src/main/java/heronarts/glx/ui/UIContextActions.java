@@ -26,9 +26,23 @@ import heronarts.lx.parameter.LXParameter;
 
 public interface UIContextActions {
 
-  public static abstract class Action {
+  public interface ContextAction {
+    public void onContextAction(UI ui);
+  }
+
+  public static Action createAction(String label, ContextAction action) {
+    return new Action(label) {
+      @Override
+      public void onContextAction(UI ui) {
+        action.onContextAction(ui);
+      }
+    };
+  }
+
+  public static abstract class Action implements ContextAction {
 
     private String label;
+    private String description;
 
     public Action(String label) {
       this.label = label;
@@ -38,13 +52,18 @@ public interface UIContextActions {
       return this.label;
     }
 
-    public String getDescription() {
-      return null;
-    }
-
     public Action setLabel(String label) {
       this.label = label;
       return this;
+    }
+
+    public Action setDescription(String description) {
+      this.description = description;
+      return this;
+    }
+
+    public String getDescription() {
+      return this.description;
     }
 
     @Override

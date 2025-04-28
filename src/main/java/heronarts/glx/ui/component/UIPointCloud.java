@@ -51,6 +51,7 @@ import heronarts.lx.parameter.BoundedParameter;
 import heronarts.lx.parameter.DiscreteParameter;
 import heronarts.lx.parameter.EnumParameter;
 import heronarts.lx.parameter.LXParameter;
+import heronarts.lx.utils.LXUtils;
 
 public class UIPointCloud extends UI3dComponent implements LXSerializable {
 
@@ -99,10 +100,10 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       this.dimensionsBuffer.put(2, view.getAspectRatio());
       switch (getContext().projection.getEnum()) {
       case PERSPECTIVE:
-        this.dimensionsBuffer.put(3, 2.0f / view.getAspectRatio() * params.pointSize.getValuef());
+        this.dimensionsBuffer.put(3, 2f * params.pointSize.getValuef() / view.getAspectRatio());
         break;
       case ORTHOGRAPHIC:
-        this.dimensionsBuffer.put(3, 2.0f * params.pointSize.getValuef() / view.getWidth());
+        this.dimensionsBuffer.put(3, 2f * params.pointSize.getValuef() / LXUtils.maxf(1f, getContext().getRadius()));
         break;
       }
       this.sparkleBuffer.put(0, params.sparkleAmount.getValuef());
@@ -271,7 +272,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     .setDescription("Boost contrast of UI simulation, 100% is normal, higher values artificially increase screen brightness");
 
   public final DiscreteParameter alphaRef =
-    new DiscreteParameter("Alpha Cutoff", 8, 0, 256)
+    new DiscreteParameter("Alpha Cutoff", 0, 256)
     .setDescription("At which alpha level to discard the point texture (0 shows everything)");
 
   public final BooleanParameter depthTest =

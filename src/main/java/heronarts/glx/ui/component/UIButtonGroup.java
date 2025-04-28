@@ -49,7 +49,7 @@ public class UIButtonGroup extends UI2dContainer implements UIControlTarget, UIC
     setLayout(UI2dContainer.Layout.HORIZONTAL, DEFAULT_BUTTON_MARGIN);
 
     this.parameter = parameter;
-    final int range = parameter.getRange();
+    final int range = parameter.getRangei();
 
     this.buttons = new UIButton[range];
     final LX lx = this.parameter.getParent().getLX();
@@ -114,6 +114,7 @@ public class UIButtonGroup extends UI2dContainer implements UIControlTarget, UIC
     if (oscAddress != null) {
       List<Action> list = new ArrayList<Action>();
       list.add(new UIContextActions.Action.CopyOscAddress(oscAddress));
+      return list;
     }
     return null;
   }

@@ -19,6 +19,7 @@
 package heronarts.glx.ui;
 
 import heronarts.glx.GLX;
+import heronarts.glx.GLX.MouseCursor;
 import heronarts.glx.event.Event;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
@@ -65,6 +66,8 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
 
   UIObject pressedChild = null;
   UIObject overChild = null;
+
+  private MouseCursor mouseCursor = null;
 
   private boolean consumeMousePress = false;
 
@@ -156,7 +159,25 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    * @return this
    */
   public UIObject addLoopTask(LXLoopTask loopTask) {
-    this.loopTasks.add(loopTask);
+    return addLoopTask(loopTask, -1);
+  }
+
+  /**
+   * Add a task to be performed on every loop of the UI engine.
+   *
+   * @param loopTask Task to be performed on every UI frame
+   * @param index Priority index of loop task
+   * @return this
+   */
+  public UIObject addLoopTask(LXLoopTask loopTask, int index) {
+    if (this.loopTasks.contains(loopTask)) {
+      throw new IllegalStateException("Cannot add same loop task to UI object multiple times: " + this + " " + loopTask);
+    }
+    if (index < 0) {
+      this.loopTasks.add(loopTask);
+    } else {
+      this.loopTasks.add(index, loopTask);
+    }
     return this;
   }
 
@@ -251,6 +272,17 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    */
   public String getDescription() {
     return this.description;
+  }
+
+  /**
+   * Whether this object is visible in the overall hierarchy
+   *
+   * @param recurse Check parent visibility as well
+   * @return Whether object is visible
+   */
+  public boolean isVisible(boolean recurse) {
+    return isVisible() &&
+      (!recurse || (this.parent == null) || this.parent.isVisible(true));
   }
 
   /**
@@ -557,15 +589,39 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    */
   protected void onUIResize(UI ui) {}
 
+  protected void setMouseCursor(MouseCursor mouseCursor) {
+    this.mouseCursor = mouseCursor;
+  }
+
+  /**
+   * Gets the mouse cursor that should be displayed for a mouse position over
+   * this object. Delegates first to any pressed child and subsequently to a nested child
+   * that the mouse is over. If neither of those conditions are met, then we use the
+   * object's cursor setting directly.
+   *
+   * @return MouseCursor to show
+   */
+  MouseCursor _getMouseCursor() {
+    if (this.pressedChild != null) {
+      return this.pressedChild._getMouseCursor();
+    } else if (this.overChild != null) {
+      return this.overChild._getMouseCursor();
+    }
+    return this.mouseCursor;
+  }
+
   UI2dContainer dragging = null;
 
   void mousePressed(MouseEvent mouseEvent, float mx, float my) {
     this.dragging = null;
 
+    boolean isMappingEvent = false;
+
     if (isMidiMapping()) {
+      isMappingEvent = true;
       this.ui.setControlTarget((UIControlTarget) this);
-      return;
     } else if (isModulationSourceMapping()) {
+      isMappingEvent = true;
       if (this instanceof UIModulationSource) {
         this.ui.mapModulationSource((UIModulationSource) this);
       } else if (this instanceof UITriggerSource) {
@@ -573,25 +629,30 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       } else {
         throw new IllegalStateException("isModulationSourceMapping() was true but the element is not a modulation or trigger source: " + this);
       }
-      return;
     } else if (isModulationTargetMapping() && !isModulationSource()) {
+      isMappingEvent = true;
       LXNormalizedParameter source = this.ui.getModulationSource().getModulationSource();
       LXCompoundModulation.Target target = ((UIModulationTarget) this).getModulationTarget();
       if (source != null && target != null) {
         getLX().command.perform(new LXCommand.Modulation.AddModulation(this.ui.modulationEngine, source, target));
       }
       this.ui.mapModulationOff();
-      return;
     } else if (isTriggerSourceMapping()) {
+      isMappingEvent = true;
       this.ui.mapTriggerSource((UITriggerSource) this);
-      return;
     } else if (isTriggerTargetMapping() && !isTriggerSource()) {
+      isMappingEvent = true;
       BooleanParameter source = this.ui.getTriggerSource().getTriggerSource();
       BooleanParameter target = ((UITriggerTarget)this).getTriggerTarget();
       if (source != null && target != null) {
         getLX().command.perform(new LXCommand.Modulation.AddTrigger(this.ui.modulationEngine, source, target));
       }
       this.ui.mapModulationOff();
+    }
+
+    // Eat the mouse press and bail out
+    if (isMappingEvent) {
+      mouseEvent.consume();
       return;
     }
 
@@ -606,12 +667,12 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     }
 
     // Show a right-click context menu, if no child has, and if we're eligible
-    if (!mouseEvent.isContextMenuConsumed() && this instanceof UIContextActions && (mouseEvent.getButton() == MouseEvent.BUTTON_RIGHT)) {
+    if (!mouseEvent.isDropMenuConsumed() && this instanceof UIContextActions && (mouseEvent.getButton() == MouseEvent.BUTTON_RIGHT)) {
       UIContextActions contextParent = (UIContextActions) this;
       List<UIContextActions.Action> contextActions = contextParent.getContextActions();
       if (contextActions != null && contextActions.size() > 0) {
-        mouseEvent.consumeContextMenu();
-        getUI().showContextOverlay(
+        mouseEvent.consumeDropMenu();
+        getUI().showDropMenu((UIContextMenu)
           new UIContextMenu(mx, my, UIContextMenu.DEFAULT_WIDTH, 0)
           .setActions(contextActions.toArray(new UIContextActions.Action[0]))
           .setPosition(this, (int) mx, (int) my)
@@ -624,7 +685,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       if (!hasFocus() && (this instanceof UIMouseFocus)) {
         focus(mouseEvent);
       }
-      if (!mouseEvent.isContextMenuConsumed()) {
+      if (!mouseEvent.isDropMenuConsumed()) {
         onMousePressed(mouseEvent, mx, my);
       }
       if (!mouseEvent.isConsumed() && mouseEvent.isButton(MouseEvent.BUTTON_LEFT) && (this instanceof UI2dComponent.UIDragReorder)) {
@@ -710,25 +771,38 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     if (!overAnyChild && (this.overChild != null)) {
       this.overChild.mouseOut(mouseEvent);
       this.overChild = null;
+
+      // This is like we've done "mouseOver" on the parent again,
+      // as the mouse is not over any of its children anymore, so if
+      // we have a help text tip, let's show it again
+      showHelpText();
     }
     onMouseMoved(mouseEvent, mx, my);
   }
 
   private String setDescription;
 
-  void mouseOver(MouseEvent mouseEvent) {
+  private void showHelpText() {
     this.setDescription = getDescription();
     if (this.setDescription != null) {
       getUI().setMouseoverHelpText(this.setDescription);
     }
-    onMouseOver(mouseEvent);
   }
 
-  void mouseOut(MouseEvent mouseEvent) {
+  private void clearHelpText() {
     if (this.setDescription != null) {
       getUI().clearMouseoverHelpText();
       this.setDescription = null;
     }
+  }
+
+  void mouseOver(MouseEvent mouseEvent) {
+    showHelpText();
+    onMouseOver(mouseEvent);
+  }
+
+  void mouseOut(MouseEvent mouseEvent) {
+    clearHelpText();
     if (this.overChild != null) {
       this.overChild.mouseOut(mouseEvent);
       this.overChild = null;

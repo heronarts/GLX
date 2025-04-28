@@ -92,9 +92,9 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
 
   ArrowKeyFocus arrowKeyFocus = ArrowKeyFocus.NONE;
 
-  private float topPadding = 0, rightPadding = 0, bottomPadding = 0, leftPadding = 0;
+  protected float topPadding = 0, rightPadding = 0, bottomPadding = 0, leftPadding = 0;
 
-  private float childSpacingX = 0, childSpacingY = 0;
+  protected float childSpacingX = 0, childSpacingY = 0;
 
   private float minHeight = 0, minWidth = 0;
 
@@ -154,25 +154,30 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
   }
 
   public UI2dContainer setPadding(float topPadding, float rightPadding, float bottomPadding, float leftPadding) {
+    if (this.contentTarget != this) {
+      this.contentTarget.setPadding(topPadding, rightPadding, bottomPadding, leftPadding);
+      return this;
+    }
+
     boolean reflow = false;
-    if (this.contentTarget.topPadding != topPadding) {
-      this.contentTarget.topPadding = topPadding;
+    if (this.topPadding != topPadding) {
+      this.topPadding = topPadding;
       reflow = true;
     }
-    if (this.contentTarget.rightPadding != rightPadding) {
-      this.contentTarget.rightPadding = rightPadding;
+    if (this.rightPadding != rightPadding) {
+      this.rightPadding = rightPadding;
       reflow = true;
     }
-    if (this.contentTarget.bottomPadding != bottomPadding) {
-      this.contentTarget.bottomPadding = bottomPadding;
+    if (this.bottomPadding != bottomPadding) {
+      this.bottomPadding = bottomPadding;
       reflow = true;
     }
-    if (this.contentTarget.leftPadding != leftPadding) {
-      this.contentTarget.leftPadding = leftPadding;
+    if (this.leftPadding != leftPadding) {
+      this.leftPadding = leftPadding;
       reflow = true;
     }
     if (reflow) {
-      this.contentTarget.reflow();
+      reflow();
     }
     return this;
   }
@@ -193,6 +198,14 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
     return this.leftPadding;
   }
 
+  public float getChildSpacingX() {
+    return this.childSpacingX;
+  }
+
+  public float getChildSpacingY() {
+    return this.childSpacingY;
+  }
+
   /**
    * Deprecated. Use {@link #setChildSpacing(float)} instead
    *
@@ -208,11 +221,31 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
     return setChildSpacing(childSpacing, childSpacing);
   }
 
+  public UI2dContainer setChildSpacingX(float childSpacingX) {
+    if (this.contentTarget != this) {
+      this.contentTarget.setChildSpacingX(childSpacingX);
+      return this;
+    }
+    return setChildSpacing(this.contentTarget.childSpacingY, childSpacingX);
+  }
+
+  public UI2dContainer setChildSpacingY(float childSpacingY) {
+    if (this.contentTarget != this) {
+      this.contentTarget.setChildSpacingY(childSpacingY);
+      return this;
+    }
+    return setChildSpacing(childSpacingY, this.contentTarget.childSpacingX);
+  }
+
   public UI2dContainer setChildSpacing(float childSpacingY, float childSpacingX) {
-    if ((this.contentTarget.childSpacingX != childSpacingX) || (this.contentTarget.childSpacingY != childSpacingY)) {
-      this.contentTarget.childSpacingX = childSpacingX;
-      this.contentTarget.childSpacingY = childSpacingY;
-      this.contentTarget.reflow();
+    if (this.contentTarget != this) {
+      this.contentTarget.setChildSpacing(childSpacingY, childSpacingX);
+      return this;
+    }
+    if ((this.childSpacingX != childSpacingX) || (this.childSpacingY != childSpacingY)) {
+      this.childSpacingX = childSpacingX;
+      this.childSpacingY = childSpacingY;
+      reflow();
     }
     return this;
   }
@@ -255,7 +288,7 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
     if (dragToReorder && !this.contentTarget.layout.canDragReorder()) {
       throw new IllegalStateException("Cannot set dragToReorder on a container with a non-list layout:"  + this);
     }
-    this.dragToReorder = dragToReorder;
+    this.contentTarget.dragToReorder = dragToReorder;
     return this;
   }
 
@@ -295,8 +328,9 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
       for (UIObject child : this) {
         if (child.isVisible()) {
           UI2dComponent component = (UI2dComponent) child;
-          component.setY(y + component.marginTop);
-          y += component.marginTop + component.getHeight() + component.marginBottom + this.childSpacingY;
+          y += component.marginTop;
+          component.setY(y);
+          y += component.getHeight() + component.marginBottom + this.childSpacingY;
         }
       }
       y += this.bottomPadding;
@@ -306,8 +340,9 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
       for (UIObject child : this) {
         if (child.isVisible()) {
           UI2dComponent component = (UI2dComponent) child;
-          component.setX(x + component.marginLeft);
-          x += component.marginLeft + component.getWidth() + component.marginRight + this.childSpacingX;
+          x += component.marginLeft;
+          component.setX(x);
+          x += component.getWidth() + component.marginRight + this.childSpacingX;
         }
       }
       x += this.rightPadding;
@@ -501,15 +536,21 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
   }
 
   public UI2dContainer removeAllChildren(boolean dispose) {
-    UI2dContainer contentTarget = getContentTarget();
-    for (UIObject child : contentTarget.mutableChildren) {
+    final UI2dContainer contentTarget = getContentTarget();
+    final List<UIObject> removed = new ArrayList<UIObject>(contentTarget.mutableChildren);
+    this.focusedChild = null;
+    this.pressedChild = null;
+    this.overChild = null;
+    dragCancel();
+    contentTarget.mutableChildren.clear();
+    for (UIObject child : removed) {
       ((UI2dComponent) child).parent = null;
       if (dispose) {
         child.dispose();
       }
     }
-    contentTarget.mutableChildren.clear();
     reflow();
+    redraw();
     return this;
   }
 
@@ -518,8 +559,12 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
     return this.contentTarget.mutableChildren.iterator();
   }
 
+  public boolean isEmpty() {
+    return this.contentTarget.children.isEmpty();
+  }
+
   public List<UIObject> getChildren() {
-    return this.contentTarget.mutableChildren;
+    return this.contentTarget.children;
   }
 
   public UI2dComponent getChild(int i) {
@@ -659,7 +704,7 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
       return;
     }
 
-    UIObject hover = null;
+    UI2dComponent hover = null;
     int hoverIndex = -1;
     int dragIndex = -1;
 
@@ -668,11 +713,9 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
       if (child == drag) {
         dragIndex = index;
       } else if (child.isVisible() && (child instanceof UI2dComponent.UIDragReorder)) {
-        if (isHorizontal && (mx > child.getX())) {
-          hover = child;
-          hoverIndex = index;
-        } else if (isVertical && (my > child.getY())) {
-          hover = child;
+        if ((isHorizontal && (mx > child.getX())) ||
+            (isVertical && (my > child.getY()))) {
+          hover = (UI2dComponent) child;
           hoverIndex = index;
         }
       }
@@ -683,17 +726,37 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
     if ((hover != null) && (hover != drag)) {
       if (isHorizontal) {
         if (mx > hover.getX() + .5f * hover.getWidth()) {
-          dragPos = LXUtils.minf(this.contentTarget.getScrollWidth() - .5f, hover.getX() + hover.getWidth() + .5f * this.contentTarget.childSpacingX);
+          float dragMargin = this.contentTarget.childSpacingX + hover.marginRight;
+          final UI2dComponent next = hover.getNextSibling(true);
+          if (next != null) {
+            dragMargin += next.marginLeft;
+          }
+          dragPos = LXUtils.minf(this.contentTarget.getScrollWidth() - .5f, hover.getX() + hover.getWidth() + .5f * dragMargin);
           ++hoverIndex;
         } else {
-          dragPos = LXUtils.maxf(.5f, hover.getX() - .5f * this.contentTarget.childSpacingX);
+          float dragMargin = (this.contentTarget.childSpacingX + hover.marginLeft);
+          final UI2dComponent prev = hover.getPrevSibling(true);
+          if (prev != null) {
+            dragMargin += prev.marginRight;
+          }
+          dragPos = LXUtils.maxf(.5f, hover.getX() - .5f * dragMargin);
         }
       } else if (isVertical) {
         if (my > hover.getY() + .5f * hover.getHeight()) {
-          dragPos = LXUtils.minf(this.contentTarget.getScrollHeight() - .5f, hover.getY() + hover.getHeight() + .5f * this.contentTarget.childSpacingY);
+          float dragMargin = this.contentTarget.childSpacingY + hover.marginBottom;
+          final UI2dComponent next = hover.getNextSibling(true);
+          if (next != null) {
+            dragMargin += next.marginTop;
+          }
+          dragPos = LXUtils.minf(this.contentTarget.getScrollHeight() - .5f, hover.getY() + hover.getHeight() + .5f * dragMargin);
           ++hoverIndex;
         } else {
-          dragPos = LXUtils.maxf(.5f, hover.getY() - .5f * this.contentTarget.childSpacingY);
+          float dragMargin = this.contentTarget.childSpacingY + hover.marginTop;
+          final UI2dComponent prev = hover.getPrevSibling(true);
+          if (prev != null) {
+            dragMargin += prev.marginBottom;
+          }
+          dragPos = LXUtils.maxf(.5f, hover.getY() - .5f * dragMargin);
         }
       }
     }

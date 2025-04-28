@@ -42,6 +42,7 @@ public abstract class Event {
 
   public static final int SHIFT = GLFW_MOD_SHIFT;
   public static final int CONTROL = GLFW_MOD_CONTROL;
+  public static final int COMMAND = (Platform.get() == Platform.MACOSX) ? GLFW_MOD_SUPER : GLFW_MOD_CONTROL;
   public static final int ALT = GLFW_MOD_ALT;
   public static final int META = GLFW_MOD_SUPER;
   public static final int CAPS_LOCK = GLFW_MOD_CAPS_LOCK;
@@ -109,7 +110,7 @@ public abstract class Event {
   }
 
   public boolean isCommand() {
-    return (Platform.get() == Platform.MACOSX) ? isMetaDown() : isControlDown();
+    return hasModifier(COMMAND);
   }
 
   public boolean isMultiSelect() {

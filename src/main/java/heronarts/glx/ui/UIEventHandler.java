@@ -18,6 +18,7 @@
 
 package heronarts.glx.ui;
 
+import heronarts.glx.event.GamepadEvent;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 
@@ -112,6 +113,15 @@ public abstract class UIEventHandler {
    * @param keyCode Key code value
    */
   protected void onKeyReleased(KeyEvent keyEvent, char keyChar, int keyCode) {
+  }
+
+  protected void onGamepadButtonPressed(GamepadEvent gamepadEvent, int button) {
+  }
+
+  protected void onGamepadButtonReleased(GamepadEvent gamepadEvent, int button) {
+  }
+
+  protected void onGamepadAxisChanged(GamepadEvent gamepadEvent, int axis, float value) {
   }
 
 }

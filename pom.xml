@@ -4,7 +4,7 @@
 
     <groupId>com.heronarts</groupId>
     <artifactId>glx</artifactId>
-    <version>1.0.0</version>
+    <version>1.1.0</version>
 	<packaging>jar</packaging>
 	
 	<name>GLX</name>
@@ -34,7 +34,7 @@
 	</scm>
 
     <properties>
-        <maven.compiler.release>17</maven.compiler.release>
+        <maven.compiler.release>21</maven.compiler.release>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
@@ -55,7 +55,7 @@
 			<activation>
 				<os>
 					<family>unix</family>
-					<name>Linux</name>
+					<name>linux</name>
 					<arch>amd64</arch>
 				</os>
 			</activation>
@@ -68,7 +68,7 @@
 			<activation>
 				<os>
 					<family>unix</family>
-					<name>Linux</name>
+					<name>linux</name>
 					<arch>aarch64</arch>
 				</os>
 			</activation>
@@ -190,6 +190,10 @@
 			<artifactId>lwjgl-tinyfd</artifactId>
 		</dependency>
 		<dependency>
+			<groupId>org.lwjgl</groupId>
+			<artifactId>lwjgl-assimp</artifactId>
+		</dependency>
+		<dependency>
 			<groupId>org.joml</groupId>
 			<artifactId>joml</artifactId>
 			<version>${joml.version}</version>
@@ -231,6 +235,12 @@
 			<classifier>${lwjgl.natives}</classifier>
 			<scope>provided</scope>
 		</dependency>
+		<dependency>
+			<groupId>org.lwjgl</groupId>
+			<artifactId>lwjgl-assimp</artifactId>
+			<classifier>${lwjgl.natives}</classifier>
+			<scope>provided</scope>
+		</dependency>
     </dependencies>
 
     <build>
@@ -241,7 +251,7 @@
                 <version>${maven-compiler-plugin.version}</version>
                 <configuration>
                     <compilerArgs>
-                        <arg>-Xlint</arg>
+                        <arg>-Xlint:all,-this-escape</arg>
                         <arg>-Xpkginfo:always</arg>
                     </compilerArgs>
                 </configuration>
@@ -260,7 +270,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <bottom>GLX library by Mark C. Slee. (C) 2012-2024</bottom>
+                    <bottom>GLX library by Mark C. Slee. (C) 2012-2025</bottom>
                     <verbose>false</verbose>
                     <doclint>all,-missing</doclint>
                     <stylesheetfile>build/stylesheet.css</stylesheetfile>
