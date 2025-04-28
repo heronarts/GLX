@@ -270,7 +270,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <bottom>GLX library by Mark C. Slee. (C) 2012-2024</bottom>
+                    <bottom>GLX library by Mark C. Slee. (C) 2012-2025</bottom>
                     <verbose>false</verbose>
                     <doclint>all,-missing</doclint>
                     <stylesheetfile>build/stylesheet.css</stylesheetfile>
