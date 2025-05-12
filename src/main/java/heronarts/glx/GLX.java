@@ -31,7 +31,6 @@ import java.nio.DoubleBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.Map;
-
 import static org.lwjgl.bgfx.BGFX.*;
 import static org.lwjgl.bgfx.BGFXPlatform.*;
 
@@ -59,6 +58,7 @@ import heronarts.glx.ui.UI;
 import heronarts.glx.ui.UIDialogBox;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.LX;
+import heronarts.lx.LXClassLoader;
 import heronarts.lx.LXEngine;
 import heronarts.lx.clipboard.LXTextValue;
 import heronarts.lx.model.LXModel;
@@ -808,12 +808,30 @@ public class GLX extends LX {
     final File destination = new File(getMediaFolder(LX.Media.PACKAGES), file.getName());
     if (destination.exists()) {
       if (overwrite) {
-        showConfirmDialog(file.getName() + " already exists in package folder, reinstall?", () -> { importContentJar(file, destination); });
+        showConfirmDialog(
+          file.getName() + " already exists in package folder, reinstall?",
+          () -> { importContentJar(file, destination); }
+        );
       } else {
         pushError(null, "Package file already exists: " + destination.getName());
       }
     } else {
-      importContentJar(file, destination);
+      final LXClassLoader.Package existingPackage = this.registry.findPackage(file);
+      if (existingPackage != null) {
+        if (overwrite) {
+          showConfirmDialog(
+            existingPackage.getName() + " package already exists with filename " + existingPackage.getFileName() + ", replace?",
+            () -> {
+              this.registry.uninstallPackage(existingPackage, false);
+              importContentJar(file, destination);
+            }
+          );
+        } else {
+          pushError(null, "Package already exists: " + existingPackage.getFileName());
+        }
+      } else {
+        importContentJar(file, destination);
+      }
     }
   }
 
@@ -821,9 +839,12 @@ public class GLX extends LX {
     log("Importing content JAR: " + destination.toString());
     if (this.registry.installPackage(file, true)) {
       this.engine.addTask(() -> {
-        reloadContent();
+        String message = "Installed package: " + destination.getName();
+        if (this.registry.getClassLoader().hasDuplicateClasses()) {
+          message += "\n\nDuplicate classes were found. See log for details.";
+        }
         this.ui.contextualHelpText.setValue("New package imported into " + destination.getName());
-        this.ui.showContextDialogMessage("Installed package: " + destination.getName());
+        this.ui.showContextDialogMessage(message);
       });
     };
   }
