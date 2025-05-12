@@ -25,6 +25,7 @@ import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 
 import org.joml.Matrix4f;
+import org.lwjgl.bgfx.BGFX;
 import org.lwjgl.bgfx.BGFXVertexLayout;
 import org.lwjgl.system.MemoryUtil;
 
@@ -101,15 +102,27 @@ public class Tex2d {
     }
   }
 
+  private static final long DEFAULT_BGFX_STATE =
+    BGFX.BGFX_STATE_WRITE_RGB |
+    BGFX.BGFX_STATE_WRITE_A |
+    BGFX.BGFX_STATE_WRITE_Z |
+    BGFX.BGFX_STATE_BLEND_ALPHA;
+
   public void submit(View view, Texture texture, VertexBuffer vertexBuffer) {
+    submit(view, DEFAULT_BGFX_STATE, texture, vertexBuffer);
+  }
+
+  public void submit(View view, long bgfxState, Texture texture, VertexBuffer vertexBuffer) {
     this.modelMatrix.identity();
     this.modelMatrix.get(this.modelMatrixBuf);
     bgfx_set_transform(this.modelMatrixBuf);
+    submitPostTransform(view, bgfxState, texture, vertexBuffer);
+  }
+
+  public void submitPostTransform(View view, long bgfxState, Texture texture, VertexBuffer vertexBuffer) {
     bgfx_set_texture(0, this.uniformTexture, texture.getHandle(), 0xffffffff);
-    bgfx_set_state(BGFX_STATE_WRITE_RGB | BGFX_STATE_WRITE_A
-      | BGFX_STATE_WRITE_Z | BGFX_STATE_BLEND_ALPHA, 0);
-    bgfx_set_vertex_buffer(0, vertexBuffer.getHandle(), 0,
-      vertexBuffer.getNumVertices());
+    bgfx_set_state(bgfxState, 0);
+    bgfx_set_vertex_buffer(0, vertexBuffer.getHandle(), 0, vertexBuffer.getNumVertices());
     bgfx_submit(view.getId(), this.program, 0, BGFX_DISCARD_ALL);
   }
 

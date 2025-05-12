@@ -19,6 +19,9 @@
 package heronarts.glx.ui.component;
 
 import static org.lwjgl.bgfx.BGFX.bgfx_set_transform;
+
+import java.io.File;
+import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
@@ -36,6 +39,7 @@ import org.lwjgl.bgfx.BGFX;
 import org.lwjgl.system.MemoryUtil;
 
 import heronarts.glx.GLX;
+import heronarts.glx.Texture;
 import heronarts.glx.VertexBuffer;
 import heronarts.glx.VertexDeclaration;
 import heronarts.glx.View;
@@ -44,7 +48,6 @@ import heronarts.glx.ui.UI3dComponent;
 import heronarts.lx.LXEngine;
 import heronarts.lx.model.LXModel;
 import heronarts.lx.transform.LXMatrix;
-import heronarts.lx.transform.LXVector;
 
 public class UIModelMeshes extends UI3dComponent {
 
@@ -66,18 +69,29 @@ public class UIModelMeshes extends UI3dComponent {
     }
 
     protected void renderVertexBuffer(UI ui, View view, VertexBuffer vertexBuffer) {
-      bgfx_set_transform(this.model.transform.put(modelMatrixBuf, LXMatrix.BufferOrder.COLUMN_MAJOR));
-      ui.lx.program.uniformFill.setFillColor(this.mesh.color);
-      ui.lx.program.uniformFill.submit(
-        view,
+      final long bgfxState =
         BGFX.BGFX_STATE_WRITE_RGB |
         BGFX.BGFX_STATE_WRITE_A |
         BGFX.BGFX_STATE_WRITE_Z |
         BGFX.BGFX_STATE_BLEND_ALPHA |
-        BGFX.BGFX_STATE_DEPTH_TEST_LESS,
-        vertexBuffer
-      );
+        BGFX.BGFX_STATE_DEPTH_TEST_LESS;
+
+      bgfx_set_transform(this.model.transform.put(modelMatrixBuf, LXMatrix.BufferOrder.COLUMN_MAJOR));
+      switch (this.mesh.type) {
+        case UNIFORM_FILL -> {
+          ui.lx.program.uniformFill.setFillColor(this.mesh.color);
+          ui.lx.program.uniformFill.submit(view, bgfxState, vertexBuffer);
+        }
+        case TEXTURE_2D -> {
+          Texture texture = getTexture();
+          if (texture != null) {
+            ui.lx.program.tex2d.submitPostTransform(view, bgfxState, texture, vertexBuffer);
+          }
+        }
+      };
     }
+
+    protected Texture getTexture() { return null; }
 
     protected abstract void render(UI ui, View view);
 
@@ -87,17 +101,48 @@ public class UIModelMeshes extends UI3dComponent {
   private class VertexMesh extends Mesh {
 
     private final VertexBuffer vertexBuffer;
+    private final Texture texture;
+
+    private static Texture loadTexture(File texture) {
+      if (texture != null) {
+        try {
+          return Texture.from2dImage(texture.getPath().toString());
+        } catch (IOException iox) {
+          GLX.error("Could not load texture image from: " + texture.getPath());
+        }
+      }
+      return null;
+    }
 
     private VertexMesh(LXModel model, LXModel.Mesh mesh) {
       super(model, mesh);
-      this.vertexBuffer = new VertexBuffer(lx, mesh.vertices.size(), VertexDeclaration.ATTRIB_POSITION) {
+
+      this.texture = loadTexture(mesh.texture);
+      final boolean hasTexture = (this.texture != null);
+
+      int vertexDecl = VertexDeclaration.ATTRIB_POSITION;
+      if (hasTexture) {
+        vertexDecl |= VertexDeclaration.ATTRIB_TEXCOORD0;
+      }
+
+      this.vertexBuffer = new VertexBuffer(lx, mesh.vertices.size(), vertexDecl) {
         @Override
         protected void bufferData(ByteBuffer buffer) {
-          for (LXVector p : mesh.vertices) {
-            putVertex(p.x, p.y, p.z);
+          for (LXModel.Mesh.Vertex v : mesh.vertices) {
+            putVertex(v.x, v.y, v.z);
+            if (hasTexture) {
+              buffer.putFloat(v.u);
+              buffer.putFloat(v.v);
+            }
           }
         }
       };
+
+    }
+
+    @Override
+    protected Texture getTexture() {
+      return this.texture;
     }
 
     @Override
@@ -108,6 +153,9 @@ public class UIModelMeshes extends UI3dComponent {
     @Override
     protected void dispose() {
       this.vertexBuffer.dispose();
+      if (this.texture != null) {
+        this.texture.dispose();
+      }
     }
   }
 
