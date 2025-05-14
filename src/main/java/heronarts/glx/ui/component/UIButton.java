@@ -321,6 +321,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
 
   protected boolean momentaryPressValid = false;
   private boolean momentaryPressEngaged = false;
+  private boolean momentaryPressHold = false;
 
   private EnumParameter<? extends Object> enumParameter = null;
   private BooleanParameter booleanParameter = null;
@@ -683,6 +684,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
       mouseEvent.consume();
       this.momentaryPressValid = this.isMomentary;
       this.momentaryPressEngaged = this.isMomentary;
+      this.momentaryPressHold = this.isMomentary && mouseEvent.isCommand();
       setActive(this.isMomentary ? true : !this.active);
     }
   }
@@ -692,7 +694,9 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     if (this.enabled) {
       if (this.isMomentary) {
         mouseEvent.consume();
-        setActive(false);
+        if (!this.momentaryPressHold) {
+          setActive(false);
+        }
         if (contains(mx + this.x, my + this.y)) {
           onClick();
         }
@@ -710,6 +714,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
       if (this.enabled) {
         this.momentaryPressValid = this.isMomentary;
         this.momentaryPressEngaged = this.isMomentary;
+        this.momentaryPressHold = this.isMomentary && keyEvent.isCommand();
         setActive(this.isMomentary ? true : !this.active);
       }
       keyEvent.consume();
@@ -720,7 +725,9 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   protected void onKeyReleased(KeyEvent keyEvent, char keyChar, int keyCode) {
     if ((keyCode == KeyEvent.VK_SPACE) || keyEvent.isEnter()) {
       if (this.enabled && this.isMomentary) {
-        setActive(false);
+        if (!this.momentaryPressHold) {
+          setActive(false);
+        }
         onClick();
       }
       if (this.momentaryPressEngaged) {
