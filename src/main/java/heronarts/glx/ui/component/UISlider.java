@@ -28,6 +28,7 @@ import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.color.LXColor;
 import heronarts.lx.modulation.LXCompoundModulation;
 import heronarts.lx.parameter.LXListenableNormalizedParameter;
+import heronarts.lx.parameter.LXParameter;
 import heronarts.lx.utils.LXUtils;
 
 public class UISlider extends UICompoundParameterControl implements UIFocus {
@@ -268,14 +269,16 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
         }
       }
 
-      // If we're modulating across the center, draw a small divider
-      if ((base > 0.5 && value < 0.5) || (base < 0.5 && value > 0.5)) {
-        float centerX = this.width / 2;
-        vg.strokeColor(ui.theme.controlFillColor);
-        vg.strokeWidth(1);
-        vg.beginPath();
-        vg.line(centerX, topY, centerX, topY + GROOVE);
-        vg.stroke();
+      if (this.polarity == LXParameter.Polarity.BIPOLAR) {
+        // If we're modulating across the center, draw a small divider
+        if ((base > 0.5 && value < 0.5) || (base < 0.5 && value > 0.5)) {
+          float centerX = this.width / 2;
+          vg.strokeColor(ui.theme.controlFillColor);
+          vg.strokeWidth(1);
+          vg.beginPath();
+          vg.line(centerX, topY, centerX, topY + GROOVE);
+          vg.stroke();
+        }
       }
 
       // Handle
