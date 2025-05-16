@@ -26,7 +26,9 @@ import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CopyOnWriteArrayList;
 
 import org.lwjgl.PointerBuffer;
@@ -159,19 +161,22 @@ public class UIModelMeshes extends UI3dComponent {
     }
   }
 
-  private class AssimpMesh extends Mesh {
+  private final Map<String, AssimpVBO> assimpVBOCache = new HashMap<>();
 
-    private final List<VertexBuffer> meshes = new ArrayList<>();
+  private class AssimpVBO {
 
-    private AssimpMesh(LXModel model, LXModel.Mesh mesh) {
-      super(model, mesh);
+    private final List<VertexBuffer> vertexBuffers = new ArrayList<>();
 
-      GLX.log("Assimp importing mesh: " + mesh.file.getAbsolutePath());
-      final AIScene aiScene = Assimp.aiImportFile(mesh.file.getAbsolutePath(),
+    private int refCount;
+
+    private AssimpVBO(String path) {
+      GLX.log("Assimp importing mesh: " + path);
+      final AIScene aiScene = Assimp.aiImportFile(path,
         Assimp.aiProcess_Triangulate |
         Assimp.aiProcess_MakeLeftHanded
       );
       if (aiScene == null) {
+        GLX.error("Assimp.aiImportFile returned null: " + path);
         return;
       }
 
@@ -210,7 +215,7 @@ public class UIModelMeshes extends UI3dComponent {
           // Smash all the faces down into a simple stream of triangles. Could be more efficient
           // using index buffers and a shared vertex buffer, but assumption is we are not loading
           // insanely massive video game style models in the LX environment...
-          this.meshes.add(new VertexBuffer(lx, indices.size(), VertexDeclaration.ATTRIB_POSITION) {
+          this.vertexBuffers.add(new VertexBuffer(lx, indices.size(), VertexDeclaration.ATTRIB_POSITION) {
             @Override
             protected void bufferData(ByteBuffer buffer) {
               for (int index : indices) {
@@ -224,21 +229,46 @@ public class UIModelMeshes extends UI3dComponent {
           });
         }
       } catch (Throwable x) {
-        GLX.error(x, "Error in Assimp mesh import: " + mesh.file.getAbsolutePath());
+        GLX.error(x, "Error in Assimp mesh import: " + path);
       } finally {
         Assimp.aiReleaseImport(aiScene);
+      }
+      this.refCount = 1;
+    }
+
+    private void dispose() {
+      this.vertexBuffers.forEach(vertexBuffer -> vertexBuffer.dispose());
+      this.vertexBuffers.clear();
+    }
+  }
+
+  private class AssimpMesh extends Mesh {
+
+    private final String path;
+    private final AssimpVBO vbo;
+
+    private AssimpMesh(LXModel model, LXModel.Mesh mesh) {
+      super(model, mesh);
+      this.path = mesh.file.getAbsolutePath();
+      if (assimpVBOCache.containsKey(this.path)) {
+        this.vbo = assimpVBOCache.get(this.path);
+        ++this.vbo.refCount;
+      } else {
+        assimpVBOCache.put(this.path, this.vbo = new AssimpVBO(this.path));
       }
     }
 
     @Override
     protected void render(UI ui, View view) {
-      this.meshes.forEach(mesh -> renderVertexBuffer(ui, view, mesh));
+      this.vbo.vertexBuffers.forEach(vertexBuffer -> renderVertexBuffer(ui, view, vertexBuffer));
     }
 
     @Override
     protected void dispose() {
-      this.meshes.forEach(mesh -> mesh.dispose());
-      this.meshes.clear();
+      if (--this.vbo.refCount <= 0) {
+        assimpVBOCache.remove(this.path);
+        this.vbo.dispose();
+      }
     }
   }
 
