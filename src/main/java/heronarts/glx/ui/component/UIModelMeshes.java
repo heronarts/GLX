@@ -90,6 +90,12 @@ public class UIModelMeshes extends UI3dComponent {
             ui.lx.program.tex2d.submitPostTransform(view, bgfxState, texture, vertexBuffer);
           }
         }
+        case PHONG -> {
+          ui.lx.program.phong.setLightColor(this.mesh.lightColor);
+          ui.lx.program.phong.setLightDirection(this.mesh.lightDirection);
+          ui.lx.program.phong.setLighting(this.mesh.lighting);
+          ui.lx.program.phong.submit(view, bgfxState, vertexBuffer);
+        }
       };
     }
 
@@ -120,22 +126,53 @@ public class UIModelMeshes extends UI3dComponent {
       super(model, mesh);
 
       this.texture = loadTexture(mesh.texture);
+      final boolean hasColor = (mesh.type == LXModel.Mesh.Type.PHONG);
+      final boolean hasNormals = (mesh.type == LXModel.Mesh.Type.PHONG);
       final boolean hasTexture = (this.texture != null);
 
       int vertexDecl = VertexDeclaration.ATTRIB_POSITION;
+      if (hasColor) {
+        vertexDecl |= VertexDeclaration.ATTRIB_COLOR0;
+      }
+      if (hasNormals) {
+        vertexDecl |= VertexDeclaration.ATTRIB_NORMAL;
+      }
       if (hasTexture) {
         vertexDecl |= VertexDeclaration.ATTRIB_TEXCOORD0;
+      }
+
+      final LXModel.Mesh.Vertex[] normals;
+      if (hasNormals) {
+        normals = new LXModel.Mesh.Vertex[mesh.vertices.size() / 3];
+        for (int i = 0; i < normals.length; ++i) {
+          LXModel.Mesh.Vertex norm = LXModel.Mesh.Vertex.normal(
+            mesh.vertices.get(3*i),
+            mesh.vertices.get(3*i+2),
+            mesh.vertices.get(3*i+1)
+          );
+          normals[i] = norm;
+        }
+      } else {
+        normals = null;
       }
 
       this.vertexBuffer = new VertexBuffer(lx, mesh.vertices.size(), vertexDecl) {
         @Override
         protected void bufferData(ByteBuffer buffer) {
+          int vIndex = 0;
           for (LXModel.Mesh.Vertex v : mesh.vertices) {
             putVertex(v.x, v.y, v.z);
+            if (hasColor) {
+              buffer.putInt(0xffffffff);
+            }
+            if (hasNormals) {
+              putVertex(normals[vIndex/3].x, normals[vIndex/3].y, normals[vIndex/3].z);
+            }
             if (hasTexture) {
               buffer.putFloat(v.u);
               buffer.putFloat(v.v);
             }
+            ++vIndex;
           }
         }
       };
@@ -173,7 +210,8 @@ public class UIModelMeshes extends UI3dComponent {
       GLX.log("Assimp importing mesh: " + path);
       final AIScene aiScene = Assimp.aiImportFile(path,
         Assimp.aiProcess_Triangulate |
-        Assimp.aiProcess_MakeLeftHanded
+        Assimp.aiProcess_MakeLeftHanded |
+        Assimp.aiProcess_GenSmoothNormals
       );
       if (aiScene == null) {
         GLX.error("Assimp.aiImportFile returned null: " + path);
@@ -190,12 +228,23 @@ public class UIModelMeshes extends UI3dComponent {
           final int numVertices = aiMesh.mNumVertices();
           final AIVector3D.Buffer aiVertices = aiMesh.mVertices();
           float[] vertices = new float[3 * numVertices];
-          int f = 0;
+          int v = 0;
           while (aiVertices.remaining() > 0) {
             final AIVector3D aiVertex = aiVertices.get();
-            vertices[f++] = aiVertex.x();
-            vertices[f++] = aiVertex.y();
-            vertices[f++] = aiVertex.z();
+            vertices[v++] = aiVertex.x();
+            vertices[v++] = aiVertex.y();
+            vertices[v++] = aiVertex.z();
+          }
+
+          final int numNormals = aiMesh.mNumVertices();
+          final AIVector3D.Buffer aiNormals = aiMesh.mNormals();
+          float[] normals = new float[3 * numNormals];
+          int n = 0;
+          while (aiNormals.remaining() > 0) {
+            final AIVector3D aiNormal = aiNormals.get();
+            normals[n++] = aiNormal.x();
+            normals[n++] = aiNormal.y();
+            normals[n++] = aiNormal.z();
           }
 
           final int numFaces = aiMesh.mNumFaces();
@@ -215,7 +264,7 @@ public class UIModelMeshes extends UI3dComponent {
           // Smash all the faces down into a simple stream of triangles. Could be more efficient
           // using index buffers and a shared vertex buffer, but assumption is we are not loading
           // insanely massive video game style models in the LX environment...
-          this.vertexBuffers.add(new VertexBuffer(lx, indices.size(), VertexDeclaration.ATTRIB_POSITION) {
+          this.vertexBuffers.add(new VertexBuffer(lx, indices.size(), VertexDeclaration.Attribute.POSITION, VertexDeclaration.Attribute.COLOR0, VertexDeclaration.Attribute.NORMAL) {
             @Override
             protected void bufferData(ByteBuffer buffer) {
               for (int index : indices) {
@@ -223,6 +272,12 @@ public class UIModelMeshes extends UI3dComponent {
                   vertices[3*index],
                   vertices[3*index + 1],
                   vertices[3*index + 2]
+                );
+                buffer.putInt(0xffffffff);
+                putVertex(
+                  normals[3*index],
+                  normals[3*index + 1],
+                  normals[3*index + 2]
                 );
               }
             }
