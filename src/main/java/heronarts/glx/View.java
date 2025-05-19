@@ -111,6 +111,11 @@ public class View {
     return this;
   }
 
+  public View setViewMode(int bgfxViewMode) {
+    bgfx_set_view_mode(this.viewId, bgfxViewMode);
+    return this;
+  }
+
   public View touch() {
     bgfx_touch(this.viewId);
     return this;

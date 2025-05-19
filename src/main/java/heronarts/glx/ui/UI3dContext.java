@@ -808,6 +808,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
     // Bind the view, touch it to make sure it's cleared in case no children draw
     this.view.bind();
+    this.view.setViewMode(BGFX.BGFX_VIEW_MODE_SEQUENTIAL);
     BGFX.bgfx_touch(this.view.getId());
 
     // Check if view has changed
