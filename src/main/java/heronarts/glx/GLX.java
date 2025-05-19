@@ -53,6 +53,7 @@ import org.lwjgl.system.macosx.ObjCRuntime;
 
 import heronarts.glx.shader.UniformFill;
 import heronarts.glx.shader.VertexFill;
+import heronarts.glx.shader.Phong;
 import heronarts.glx.shader.Tex2d;
 import heronarts.glx.ui.UI;
 import heronarts.glx.ui.UIDialogBox;
@@ -190,17 +191,20 @@ public class GLX extends LX {
     public final Tex2d tex2d;
     public final UniformFill uniformFill;
     public final VertexFill vertexFill;
+    public final Phong phong;
 
     public Programs(GLX glx) {
       this.tex2d = new Tex2d(glx);
       this.uniformFill = new UniformFill(glx);
       this.vertexFill = new VertexFill(glx);
+      this.phong = new Phong(glx);
     }
 
     public void dispose() {
       this.tex2d.dispose();
       this.uniformFill.dispose();
       this.vertexFill.dispose();
+      this.phong.dispose();
     }
   }
 

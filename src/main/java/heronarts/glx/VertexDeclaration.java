@@ -18,14 +18,7 @@
 
 package heronarts.glx;
 
-import static org.lwjgl.bgfx.BGFX.BGFX_ATTRIB_COLOR0;
-import static org.lwjgl.bgfx.BGFX.BGFX_ATTRIB_POSITION;
-import static org.lwjgl.bgfx.BGFX.BGFX_ATTRIB_TEXCOORD0;
-import static org.lwjgl.bgfx.BGFX.BGFX_ATTRIB_TYPE_FLOAT;
-import static org.lwjgl.bgfx.BGFX.BGFX_ATTRIB_TYPE_UINT8;
-import static org.lwjgl.bgfx.BGFX.bgfx_vertex_layout_add;
-import static org.lwjgl.bgfx.BGFX.bgfx_vertex_layout_begin;
-import static org.lwjgl.bgfx.BGFX.bgfx_vertex_layout_end;
+import static org.lwjgl.bgfx.BGFX.*;
 
 import org.lwjgl.bgfx.BGFXVertexLayout;
 
@@ -34,6 +27,14 @@ public class VertexDeclaration {
   public static int ATTRIB_POSITION = 1 << 0;
   public static int ATTRIB_COLOR0 = 1 << 1;
   public static int ATTRIB_TEXCOORD0 = 1 << 2;
+  public static int ATTRIB_NORMAL = 1 << 3;
+
+  public enum Attribute {
+    POSITION,
+    COLOR0,
+    TEXCOORD0,
+    NORMAL;
+  }
 
   private final BGFXVertexLayout handle;
   private int stride = 0;
@@ -42,18 +43,51 @@ public class VertexDeclaration {
     this.handle = BGFXVertexLayout.calloc();
     bgfx_vertex_layout_begin(this.handle, glx.getRenderer());
     if ((attributes & ATTRIB_POSITION) != 0) {
-      bgfx_vertex_layout_add(this.handle, BGFX_ATTRIB_POSITION, 3, BGFX_ATTRIB_TYPE_FLOAT, false, false);
-      this.stride += 3 * Float.BYTES;
+      addLayout(Attribute.POSITION);
     }
     if ((attributes & ATTRIB_COLOR0) != 0) {
-      bgfx_vertex_layout_add(this.handle, BGFX_ATTRIB_COLOR0, 4, BGFX_ATTRIB_TYPE_UINT8, true, false);
-      this.stride += 4;
+      addLayout(Attribute.COLOR0);
     }
     if ((attributes & ATTRIB_TEXCOORD0) != 0) {
-      bgfx_vertex_layout_add(this.handle, BGFX_ATTRIB_TEXCOORD0, 2, BGFX_ATTRIB_TYPE_FLOAT, false, false);
-      this.stride += 2 * Float.BYTES;
+      addLayout(Attribute.TEXCOORD0);
+    }
+    if ((attributes & ATTRIB_NORMAL) != 0) {
+      addLayout(Attribute.NORMAL);
     }
     bgfx_vertex_layout_end(this.handle);
+  }
+
+  public VertexDeclaration(GLX glx, Attribute ... attributes) {
+    this.handle = BGFXVertexLayout.calloc();
+    bgfx_vertex_layout_begin(this.handle, glx.getRenderer());
+    for (Attribute attribute : attributes) {
+      addLayout(attribute);
+    }
+    bgfx_vertex_layout_end(this.handle);
+  }
+
+  private void addLayout(Attribute attribute) {
+    switch (attribute) {
+      case POSITION -> {
+        bgfx_vertex_layout_add(this.handle, BGFX_ATTRIB_POSITION, 3, BGFX_ATTRIB_TYPE_FLOAT, false, false);
+        this.stride += 3 * Float.BYTES;
+      }
+      case COLOR0 -> {
+        bgfx_vertex_layout_add(this.handle, BGFX_ATTRIB_COLOR0, 4, BGFX_ATTRIB_TYPE_UINT8, true, false);
+        this.stride += 4;
+      }
+      case NORMAL -> {
+        bgfx_vertex_layout_add(this.handle, BGFX_ATTRIB_NORMAL, 3, BGFX_ATTRIB_TYPE_FLOAT, false, false);
+        this.stride += 3 * Float.BYTES;
+      }
+      case TEXCOORD0 -> {
+        bgfx_vertex_layout_add(this.handle, BGFX_ATTRIB_TEXCOORD0, 2, BGFX_ATTRIB_TYPE_FLOAT, false, false);
+        this.stride += 2 * Float.BYTES;
+      }
+      default -> {
+        throw new IllegalArgumentException("Unknown VertexDeclaration.Attribute type: " + attribute);
+      }
+    }
   }
 
   public BGFXVertexLayout getHandle() {

@@ -112,7 +112,15 @@ public abstract class VertexBuffer {
   }
 
   public VertexBuffer(GLX glx, int numVertices, int attributes) {
-    this.vertexDeclaration = new VertexDeclaration(glx, attributes);
+    this(glx, numVertices, new VertexDeclaration(glx, attributes));
+  }
+
+  public VertexBuffer(GLX glx, int numVertices, VertexDeclaration.Attribute ... attributes) {
+    this(glx, numVertices, new VertexDeclaration(glx, attributes));
+  }
+
+  private VertexBuffer(GLX glx, int numVertices, VertexDeclaration vertexDeclaration) {
+    this.vertexDeclaration = vertexDeclaration;
     this.vertexData = MemoryUtil.memAlloc(this.vertexDeclaration.getStride() * numVertices);
     bufferData(this.vertexData);
     this.vertexData.flip();
