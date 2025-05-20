@@ -1,4 +1,4 @@
-$input v_color0, v_normal
+$input v_color0, v_normal, v_pos
 
 /*
  * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
@@ -15,6 +15,8 @@ uniform vec4 u_lighting;
 #define u_specular u_lighting.z
 #define u_shininess u_lighting.w
 
+uniform vec4 u_eyePosition;
+
 void main()
 {
   vec3 lightColor = u_lightColor.w * u_lightColor.xyz;
@@ -30,8 +32,15 @@ void main()
 
   // Specular highlights
   vec3 reflectDir = reflect(lightDir, norm);  
-  vec3 viewDir = vec3(0.0, 0.0, -1.0);
-  float spec = pow(max(dot(viewDir, reflectDir), 0.0), u_shininess);
+  vec3 viewDir = normalize(u_eyePosition.xyz - v_pos);
+
+  // Phong
+  // float spec = pow(max(dot(viewDir, reflectDir), 0.0), u_shininess);
+
+  // Blinn-Phong
+  vec3 halfDir = normalize(-lightDir + viewDir);
+  float spec = pow(max(dot(norm, halfDir), 0.0), u_shininess);
+  
   vec3 specular = u_specular * spec * lightColor; 
 
   gl_FragColor = vec4(ambient + diffuse + specular, 1.0) * v_color0;

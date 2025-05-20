@@ -91,6 +91,7 @@ public class UIModelMeshes extends UI3dComponent {
           }
         }
         case PHONG -> {
+          ui.lx.program.phong.setEyePosition(getContext().getEye());
           ui.lx.program.phong.setLightColor(this.mesh.lightColor);
           ui.lx.program.phong.setLightDirection(this.mesh.lightDirection);
           ui.lx.program.phong.setLighting(this.mesh.lighting);
@@ -146,6 +147,7 @@ public class UIModelMeshes extends UI3dComponent {
         normals = new LXModel.Mesh.Vertex[mesh.vertices.size() / 3];
         for (int i = 0; i < normals.length; ++i) {
           LXModel.Mesh.Vertex norm = LXModel.Mesh.Vertex.normal(
+            // Note order: assuming CCW face, left-handed normal!
             mesh.vertices.get(3*i),
             mesh.vertices.get(3*i+2),
             mesh.vertices.get(3*i+1)
@@ -207,11 +209,16 @@ public class UIModelMeshes extends UI3dComponent {
     private int refCount;
 
     private AssimpVBO(String path) {
+      this(path, false);
+    }
+
+    private AssimpVBO(String path, boolean invertNormals) {
       GLX.log("Assimp importing mesh: " + path);
       final AIScene aiScene = Assimp.aiImportFile(path,
         Assimp.aiProcess_Triangulate |
-        Assimp.aiProcess_MakeLeftHanded |
-        Assimp.aiProcess_GenSmoothNormals
+        Assimp.aiProcess_ConvertToLeftHanded |
+        Assimp.aiProcess_GenSmoothNormals |
+        0
       );
       if (aiScene == null) {
         GLX.error("Assimp.aiImportFile returned null: " + path);
@@ -239,12 +246,14 @@ public class UIModelMeshes extends UI3dComponent {
           final int numNormals = aiMesh.mNumVertices();
           final AIVector3D.Buffer aiNormals = aiMesh.mNormals();
           float[] normals = new float[3 * numNormals];
+          // Flag to flip normals if asset file CW/CCW was inverted
+          float normalSign = invertNormals ? 1 : -1;
           int n = 0;
           while (aiNormals.remaining() > 0) {
             final AIVector3D aiNormal = aiNormals.get();
-            normals[n++] = aiNormal.x();
-            normals[n++] = aiNormal.y();
-            normals[n++] = aiNormal.z();
+            normals[n++] = normalSign * aiNormal.x();
+            normals[n++] = normalSign * aiNormal.y();
+            normals[n++] = normalSign * aiNormal.z();
           }
 
           final int numFaces = aiMesh.mNumFaces();
@@ -302,14 +311,17 @@ public class UIModelMeshes extends UI3dComponent {
     private final String path;
     private final AssimpVBO vbo;
 
+    private final String key;
+
     private AssimpMesh(LXModel model, LXModel.Mesh mesh) {
       super(model, mesh);
       this.path = mesh.file.getAbsolutePath();
-      if (assimpVBOCache.containsKey(this.path)) {
-        this.vbo = assimpVBOCache.get(this.path);
+      this.key = String.format("%d/%s", mesh.invertNormals ? 1 : 0, this.path);
+      if (assimpVBOCache.containsKey(this.key)) {
+        this.vbo = assimpVBOCache.get(this.key);
         ++this.vbo.refCount;
       } else {
-        assimpVBOCache.put(this.path, this.vbo = new AssimpVBO(this.path));
+        assimpVBOCache.put(this.key, this.vbo = new AssimpVBO(this.path, mesh.invertNormals));
       }
     }
 
@@ -321,7 +333,7 @@ public class UIModelMeshes extends UI3dComponent {
     @Override
     protected void dispose() {
       if (--this.vbo.refCount <= 0) {
-        assimpVBOCache.remove(this.path);
+        assimpVBOCache.remove(this.key);
         this.vbo.dispose();
       }
     }

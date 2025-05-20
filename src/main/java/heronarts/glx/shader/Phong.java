@@ -25,6 +25,7 @@ import static org.lwjgl.bgfx.BGFX.bgfx_set_uniform;
 
 import java.nio.FloatBuffer;
 
+import org.joml.Vector3f;
 import org.lwjgl.system.MemoryUtil;
 
 import heronarts.glx.GLX;
@@ -36,10 +37,12 @@ public class Phong extends ShaderProgram {
   private short uniformLightColor;
   private short uniformLightDirection;
   private short uniformLighting;
+  private short uniformEyePosition;
 
   private final FloatBuffer lightColorBuffer;
   private final FloatBuffer lightDirectionBuffer;
   private final FloatBuffer lightingBuffer;
+  private final FloatBuffer eyePositionBuffer;
 
   public Phong(GLX glx) {
     super(glx, "vs_phong", "fs_phong");
@@ -55,6 +58,9 @@ public class Phong extends ShaderProgram {
     this.uniformLighting = bgfx_create_uniform("u_lighting", BGFX_UNIFORM_TYPE_VEC4, 1);
     this.lightingBuffer = MemoryUtil.memAllocFloat(4);
     setLighting(LXModel.Mesh.Lighting.DEFAULT);
+
+    this.uniformEyePosition = bgfx_create_uniform("u_eyePosition", BGFX_UNIFORM_TYPE_VEC4, 1);
+    this.eyePositionBuffer = MemoryUtil.memAllocFloat(4);
   }
 
   public void setLightColor(int argb) {
@@ -89,11 +95,23 @@ public class Phong extends ShaderProgram {
     this.lightingBuffer.put(3, shininess);
   }
 
+  public void setEyePosition(Vector3f eye) {
+    setEyePosition(eye.x, eye.y, eye.z);
+  }
+
+  public void setEyePosition(float x, float y, float z) {
+    this.eyePositionBuffer.put(0, x);
+    this.eyePositionBuffer.put(1, y);
+    this.eyePositionBuffer.put(2, z);
+    this.eyePositionBuffer.put(3, 0);
+  }
+
   @Override
   protected void setUniforms(View view) {
     bgfx_set_uniform(this.uniformLightColor, this.lightColorBuffer, 1);
     bgfx_set_uniform(this.uniformLightDirection, this.lightDirectionBuffer, 1);
     bgfx_set_uniform(this.uniformLighting, this.lightingBuffer, 1);
+    bgfx_set_uniform(this.uniformEyePosition, this.eyePositionBuffer, 1);
   }
 
   @Override
@@ -106,6 +124,10 @@ public class Phong extends ShaderProgram {
 
     bgfx_destroy_uniform(this.uniformLightColor);
     MemoryUtil.memFree(this.lightColorBuffer);
+
+    bgfx_destroy_uniform(this.uniformEyePosition);
+    MemoryUtil.memFree(this.eyePositionBuffer);
+
     super.dispose();
   }
 }
