@@ -53,6 +53,8 @@ import heronarts.lx.transform.LXMatrix;
 
 public class UIModelMeshes extends UI3dComponent {
 
+  private static final boolean DEBUG_NORMAL_VECTORS = false;
+
   private final GLX lx;
 
   private final FloatBuffer modelMatrixBuf;
@@ -78,6 +80,12 @@ public class UIModelMeshes extends UI3dComponent {
         BGFX.BGFX_STATE_BLEND_ALPHA |
         BGFX.BGFX_STATE_DEPTH_TEST_LESS;
 
+      // Check for bad texture program, don't set transform matrix
+      final Texture texture = getTexture();
+      if ((this.mesh.type == LXModel.Mesh.Type.TEXTURE_2D) && (texture == null)) {
+        return;
+      }
+
       bgfx_set_transform(this.model.transform.put(modelMatrixBuf, LXMatrix.BufferOrder.COLUMN_MAJOR));
       switch (this.mesh.type) {
         case UNIFORM_FILL -> {
@@ -85,10 +93,7 @@ public class UIModelMeshes extends UI3dComponent {
           ui.lx.program.uniformFill.submit(view, bgfxState, vertexBuffer);
         }
         case TEXTURE_2D -> {
-          Texture texture = getTexture();
-          if (texture != null) {
-            ui.lx.program.tex2d.submitPostTransform(view, bgfxState, texture, vertexBuffer);
-          }
+          ui.lx.program.tex2d.submitPostTransform(view, bgfxState, texture, vertexBuffer);
         }
         case PHONG -> {
           ui.lx.program.phong.setEyePosition(getContext().getEye());
@@ -97,7 +102,21 @@ public class UIModelMeshes extends UI3dComponent {
           ui.lx.program.phong.setLighting(this.mesh.lighting);
           ui.lx.program.phong.submit(view, bgfxState, vertexBuffer);
         }
-      };
+      }
+    }
+
+    protected void renderNormalBuffer(UI ui, View view, VertexBuffer normalBuffer) {
+      final long bgfxState =
+        BGFX.BGFX_STATE_WRITE_RGB |
+        BGFX.BGFX_STATE_WRITE_A |
+        BGFX.BGFX_STATE_WRITE_Z |
+        BGFX.BGFX_STATE_BLEND_ALPHA |
+        BGFX.BGFX_STATE_DEPTH_TEST_LESS |
+        BGFX.BGFX_STATE_PT_LINES;
+
+      bgfx_set_transform(this.model.transform.put(modelMatrixBuf, LXMatrix.BufferOrder.COLUMN_MAJOR));
+      ui.lx.program.uniformFill.setFillColor(0xffff0000);
+      ui.lx.program.uniformFill.submit(view, bgfxState, normalBuffer);
     }
 
     protected Texture getTexture() { return null; }
@@ -205,6 +224,7 @@ public class UIModelMeshes extends UI3dComponent {
   private class AssimpVBO {
 
     private final List<VertexBuffer> vertexBuffers = new ArrayList<>();
+    private final List<VertexBuffer> normalBuffers = new ArrayList<>();
 
     private int refCount;
 
@@ -291,6 +311,27 @@ public class UIModelMeshes extends UI3dComponent {
               }
             }
           });
+
+          if (DEBUG_NORMAL_VECTORS) {
+            // Visualize if there's some ish up with the loaded normals...
+            this.normalBuffers.add(new VertexBuffer(lx, indices.size() * 2, VertexDeclaration.Attribute.POSITION) {
+              @Override
+              protected void bufferData(ByteBuffer buffer) {
+                for (int index : indices) {
+                  putVertex(
+                    vertices[3*index],
+                    vertices[3*index + 1],
+                    vertices[3*index + 2]
+                  );
+                  putVertex(
+                    vertices[3*index] + normals[3*index],
+                    vertices[3*index + 1] + normals[3*index + 1],
+                    vertices[3*index + 2] + normals[3*index + 2]
+                  );
+                }
+              }
+            });
+          }
         }
       } catch (Throwable x) {
         GLX.error(x, "Error in Assimp mesh import: " + path);
@@ -303,6 +344,8 @@ public class UIModelMeshes extends UI3dComponent {
     private void dispose() {
       this.vertexBuffers.forEach(vertexBuffer -> vertexBuffer.dispose());
       this.vertexBuffers.clear();
+      this.normalBuffers.forEach(vertexBuffer -> vertexBuffer.dispose());
+      this.normalBuffers.clear();
     }
   }
 
@@ -328,6 +371,9 @@ public class UIModelMeshes extends UI3dComponent {
     @Override
     protected void render(UI ui, View view) {
       this.vbo.vertexBuffers.forEach(vertexBuffer -> renderVertexBuffer(ui, view, vertexBuffer));
+      if (DEBUG_NORMAL_VECTORS) {
+        this.vbo.normalBuffers.forEach(vertexBuffer -> renderNormalBuffer(ui, view, vertexBuffer));
+      }
     }
 
     @Override
