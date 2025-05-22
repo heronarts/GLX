@@ -24,6 +24,8 @@ import java.nio.ByteBuffer;
 import java.util.Arrays;
 import java.util.Comparator;
 import org.joml.Matrix4f;
+import org.joml.Vector3f;
+
 import com.google.gson.JsonObject;
 
 import heronarts.glx.DynamicIndexBuffer;
@@ -58,6 +60,8 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     private final Uniform.Sampler uniformTextureSparkle;
     private final Uniform.Vec4f uniformDimensions;
     private final Uniform.Vec4f uniformSparkle;
+    private final Uniform.Vec4f uniformDirectional;
+    private final Uniform.Vec4f uniformEyePosition;
 
     Program(GLX lx) {
       super(lx, "vs_led", "fs_led");
@@ -65,6 +69,8 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       this.uniformTextureSparkle = new Uniform.Sampler("s_texSparkle");
       this.uniformDimensions = new Uniform.Vec4f("u_dimensions");
       this.uniformSparkle = new Uniform.Vec4f("u_sparkle");
+      this.uniformDirectional = new Uniform.Vec4f("u_directional");
+      this.uniformEyePosition = new Uniform.Vec4f("u_eyePosition");
     }
 
     @Override
@@ -80,6 +86,8 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       this.uniformTextureSparkle.dispose();
       this.uniformDimensions.dispose();
       this.uniformSparkle.dispose();
+      this.uniformDirectional.dispose();
+      this.uniformEyePosition.dispose();
       super.dispose();
     }
 
@@ -105,6 +113,15 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
         (float) Math.toRadians(params.sparkleRotate.getValue()),
         (lx.engine.nowMillis % 30000) * LX.TWO_PIf / 30000f
       );
+
+      this.uniformDirectional.set(
+        params.directional.getValuef(),
+        (float) Math.cos(.5 * Math.toRadians(params.directionalDispersion.getValuef())),
+        1 + 10 * params.directionalContrast.getValuef()
+      );
+
+      final Vector3f eye = getContext().getEye();
+      this.uniformEyePosition.set(eye.x, eye.y, eye.z);
     }
   }
 
@@ -188,7 +205,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     private static final int VERTICES_PER_POINT = 4;
 
     private ModelBuffer(GLX lx) {
-      super(lx, model.size * VERTICES_PER_POINT, VertexDeclaration.ATTRIB_POSITION | VertexDeclaration.ATTRIB_TEXCOORD0);
+      super(lx, model.size * VERTICES_PER_POINT, VertexDeclaration.ATTRIB_POSITION | VertexDeclaration.ATTRIB_TEXCOORD0 | VertexDeclaration.ATTRIB_NORMAL);
     }
 
     @Override
@@ -196,15 +213,19 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       for (LXPoint p : model.points) {
         putVertex(p.x, p.y, p.z);
         putTex2d(0f, 0f);
+        putVertex(p.xnormal, p.ynormal, p.znormal);
 
         putVertex(p.x, p.y, p.z);
         putTex2d(1f, 0f);
+        putVertex(p.xnormal, p.ynormal, p.znormal);
 
         putVertex(p.x, p.y, p.z);
         putTex2d(0f, 1f);
+        putVertex(p.xnormal, p.ynormal, p.znormal);
 
         putVertex(p.x, p.y, p.z);
         putTex2d(1f, 1f);
+        putVertex(p.xnormal, p.ynormal, p.znormal);
       }
 
     }
@@ -256,6 +277,20 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     new BoundedParameter("Sparkle Rotate", 45, 0, 360)
     .setUnits(BoundedParameter.Units.DEGREES)
     .setDescription("Amount sparkle rotates as it brightens");
+
+  public final BooleanParameter directional =
+    new BooleanParameter("Directional", false)
+    .setDescription("Whether lighting points cast directionally or everywhere");
+
+  public final BoundedParameter directionalDispersion =
+    new BoundedParameter("Directional Dispersion", 180, 30, 180)
+    .setUnits(BoundedParameter.Units.DEGREES)
+    .setDescription("Beam angle of lighting dispersion");
+
+  public final BoundedParameter directionalContrast =
+    new BoundedParameter("Directional Contrast", 0)
+    .setUnits(BoundedParameter.Units.PERCENT_NORMALIZED)
+    .setDescription("Boost contrast of dispersion, 0% is cosine falloff");
 
   public final BoundedParameter contrast =
     new BoundedParameter("Contrast", 1, 1, 10)
@@ -327,6 +362,9 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     this.parameters.add("sparkle", this.sparkleAmount);
     this.parameters.add("sparkleCurve", this.sparkleCurve);
     this.parameters.add("sparkleRotate", this.sparkleRotate);
+    this.parameters.add("directional", this.directional);
+    this.parameters.add("directionalDispersion", this.directionalDispersion);
+    this.parameters.add("directionalContrast", this.directionalContrast);
     this.parameters.add("contrast", this.contrast);
     this.parameters.add("depthTest", this.depthTest);
     this.parameters.add("useCustomParams", this.useCustomParams);
@@ -470,6 +508,9 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     if (object.has(LXComponent.KEY_RESET)) {
       this.parameters.reset();
     } else {
+      this.directional.reset();
+      this.directionalDispersion.reset();
+      this.directionalContrast.reset();
       LXSerializable.Utils.loadParameters(object, this.parameters);
     }
   }

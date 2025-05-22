@@ -1,4 +1,4 @@
-$input a_position, a_color0, a_texcoord0
+$input a_position, a_color0, a_texcoord0, a_normal
 $output v_texcoord0, v_texcoord1, v_color0
 
 /*
@@ -20,6 +20,13 @@ uniform vec4 u_sparkle;
 #define u_sparkleRotate u_sparkle.z
 #define u_sparkleOffset u_sparkle.w
 
+uniform vec4 u_directional;
+#define u_isDirectional u_directional.x
+#define u_directionalFloor u_directional.y
+#define u_directionalContrast u_directional.z
+
+uniform vec4 u_eyePosition;
+
 void main()
 {
   
@@ -32,6 +39,16 @@ void main()
     adjusted = 1.0f - pow(1.0f - maxC, u_contrast);
     ratio = adjusted / maxC;
   }
+  
+  if (u_isDirectional > 0.0f) {
+    vec3 lightPos = mul(u_model[0], vec4(a_position, 1.0)).xyz;
+    vec3 viewDir = normalize(u_eyePosition.xyz - lightPos);
+    float range = (1.0f - u_directionalFloor);
+    
+    float falloff = clamp(u_directionalContrast / range * (dot(a_normal, viewDir) - u_directionalFloor), 0.0f, 1.0f);
+    ratio = ratio * falloff;
+  }
+  
   v_color0 = vec4(a_color0.rgb * ratio, a_color0.a);
   
   gl_Position =
