@@ -18,56 +18,45 @@
 
 package heronarts.glx.shader;
 
-import static org.lwjgl.bgfx.BGFX.BGFX_UNIFORM_TYPE_VEC4;
-import static org.lwjgl.bgfx.BGFX.bgfx_create_uniform;
-import static org.lwjgl.bgfx.BGFX.bgfx_destroy_uniform;
-import static org.lwjgl.bgfx.BGFX.bgfx_set_uniform;
-
-import java.nio.FloatBuffer;
-
 import org.joml.Vector3f;
-import org.lwjgl.system.MemoryUtil;
-
 import heronarts.glx.GLX;
 import heronarts.glx.View;
 import heronarts.lx.model.LXModel;
 
 public class Phong extends ShaderProgram {
 
-  private short uniformLightColor;
-  private short uniformLightDirection;
-  private short uniformLighting;
-  private short uniformEyePosition;
+  private final Uniform.Vec4f uniformLightColor;
+  private final Uniform.Vec4f uniformLightDirection;
+  private final Uniform.Vec4f uniformLighting;
+  private final Uniform.Vec4f uniformEyePosition;
 
-  private final FloatBuffer lightColorBuffer;
-  private final FloatBuffer lightDirectionBuffer;
-  private final FloatBuffer lightingBuffer;
-  private final FloatBuffer eyePositionBuffer;
+  private int lightColorARGB = 0;
+  private float[] lightDirection = new float[4];
+  private float[] lighting = new float[4];
+  private float[] eyePosition = new float[4];
 
   public Phong(GLX glx) {
     super(glx, "vs_phong", "fs_phong");
 
-    this.uniformLightColor = bgfx_create_uniform("u_lightColor", BGFX_UNIFORM_TYPE_VEC4, 1);
-    this.lightColorBuffer = MemoryUtil.memAllocFloat(4);
+    this.uniformLightColor = new Uniform.Vec4f("u_lightColor");
     setLightColor(0xffffffff);
 
-    this.uniformLightDirection = bgfx_create_uniform("u_lightDirection", BGFX_UNIFORM_TYPE_VEC4, 1);
-    this.lightDirectionBuffer = MemoryUtil.memAllocFloat(4);
+    this.uniformLightDirection = new Uniform.Vec4f("u_lightDirection");
     setLightDirection(0, 0, 1);
 
-    this.uniformLighting = bgfx_create_uniform("u_lighting", BGFX_UNIFORM_TYPE_VEC4, 1);
-    this.lightingBuffer = MemoryUtil.memAllocFloat(4);
+    this.uniformLighting = new Uniform.Vec4f("u_lighting");
     setLighting(LXModel.Mesh.Lighting.DEFAULT);
 
-    this.uniformEyePosition = bgfx_create_uniform("u_eyePosition", BGFX_UNIFORM_TYPE_VEC4, 1);
-    this.eyePositionBuffer = MemoryUtil.memAllocFloat(4);
+    this.uniformEyePosition = new Uniform.Vec4f("u_eyePosition");
   }
 
-  public void setLightColor(int argb) {
-    this.lightColorBuffer.put(0, ((argb >>> 16) & 0xff) / 255f);
-    this.lightColorBuffer.put(1, ((argb >>> 8) & 0xff) / 255f);
-    this.lightColorBuffer.put(2, (argb & 0xff) / 255f);
-    this.lightColorBuffer.put(3, ((argb >>> 24) & 0xff) / 255f);
+  /**
+   * Set light color in ARGB format
+   *
+   * @param lightColorARGB Light color, ARGB
+   */
+  public void setLightColor(int lightColorARGB) {
+    this.lightColorARGB = lightColorARGB;
   }
 
   public void setLightDirection(LXModel.Mesh.Vertex v) {
@@ -78,10 +67,9 @@ public class Phong extends ShaderProgram {
     final float mag = (float) Math.sqrt(x*x + y*y + z*z);
     final float invMag = (mag == 0) ? 1 : mag;
 
-    this.lightDirectionBuffer.put(0, x / invMag);
-    this.lightDirectionBuffer.put(1, y / invMag);
-    this.lightDirectionBuffer.put(2, z / invMag);
-    this.lightDirectionBuffer.put(3, 0);
+    this.lightDirection[0] = x / invMag;
+    this.lightDirection[1] = y / invMag;
+    this.lightDirection[2] = z / invMag;
   }
 
   public void setLighting(LXModel.Mesh.Lighting lighting) {
@@ -89,10 +77,10 @@ public class Phong extends ShaderProgram {
   }
 
   public void setLighting(float ambient, float diffuse, float specular, float shininess) {
-    this.lightingBuffer.put(0, ambient);
-    this.lightingBuffer.put(1, diffuse);
-    this.lightingBuffer.put(2, specular);
-    this.lightingBuffer.put(3, shininess);
+    this.lighting[0] = ambient;
+    this.lighting[1] = diffuse;
+    this.lighting[2] = specular;
+    this.lighting[3] = shininess;
   }
 
   public void setEyePosition(Vector3f eye) {
@@ -100,34 +88,25 @@ public class Phong extends ShaderProgram {
   }
 
   public void setEyePosition(float x, float y, float z) {
-    this.eyePositionBuffer.put(0, x);
-    this.eyePositionBuffer.put(1, y);
-    this.eyePositionBuffer.put(2, z);
-    this.eyePositionBuffer.put(3, 0);
+    this.eyePosition[0] = x;
+    this.eyePosition[1] = y;
+    this.eyePosition[2] = z;
   }
 
   @Override
   protected void setUniforms(View view) {
-    bgfx_set_uniform(this.uniformLightColor, this.lightColorBuffer, 1);
-    bgfx_set_uniform(this.uniformLightDirection, this.lightDirectionBuffer, 1);
-    bgfx_set_uniform(this.uniformLighting, this.lightingBuffer, 1);
-    bgfx_set_uniform(this.uniformEyePosition, this.eyePositionBuffer, 1);
+    this.uniformLightColor.setARGB(this.lightColorARGB);
+    this.uniformLightDirection.set(this.lightDirection);
+    this.uniformLighting.set(this.lighting);
+    this.uniformEyePosition.set(this.eyePosition);
   }
 
   @Override
   public void dispose() {
-    bgfx_destroy_uniform(this.uniformLighting);
-    MemoryUtil.memFree(this.lightingBuffer);
-
-    bgfx_destroy_uniform(this.uniformLightDirection);
-    MemoryUtil.memFree(this.lightDirectionBuffer);
-
-    bgfx_destroy_uniform(this.uniformLightColor);
-    MemoryUtil.memFree(this.lightColorBuffer);
-
-    bgfx_destroy_uniform(this.uniformEyePosition);
-    MemoryUtil.memFree(this.eyePositionBuffer);
-
+    this.uniformLighting.dispose();
+    this.uniformLightDirection.dispose();
+    this.uniformLightColor.dispose();
+    this.uniformEyePosition.dispose();
     super.dispose();
   }
 }

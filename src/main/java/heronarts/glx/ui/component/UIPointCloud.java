@@ -21,12 +21,9 @@ package heronarts.glx.ui.component;
 import static org.lwjgl.bgfx.BGFX.*;
 
 import java.nio.ByteBuffer;
-import java.nio.FloatBuffer;
 import java.util.Arrays;
 import java.util.Comparator;
 import org.joml.Matrix4f;
-import org.lwjgl.system.MemoryUtil;
-
 import com.google.gson.JsonObject;
 
 import heronarts.glx.DynamicIndexBuffer;
@@ -56,21 +53,18 @@ import heronarts.lx.utils.LXUtils;
 public class UIPointCloud extends UI3dComponent implements LXSerializable {
 
   private class Program extends ShaderProgram {
-    private short uniformTextureBase;
-    private short uniformTextureSparkle;
-    private short uniformDimensions;
-    private short uniformSparkle;
-    private final FloatBuffer dimensionsBuffer;
-    private final FloatBuffer sparkleBuffer;
+
+    private final Uniform.Sampler uniformTextureBase;
+    private final Uniform.Sampler uniformTextureSparkle;
+    private final Uniform.Vec4f uniformDimensions;
+    private final Uniform.Vec4f uniformSparkle;
 
     Program(GLX lx) {
       super(lx, "vs_led", "fs_led");
-      this.uniformTextureBase = bgfx_create_uniform("s_texColor", BGFX_UNIFORM_TYPE_SAMPLER, 1);
-      this.uniformTextureSparkle = bgfx_create_uniform("s_texSparkle", BGFX_UNIFORM_TYPE_SAMPLER, 1);
-      this.uniformDimensions = bgfx_create_uniform("u_dimensions", BGFX_UNIFORM_TYPE_VEC4, 1);
-      this.uniformSparkle = bgfx_create_uniform("u_sparkle", BGFX_UNIFORM_TYPE_VEC4, 1);
-      this.dimensionsBuffer = MemoryUtil.memAllocFloat(4);
-      this.sparkleBuffer = MemoryUtil.memAllocFloat(4);
+      this.uniformTextureBase = new Uniform.Sampler("s_texColor");
+      this.uniformTextureSparkle = new Uniform.Sampler("s_texSparkle");
+      this.uniformDimensions = new Uniform.Vec4f("u_dimensions");
+      this.uniformSparkle = new Uniform.Vec4f("u_sparkle");
     }
 
     @Override
@@ -82,37 +76,35 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
 
     @Override
     public void dispose() {
-      bgfx_destroy_uniform(this.uniformTextureBase);
-      bgfx_destroy_uniform(this.uniformTextureSparkle);
-      bgfx_destroy_uniform(this.uniformDimensions);
-      bgfx_destroy_uniform(this.uniformSparkle);
-      MemoryUtil.memFree(this.dimensionsBuffer);
-      MemoryUtil.memFree(this.sparkleBuffer);
+      this.uniformTextureBase.dispose();
+      this.uniformTextureSparkle.dispose();
+      this.uniformDimensions.dispose();
+      this.uniformSparkle.dispose();
       super.dispose();
     }
 
     @Override
     public void setUniforms(View view) {
-      bgfx_set_texture(0, this.uniformTextureBase, textures[params.ledStyle.getValuei()].getHandle(), BGFX_SAMPLER_NONE);
-      bgfx_set_texture(1, this.uniformTextureSparkle, sparkles[params.ledStyle.getValuei()].getHandle(), BGFX_SAMPLER_U_BORDER | BGFX_SAMPLER_V_BORDER);
-      this.dimensionsBuffer.put(0, global.contrast.getValuef());
-      this.dimensionsBuffer.put(1, params.feather.getValuef());
-      this.dimensionsBuffer.put(2, view.getAspectRatio());
-      switch (getContext().projection.getEnum()) {
-      case PERSPECTIVE:
-        this.dimensionsBuffer.put(3, 2f * params.pointSize.getValuef() / view.getAspectRatio());
-        break;
-      case ORTHOGRAPHIC:
-        this.dimensionsBuffer.put(3, 2f * params.pointSize.getValuef() / LXUtils.maxf(1f, getContext().getRadius()));
-        break;
-      }
-      this.sparkleBuffer.put(0, params.sparkleAmount.getValuef());
-      this.sparkleBuffer.put(1, params.sparkleCurve.getValuef());
-      this.sparkleBuffer.put(2, (float) Math.toRadians(params.sparkleRotate.getValue()));
-      this.sparkleBuffer.put(3, (lx.engine.nowMillis % 30000) * LX.TWO_PIf / 30000f);
+      this.uniformTextureBase.setTexture(0, textures[params.ledStyle.getValuei()], BGFX_SAMPLER_NONE);
+      this.uniformTextureSparkle.setTexture(1, sparkles[params.ledStyle.getValuei()], BGFX_SAMPLER_U_BORDER | BGFX_SAMPLER_V_BORDER);
 
-      bgfx_set_uniform(this.uniformDimensions, this.dimensionsBuffer, 1);
-      bgfx_set_uniform(this.uniformSparkle, this.sparkleBuffer, 1);
+      final float pointScale = switch (getContext().projection.getEnum()) {
+        case PERSPECTIVE -> 2f * params.pointSize.getValuef() / view.getAspectRatio();
+        case ORTHOGRAPHIC -> 2f * params.pointSize.getValuef() / LXUtils.maxf(1f, getContext().getRadius());
+      };
+      this.uniformDimensions.set(
+        global.contrast.getValuef(),
+        params.feather.getValuef(),
+        view.getAspectRatio(),
+        pointScale
+      );
+
+      this.uniformSparkle.set(
+        params.sparkleAmount.getValuef(),
+        params.sparkleCurve.getValuef(),
+        (float) Math.toRadians(params.sparkleRotate.getValue()),
+        (lx.engine.nowMillis % 30000) * LX.TWO_PIf / 30000f
+      );
     }
   }
 

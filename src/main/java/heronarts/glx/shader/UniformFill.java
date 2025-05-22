@@ -18,14 +18,6 @@
 
 package heronarts.glx.shader;
 
-import static org.lwjgl.bgfx.BGFX.BGFX_UNIFORM_TYPE_VEC4;
-import static org.lwjgl.bgfx.BGFX.bgfx_create_uniform;
-import static org.lwjgl.bgfx.BGFX.bgfx_destroy_uniform;
-import static org.lwjgl.bgfx.BGFX.bgfx_set_uniform;
-import java.nio.FloatBuffer;
-
-import org.lwjgl.system.MemoryUtil;
-
 import heronarts.glx.GLX;
 import heronarts.glx.VertexBuffer;
 import heronarts.glx.View;
@@ -36,27 +28,24 @@ import heronarts.glx.View;
  */
 public class UniformFill extends ShaderProgram {
 
-  private short uniformFillColor;
-  private final FloatBuffer fillColorBuffer;
+  private final Uniform.Vec4f uniformFillColor;
+
+  private int fillColorARGB;
 
   public UniformFill(GLX glx) {
     super(glx, "vs_shape", "fs_shape");
-    this.uniformFillColor = bgfx_create_uniform("u_fillColor", BGFX_UNIFORM_TYPE_VEC4, 1);
-    this.fillColorBuffer = MemoryUtil.memAllocFloat(4);
+    this.uniformFillColor = new Uniform.Vec4f("u_fillColor");
     setFillColor(0xffffffff);
   }
 
   /**
    * Sets the fill color of the shape
    *
-   * @param fillColor Fill color in ARGB format
+   * @param fillColorARGB Fill color in ARGB format
    * @return this
    */
-  public UniformFill setFillColor(int fillColor) {
-    this.fillColorBuffer.put(0, ((fillColor >>> 16) & 0xff) / 255f);
-    this.fillColorBuffer.put(1, ((fillColor >>> 8) & 0xff) / 255f);
-    this.fillColorBuffer.put(2, (fillColor & 0xff) / 255f);
-    this.fillColorBuffer.put(3, ((fillColor >>> 24) & 0xff) / 255f);
+  public UniformFill setFillColor(int fillColorARGB) {
+    this.fillColorARGB = fillColorARGB;
     return this;
   }
 
@@ -68,13 +57,12 @@ public class UniformFill extends ShaderProgram {
 
   @Override
   protected void setUniforms(View view) {
-    bgfx_set_uniform(this.uniformFillColor, this.fillColorBuffer, 1);
+    this.uniformFillColor.setARGB(this.fillColorARGB);
   }
 
   @Override
   public void dispose() {
-    bgfx_destroy_uniform(this.uniformFillColor);
-    MemoryUtil.memFree(this.fillColorBuffer);
+    this.uniformFillColor.dispose();
     super.dispose();
   }
 
