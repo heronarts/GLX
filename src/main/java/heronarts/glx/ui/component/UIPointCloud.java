@@ -200,6 +200,28 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     }
   }
 
+  private class NormalBuffer extends VertexBuffer {
+
+    private static final int VERTICES_PER_POINT = 2;
+
+    private NormalBuffer(GLX lx) {
+      super(lx, model.size * VERTICES_PER_POINT, VertexDeclaration.ATTRIB_POSITION);
+    }
+
+    @Override
+    protected void bufferData(ByteBuffer buffer) {
+      bufferDirectionalNormalLength = directionalShowNormalsLength.getValuef();
+      for (LXPoint p : model.points) {
+        putVertex(p.x, p.y, p.z);
+        putVertex(
+          p.x + bufferDirectionalNormalLength * p.xnormal,
+          p.y + bufferDirectionalNormalLength * p.ynormal,
+          p.z + bufferDirectionalNormalLength * p.znormal
+        );
+      }
+    }
+  }
+
   private class ModelBuffer extends VertexBuffer {
 
     private static final int VERTICES_PER_POINT = 4;
@@ -308,6 +330,14 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     .setUnits(BoundedParameter.Units.PERCENT_NORMALIZED)
     .setDescription("Boost contrast of directed lighting, 0% is cosine falloff");
 
+  public final BooleanParameter directionalShowNormals =
+    new BooleanParameter ("Show Direction", false)
+    .setDescription("Show normal vectors for light directions");
+
+  public final BoundedParameter directionalShowNormalsLength =
+    new BoundedParameter("Direction Length", 5, 1, 10000)
+    .setDescription("Length of normal vectors showing light direction");
+
   public final BoundedParameter contrast =
     new BoundedParameter("Contrast", 1, 1, 10)
     .setUnits(BoundedParameter.Units.PERCENT_NORMALIZED)
@@ -339,6 +369,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
   private final Texture[] textures = new Texture[LedStyle.values().length];
   private final Texture[] sparkles = new Texture[LedStyle.values().length];
 
+  private NormalBuffer normalBuffer;
   private ModelBuffer modelBuffer;
   private DynamicVertexBuffer colorBuffer;
   private IndexBuffer indexBuffer;
@@ -348,6 +379,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
   private LXModel model = null;
 
   private int modelGeneration = -1;
+  private float bufferDirectionalNormalLength = -1;
 
   private boolean auxiliary = false;
 
@@ -381,6 +413,8 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     this.parameters.add("directional", this.directional);
     this.parameters.add("directionalDispersion", this.directionalDispersion);
     this.parameters.add("directionalContrast", this.directionalContrast);
+    this.parameters.add("directionalShowNormals", this.directionalShowNormals);
+    this.parameters.add("directionalShowNormalsLength", this.directionalShowNormalsLength);
     this.parameters.add("contrast", this.contrast);
     this.parameters.add("depthTest", this.depthTest);
     this.parameters.add("useCustomParams", this.useCustomParams);
@@ -416,6 +450,9 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     if (this.colorBuffer != null) {
       this.colorBuffer.dispose();
     }
+    if (this.normalBuffer != null) {
+      this.normalBuffer.dispose();
+    }
     this.program.dispose();
   }
 
@@ -424,6 +461,22 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       this.modelBuffer.dispose();
     }
     this.modelBuffer = new ModelBuffer(lx);
+  }
+
+  // Need to keep the normal buffer around for at least
+  // 2 frames for bgfx to not get given garbage...
+  private boolean flagBuildNormalBuffer = true;
+
+  private void buildNormalBuffer() {
+    if (this.flagBuildNormalBuffer) {
+      if (this.normalBuffer != null) {
+        this.normalBuffer.dispose();
+      }
+      this.normalBuffer = new NormalBuffer(lx);
+      this.flagBuildNormalBuffer = false;
+    } else {
+      this.flagBuildNormalBuffer = true;
+    }
   }
 
   private void buildColorBuffer() {
@@ -451,12 +504,15 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       return;
     }
 
+    boolean needsNormalBufferUpdate = false;
+
     // Is our buffer model out of date? Rebuild it if so...
     if (this.model != frameModel) {
       LXModel oldModel = this.model;
       this.model = frameModel;
       this.modelGeneration = frameModelGeneration;
       buildModelBuffer();
+      needsNormalBufferUpdate = true;
       if ((this.colorBuffer == null) || (oldModel == null) || (oldModel.size != frameModel.size)) {
         buildColorBuffer();
       }
@@ -466,6 +522,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     } else if (this.modelGeneration != frameModelGeneration) {
       // Model geometry (but not size) has changed, rebuild model buffer
       buildModelBuffer();
+      needsNormalBufferUpdate = true;
       this.modelGeneration = frameModelGeneration;
       this.needsZSort = true;
       this.zSortMillis = 0;
@@ -500,6 +557,27 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       BGFX_STATE_ALPHA_REF(this.global.alphaRef.getValuei()) |
       (this.depthTest.isOn() ? BGFX_STATE_DEPTH_TEST_LESS : 0)
     );
+
+    if (this.directionalShowNormals.isOn()) {
+      if (this.bufferDirectionalNormalLength != this.directionalShowNormalsLength.getValuef()) {
+        needsNormalBufferUpdate = true;
+      }
+
+      // Try to rebuild the normal buffer if we need to on this pass or flagged on a prev pass
+      if (this.flagBuildNormalBuffer || needsNormalBufferUpdate) {
+        buildNormalBuffer();
+      }
+
+      this.lx.program.uniformFill.setFillColor(0xff00ff00);
+      this.lx.program.uniformFill.submit(
+        view,
+        BGFX_STATE_WRITE_RGB |
+        BGFX_STATE_BLEND_ALPHA |
+        BGFX_STATE_DEPTH_TEST_LESS |
+        BGFX_STATE_PT_LINES,
+        this.normalBuffer
+      );
+    }
   }
 
   private static final long Z_SORT_TIMEOUT_MS = 50;
@@ -527,6 +605,8 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       this.directional.reset();
       this.directionalDispersion.reset();
       this.directionalContrast.reset();
+      this.directionalShowNormals.reset();
+      this.directionalShowNormalsLength.reset();
       LXSerializable.Utils.loadParameters(object, this.parameters);
     }
   }
