@@ -115,7 +115,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       );
 
       this.uniformDirectional.set(
-        params.directional.getValuef(),
+        (params.directional.getEnum() == DirectionStyle.DIRECTED) ? 1f : 0f,
         (float) Math.cos(.5 * Math.toRadians(params.directionalDispersion.getValuef())),
         1 + 10 * params.directionalContrast.getValuef()
       );
@@ -255,6 +255,22 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     }
   }
 
+  public enum DirectionStyle {
+    OMNI("Omni"),
+    DIRECTED("Directed");
+
+    public final String label;
+
+    private DirectionStyle(String label) {
+      this.label = label;
+    }
+
+    @Override
+    public String toString() {
+      return this.label;
+    }
+  }
+
   public final BoundedParameter pointSize =
     new BoundedParameter("Point Size", 3, .1, 100000)
     .setDescription("Size of points rendered in the preview display");
@@ -278,19 +294,19 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     .setUnits(BoundedParameter.Units.DEGREES)
     .setDescription("Amount sparkle rotates as it brightens");
 
-  public final BooleanParameter directional =
-    new BooleanParameter("Directional", false)
-    .setDescription("Whether lighting points cast directionally or everywhere");
+  public final EnumParameter<DirectionStyle> directional =
+    new EnumParameter<DirectionStyle>("Directional", DirectionStyle.OMNI)
+    .setDescription("Whether points cast light directionally or everywhere");
 
   public final BoundedParameter directionalDispersion =
     new BoundedParameter("Directional Dispersion", 180, 30, 180)
     .setUnits(BoundedParameter.Units.DEGREES)
-    .setDescription("Beam angle of lighting dispersion");
+    .setDescription("Beam angle of directed lighting");
 
   public final BoundedParameter directionalContrast =
     new BoundedParameter("Directional Contrast", 0)
     .setUnits(BoundedParameter.Units.PERCENT_NORMALIZED)
-    .setDescription("Boost contrast of dispersion, 0% is cosine falloff");
+    .setDescription("Boost contrast of directed lighting, 0% is cosine falloff");
 
   public final BoundedParameter contrast =
     new BoundedParameter("Contrast", 1, 1, 10)
