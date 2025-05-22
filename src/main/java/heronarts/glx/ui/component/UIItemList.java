@@ -558,7 +558,12 @@ public interface UIItemList {
         boolean changed = false;
         for (Item item : this.items) {
           if (!(item instanceof Section)) {
-            boolean hidden = (filter != null) && !item.getLabel().toLowerCase().contains(filter);
+            boolean hidden = false;
+            if ((filter != null) && !item.getLabel().toLowerCase().contains(filter)) {
+              // No item match? Check section name for a match...
+              final Section section = item.getSection();
+              hidden = (section == null) ? true : !section.getLabel().toLowerCase().contains(filter);
+            }
             if (hidden != item.hidden) {
               item.hidden = hidden;
               changed = true;
