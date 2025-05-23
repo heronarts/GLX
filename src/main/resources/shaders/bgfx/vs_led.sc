@@ -43,9 +43,9 @@ void main()
   if (u_isDirectional > 0.0f) {
     vec3 lightPos = mul(u_model[0], vec4(a_position, 1.0)).xyz;
     vec3 viewDir = normalize(u_eyePosition.xyz - lightPos);
-    float range = (1.0f - u_directionalFloor);
-    
-    float falloff = clamp(u_directionalContrast / range * (dot(a_normal, viewDir) - u_directionalFloor), 0.0f, 1.0f);
+    float range = 1.0f - u_directionalFloor;
+    float dotclamp = max(range * (dot(a_normal, viewDir) - u_directionalFloor), 0.0f);
+    float falloff = pow(dotclamp, u_directionalContrast);
     ratio = ratio * falloff;
   }
   

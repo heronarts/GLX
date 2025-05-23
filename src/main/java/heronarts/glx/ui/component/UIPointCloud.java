@@ -117,7 +117,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       this.uniformDirectional.set(
         (params.directional.getEnum() == DirectionStyle.DIRECTED) ? 1f : 0f,
         (float) Math.cos(.5 * Math.toRadians(params.directionalDispersion.getValuef())),
-        1 + 10 * params.directionalContrast.getValuef()
+        LXUtils.lerpf(1f, .1f, params.directionalContrast.getValuef())
       );
 
       final Vector3f eye = getContext().getEye();
@@ -467,6 +467,8 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
   // 2 frames for bgfx to not get given garbage...
   private boolean flagBuildNormalBuffer = true;
 
+  private boolean flagNormalBufferDirty = true;
+
   private void buildNormalBuffer() {
     if (this.flagBuildNormalBuffer) {
       if (this.normalBuffer != null) {
@@ -474,6 +476,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       }
       this.normalBuffer = new NormalBuffer(lx);
       this.flagBuildNormalBuffer = false;
+      this.flagNormalBufferDirty = false;
     } else {
       this.flagBuildNormalBuffer = true;
     }
@@ -504,15 +507,13 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       return;
     }
 
-    boolean needsNormalBufferUpdate = false;
-
     // Is our buffer model out of date? Rebuild it if so...
     if (this.model != frameModel) {
       LXModel oldModel = this.model;
       this.model = frameModel;
       this.modelGeneration = frameModelGeneration;
       buildModelBuffer();
-      needsNormalBufferUpdate = true;
+      this.flagNormalBufferDirty = true;
       if ((this.colorBuffer == null) || (oldModel == null) || (oldModel.size != frameModel.size)) {
         buildColorBuffer();
       }
@@ -522,7 +523,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     } else if (this.modelGeneration != frameModelGeneration) {
       // Model geometry (but not size) has changed, rebuild model buffer
       buildModelBuffer();
-      needsNormalBufferUpdate = true;
+      this.flagNormalBufferDirty = true;
       this.modelGeneration = frameModelGeneration;
       this.needsZSort = true;
       this.zSortMillis = 0;
@@ -558,25 +559,27 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       (this.depthTest.isOn() ? BGFX_STATE_DEPTH_TEST_LESS : 0)
     );
 
-    if (this.directionalShowNormals.isOn()) {
+    if ((this.directional.getEnum() == DirectionStyle.DIRECTED) && this.directionalShowNormals.isOn()) {
       if (this.bufferDirectionalNormalLength != this.directionalShowNormalsLength.getValuef()) {
-        needsNormalBufferUpdate = true;
+        this.flagNormalBufferDirty = true;
       }
 
       // Try to rebuild the normal buffer if we need to on this pass or flagged on a prev pass
-      if (this.flagBuildNormalBuffer || needsNormalBufferUpdate) {
+      if (this.flagBuildNormalBuffer || this.flagNormalBufferDirty) {
         buildNormalBuffer();
       }
 
-      this.lx.program.uniformFill.setFillColor(0xff00ff00);
-      this.lx.program.uniformFill.submit(
-        view,
-        BGFX_STATE_WRITE_RGB |
-        BGFX_STATE_BLEND_ALPHA |
-        BGFX_STATE_DEPTH_TEST_LESS |
-        BGFX_STATE_PT_LINES,
-        this.normalBuffer
-      );
+      if (this.normalBuffer != null) {
+        this.lx.program.uniformFill.setFillColor(0xff00ff00);
+        this.lx.program.uniformFill.submit(
+          view,
+          BGFX_STATE_WRITE_RGB |
+          BGFX_STATE_BLEND_ALPHA |
+          BGFX_STATE_DEPTH_TEST_LESS |
+          BGFX_STATE_PT_LINES,
+          this.normalBuffer
+        );
+      }
     }
   }
 
