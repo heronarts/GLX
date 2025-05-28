@@ -18,7 +18,7 @@
 
 package heronarts.glx.shader;
 
-import heronarts.glx.GLX;
+import heronarts.glx.BGFXEngine;
 import heronarts.glx.VertexBuffer;
 import heronarts.glx.View;
 
@@ -32,8 +32,8 @@ public class UniformFill extends ShaderProgram {
 
   private int fillColorARGB;
 
-  public UniformFill(GLX glx) {
-    super(glx, "vs_shape", "fs_shape");
+  public UniformFill(BGFXEngine bgfx) {
+    super(bgfx, "vs_shape", "fs_shape");
     this.uniformFillColor = new Uniform.Vec4f("u_fillColor");
     setFillColor(0xffffffff);
   }

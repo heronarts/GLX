@@ -26,6 +26,7 @@ import java.nio.FloatBuffer;
 
 import org.lwjgl.system.MemoryUtil;
 
+import heronarts.glx.BGFXEngine;
 import heronarts.glx.GLX;
 import heronarts.glx.GLXUtils;
 import heronarts.glx.Texture;
@@ -113,10 +114,10 @@ public class ShaderProgram {
   private ByteBuffer fragmentShaderCode;
   protected long bgfxState = DEFAULT_BGFX_STATE;
 
-  public ShaderProgram(GLX glx, String vsName, String fsName) {
+  public ShaderProgram(BGFXEngine bgfx, String vsName, String fsName) {
     try {
-      this.vertexShaderCode = GLXUtils.loadShader(glx, vsName);
-      this.fragmentShaderCode = GLXUtils.loadShader(glx, fsName);
+      this.vertexShaderCode = GLXUtils.loadShader(bgfx, vsName);
+      this.fragmentShaderCode = GLXUtils.loadShader(bgfx, fsName);
     } catch (IOException iox) {
       throw new RuntimeException(iox);
     }

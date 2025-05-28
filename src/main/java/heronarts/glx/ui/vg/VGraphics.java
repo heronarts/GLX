@@ -248,7 +248,7 @@ public class VGraphics {
 
     private short viewId;
     private final int imageFlags;
-    private boolean isStale = true;
+    private volatile boolean isStale = true;
 
     public Framebuffer(UI2dContext context, float w, float h, int imageFlags) {
       this.context = context;
@@ -258,7 +258,7 @@ public class VGraphics {
       this.viewId = 0;
     }
 
-    public Framebuffer markStale() {
+    private Framebuffer markStale() {
       this.isStale = true;
       return this;
     }
@@ -291,14 +291,12 @@ public class VGraphics {
 
     public Framebuffer initialize() {
       if (this.isStale) {
-        GLX.error(new Exception(), "Framebuffer had to initialize itself before a bind() call ever occurred - " + this.context.getDebugClassHierarchy());
         rebuffer();
-        this.isStale = false;
       }
       return this;
     }
 
-    public Framebuffer bind() {
+    private Framebuffer bind() {
       if (this.isStale) {
         rebuffer();
       }
@@ -679,7 +677,7 @@ public class VGraphics {
   }
 
   private Font createFontMem(String name, ByteBuffer fontData) {
-    int font = nvgCreateFontMem(this.vg, name, fontData, 0);
+    int font = nvgCreateFontMem(this.vg, name, fontData, false);
     return new Font(font, name, fontData);
   }
 

@@ -28,6 +28,7 @@ import org.joml.Vector3f;
 
 import com.google.gson.JsonObject;
 
+import heronarts.glx.BGFXEngine;
 import heronarts.glx.DynamicIndexBuffer;
 import heronarts.glx.DynamicVertexBuffer;
 import heronarts.glx.GLX;
@@ -63,8 +64,8 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     private final Uniform.Vec4f uniformDirectional;
     private final Uniform.Vec4f uniformEyePosition;
 
-    Program(GLX lx) {
-      super(lx, "vs_led", "fs_led");
+    Program(BGFXEngine bgfx) {
+      super(bgfx, "vs_led", "fs_led");
       this.uniformTextureBase = new Uniform.Sampler("s_texColor");
       this.uniformTextureSparkle = new Uniform.Sampler("s_texSparkle");
       this.uniformDimensions = new Uniform.Vec4f("u_dimensions");
@@ -389,9 +390,9 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     this(lx, null);
   }
 
-  public UIPointCloud(GLX lx, UIPointCloud global) {
-    this.lx = lx;
-    this.program = new Program(lx);
+  public UIPointCloud(GLX glx, UIPointCloud global) {
+    this.lx = glx;
+    this.program = new Program(glx.bgfx);
     int ti = 0;
     for (LedStyle ledStyle : LedStyle.values()) {
       this.textures[ti] = new Texture(ledStyle.texture);

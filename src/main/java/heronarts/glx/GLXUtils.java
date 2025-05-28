@@ -112,26 +112,21 @@ public class GLXUtils {
     return (buffer != null) ? new Image(buffer) : null;
   }
 
+  private static String rendererPath(int renderer) throws IOException {
+    return switch (renderer) {
+      case BGFX_RENDERER_TYPE_DIRECT3D11, BGFX_RENDERER_TYPE_DIRECT3D12 -> "dx11/";
+      case BGFX_RENDERER_TYPE_OPENGL -> "glsl/";
+      case BGFX_RENDERER_TYPE_METAL -> "metal/";
+      default -> throw new IOException("No shaders supported for " + bgfx_get_renderer_name(renderer) + " renderer");
+    };
+  }
+
   public static ByteBuffer loadShader(GLX glx, String name) throws IOException {
-    String path = "shaders/";
-    switch (glx.getRenderer()) {
-    case BGFX_RENDERER_TYPE_DIRECT3D11:
-    case BGFX_RENDERER_TYPE_DIRECT3D12:
-      path += "dx11/";
-      break;
-    case BGFX_RENDERER_TYPE_DIRECT3D9:
-      path += "dx9/";
-      break;
-    case BGFX_RENDERER_TYPE_OPENGL:
-      path += "glsl/";
-      break;
-    case BGFX_RENDERER_TYPE_METAL:
-      path += "metal/";
-      break;
-    default:
-      throw new IOException("No shaders supported for " + bgfx_get_renderer_name(glx.getRenderer()) + " renderer");
-    }
-    return loadResource(path + name + ".bin");
+    return loadShader(glx.bgfx, name);
+  }
+
+  public static ByteBuffer loadShader(BGFXEngine bgfx, String name) throws IOException {
+    return loadResource("shaders/" + rendererPath(bgfx.getRenderer()) + name + ".bin");
   }
 
   /**

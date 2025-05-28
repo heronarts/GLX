@@ -29,7 +29,7 @@ import org.lwjgl.bgfx.BGFX;
 import org.lwjgl.bgfx.BGFXVertexLayout;
 import org.lwjgl.system.MemoryUtil;
 
-import heronarts.glx.GLX;
+import heronarts.glx.BGFXEngine;
 import heronarts.glx.GLXUtils;
 import heronarts.glx.Texture;
 import heronarts.glx.VertexBuffer;
@@ -67,13 +67,13 @@ public class Tex2d {
     { 1f, 1f, 0f, 1f, 0f }
   };
 
-  public Tex2d(GLX glx) {
+  public Tex2d(BGFXEngine bgfx) {
 
     this.modelMatrixBuf = MemoryUtil.memAllocFloat(16);
     this.modelMatrix.get(this.modelMatrixBuf);
 
     this.vertexLayout = BGFXVertexLayout.calloc();
-    bgfx_vertex_layout_begin(this.vertexLayout, glx.getRenderer());
+    bgfx_vertex_layout_begin(this.vertexLayout, bgfx.getRenderer());
     bgfx_vertex_layout_add(this.vertexLayout, BGFX_ATTRIB_POSITION, 3,
       BGFX_ATTRIB_TYPE_FLOAT, false, false);
     bgfx_vertex_layout_add(this.vertexLayout, BGFX_ATTRIB_TEXCOORD0, 2,
@@ -82,7 +82,7 @@ public class Tex2d {
 
     this.vertexBuffer = MemoryUtil
       .memAlloc(VERTEX_BUFFER_DATA.length * 5 * Float.BYTES);
-    for (float[] fl : glx.isOpenGL() ? VERTEX_BUFFER_DATA_OPENGL : VERTEX_BUFFER_DATA) {
+    for (float[] fl : bgfx.isOpenGL() ? VERTEX_BUFFER_DATA_OPENGL : VERTEX_BUFFER_DATA) {
       for (float f : fl) {
         this.vertexBuffer.putFloat(f);
       }
@@ -92,8 +92,8 @@ public class Tex2d {
       bgfx_make_ref(this.vertexBuffer), this.vertexLayout, BGFX_BUFFER_NONE);
 
     try {
-      this.vsCode = GLXUtils.loadShader(glx, "vs_view2d");
-      this.fsCode = GLXUtils.loadShader(glx, "fs_view2d");
+      this.vsCode = GLXUtils.loadShader(bgfx, "vs_view2d");
+      this.fsCode = GLXUtils.loadShader(bgfx, "fs_view2d");
       this.program = bgfx_create_program(
         bgfx_create_shader(bgfx_make_ref(this.vsCode)),
         bgfx_create_shader(bgfx_make_ref(this.fsCode)),
