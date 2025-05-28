@@ -277,7 +277,6 @@ public class GLX extends LX {
 
     // Dispose the BGFX render thread and UI assets
     this.bgfxThread.dispose.set(true);
-    this.bgfxThread.interrupt();
     try {
       this.bgfxThread.didDispose.await();
     } catch (InterruptedException ix) {

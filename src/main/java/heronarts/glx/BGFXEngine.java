@@ -107,9 +107,8 @@ public class BGFXEngine {
         while (!this.dispose.get()) {
 
           if (this.hasFailed) {
-            synchronized (this) {
-              try { wait(); } catch (InterruptedException ix) {}
-            }
+            // Just wait to be told to dispose
+            try { Thread.sleep(100); } catch (InterruptedException ix) {}
             continue;
           }
 
@@ -227,12 +226,8 @@ public class BGFXEngine {
               .nwh(GLFWNativeX11.glfwGetX11Window(this.glx.window));
           }
         }
-        case MACOSX -> {
-          init.platformData().nwh(GLFWNativeCocoa.glfwGetCocoaWindow(this.glx.window));
-        }
-        case WINDOWS -> {
-          init.platformData().nwh(GLFWNativeWin32.glfwGetWin32Window(this.glx.window));
-        }
+        case MACOSX -> init.platformData().nwh(GLFWNativeCocoa.glfwGetCocoaWindow(this.glx.window));
+        case WINDOWS -> init.platformData().nwh(GLFWNativeWin32.glfwGetWin32Window(this.glx.window));
       }
       if (!bgfx_init(init)) {
         throw new RuntimeException("Error initializing bgfx renderer");
