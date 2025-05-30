@@ -58,9 +58,6 @@ public class BGFXEngine {
 
     final CountDownLatch run = new CountDownLatch(1);
 
-    final AtomicBoolean dispose = new AtomicBoolean(false);
-    final CountDownLatch didDispose = new CountDownLatch(1);
-
     boolean hasFailed;
 
     UI ui;
@@ -104,7 +101,7 @@ public class BGFXEngine {
         long drawNanos = 0;
 
         // Keep rendering until we're asked to dispose
-        while (!this.dispose.get()) {
+        while (!glfwWindowShouldClose(this.glx.window)) {
 
           if (this.hasFailed) {
             // Just wait to be told to dispose
@@ -157,12 +154,13 @@ public class BGFXEngine {
 
         // Dispose
         this.bgfx.dispose();
-        this.didDispose.countDown();
 
       } catch (Throwable x) {
         GLX.error(x, "BGFX Thread Failure: " + x.getMessage());
         // TODO(bgfx): crash out clean as possible
       }
+
+      GLX.log(getName() + " finished.");
     }
   }
 
