@@ -42,6 +42,14 @@ import heronarts.lx.utils.LXUtils;
  */
 public interface UIItemList {
 
+  public static final int PADDING = 2;
+  public static final int SCROLL_BAR_WIDTH = 8;
+  public static final int ROW_HEIGHT = 16;
+  public static final int ROW_MARGIN = 2;
+  public static final int ROW_SPACING = ROW_HEIGHT + ROW_MARGIN;
+  public static final int CHECKBOX_SIZE = 8;
+  public static final int SECTION_CHEVRON_WIDTH = 14;
+
   public interface Listener {
     public void onItemFocused(Item item);
     public void onItemActivated(Item item);
@@ -97,6 +105,15 @@ public interface UIItemList {
      * @return Label for the item
      */
     public abstract String getLabel();
+
+    /**
+     * Custom label width may be returned
+     *
+     * @return Value > 0 for a custom label width
+     */
+    public float getLabelWidth() {
+      return -1;
+    }
 
     /**
      * Description of this item that will show in the help status bar
@@ -220,14 +237,6 @@ public interface UIItemList {
   }
 
   public static class Impl {
-
-    private static final int PADDING = 2;
-    private static final int SCROLL_BAR_WIDTH = 8;
-    private static final int ROW_HEIGHT = 16;
-    private static final int ROW_MARGIN = 2;
-    private static final int ROW_SPACING = ROW_HEIGHT + ROW_MARGIN;
-    private static final int CHECKBOX_SIZE = 8;
-    private static final int SECTION_CHEVRON_WIDTH = 14;
 
     private final UI ui;
     private final LX lx;
@@ -815,6 +824,9 @@ public interface UIItemList {
           textX += CHECKBOX_SIZE + 4;
         }
 
+        final float customLabelWidth = item.getLabelWidth();
+        final float labelWidth = (customLabelWidth > 0) ? customLabelWidth : rowWidth;
+
         if (renameItem) {
           vg.beginPath();
           vg.fillColor(ui.theme.editTextBackgroundColor);
@@ -822,11 +834,11 @@ public interface UIItemList {
           vg.fill();
 
           vg.fillColor(ui.theme.editTextColor);
-          UIInputBox.onDrawText(ui, vg, this.editState, this.editState.buffer, true, VGraphics.Align.LEFT, textX - 2, yp - .5f, rowWidth, ROW_HEIGHT, rowWidth - textX - 5);
+          UIInputBox.onDrawText(ui, vg, this.editState, this.editState.buffer, true, VGraphics.Align.LEFT, textX - 2, yp - .5f, labelWidth, ROW_HEIGHT, labelWidth - textX - 5);
         } else {
           vg.fillColor(textColor);
           vg.beginPath();
-          vg.text(textX, yp + ROW_SPACING/2-.5f, UI2dComponent.clipTextToWidth(vg, item.getLabel(), rowWidth - textX - 2));
+          vg.text(textX, yp + ROW_SPACING/2-.5f, UI2dComponent.clipTextToWidth(vg, item.getLabel(), labelWidth - textX - 2));
           vg.fill();
         }
         yp += ROW_SPACING;
@@ -1162,7 +1174,7 @@ public interface UIItemList {
 
     public ScrollList(UI ui, float x, float y, float w, float h) {
       super(x, y, w, h);
-      setScrollHeight(Impl.ROW_MARGIN);
+      setScrollHeight(ROW_MARGIN);
       this.impl = new Impl(ui, this);
     }
 
@@ -1199,10 +1211,17 @@ public interface UIItemList {
       scrollY = LXUtils.constrainf(scrollY, minScrollY, 0);
       if (this.scrollY != scrollY) {
         this.scrollY = scrollY;
+        onScrollChange();
         redraw();
       }
       return this;
     }
+
+    protected boolean hasScroll() {
+      return getScrollHeight() > getHeight();
+    }
+
+    protected void onScrollChange() {}
 
     private void rescroll() {
       setScrollY(this.scrollY);
@@ -1427,7 +1446,7 @@ public interface UIItemList {
 
     public BasicList(UI ui, float x, float y, float w, float h) {
       super(x, y, w, h);
-      setContentHeight(Impl.ROW_MARGIN);
+      setContentHeight(ROW_MARGIN);
       this.impl = new Impl(ui, this);
     }
 
