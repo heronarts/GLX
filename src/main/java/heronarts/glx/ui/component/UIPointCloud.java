@@ -554,7 +554,10 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     this.program.submit(
       view,
       BGFX_STATE_WRITE_RGB |
-      BGFX_STATE_WRITE_Z |
+      BGFX_STATE_WRITE_A |
+      // NOTE: very nearby pixels shouldn't clip each other, we draw UIPointCloud *last* from
+      // back to front. Don't write the Z values so that "stacked" lights both render
+      // BGFX_STATE_WRITE_Z |
       BGFX_STATE_BLEND_ALPHA |
       BGFX_STATE_ALPHA_REF(this.global.alphaRef.getValuei()) |
       (this.depthTest.isOn() ? BGFX_STATE_DEPTH_TEST_LESS : 0)
