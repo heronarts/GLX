@@ -586,11 +586,15 @@ public class GLX extends LX {
           final File file = new File(GLFWDropCallback.getName(names, 0));
           if (file.exists() && file.isFile()) {
             if (file.getName().endsWith(".lxp")) {
-              confirmChangesSaved("open project " + file.getName(), () -> {
-                openProject(file);
+              this.engine.addTask(() -> {
+                confirmChangesSaved("open project " + file.getName(), () -> {
+                  openProject(file);
+                });
               });
             } else if (file.getName().endsWith(".jar")) {
-              importContentJar(file, true);
+              this.engine.addTask(() -> {
+                importContentJar(file, true);
+              });
             }
           }
         } catch (Exception x) {
