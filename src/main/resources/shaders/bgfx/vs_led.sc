@@ -1,4 +1,4 @@
-$input a_position, a_color0, a_texcoord0, a_normal
+$input a_position, a_color0, a_texcoord1, a_normal
 $output v_texcoord0, v_texcoord1, v_color0
 
 /*
@@ -51,14 +51,16 @@ void main()
   
   v_color0 = vec4(a_color0.rgb * ratio, a_color0.a);
   
+  float pointScale = (a_texcoord1.z > 0) ? a_texcoord1.z : u_pointScale;
+
   gl_Position =
     mul(u_modelViewProj, vec4(a_position, 1.0f)) +
     mul(
-      u_pointScale * mix(1.0f, clamp(length(v_color0.rgb), 0.0f, 1.0f), u_feather),
-      vec4(vec2(1.0f, u_aspectRatio) * (a_texcoord0 - vec2(0.5f, 0.5f)), 0.0f, 0.0f)
+      pointScale * mix(1.0f, clamp(length(v_color0.rgb), 0.0f, 1.0f), u_feather),
+      vec4(vec2(1.0f, u_aspectRatio) * (a_texcoord1.xy - vec2(0.5f, 0.5f)), 0.0f, 0.0f)
     );  
 
-  v_texcoord0 = a_texcoord0;
+  v_texcoord0 = a_texcoord1.xy;
   
   maxC = max(max(v_color0.r, v_color0.g), v_color0.b);
   float angle = u_sparkleOffset + maxC * u_sparkleRotate;
@@ -68,8 +70,8 @@ void main()
   float stretch = mix(3.0f, 1.0f, sparkleSize);
   
   v_texcoord1 = vec3(
-    0.5f + stretch * (a_texcoord0.x-0.5f) * cosA - stretch * (a_texcoord0.y - 0.5f) * sinA,
-    0.5f + stretch * (a_texcoord0.x-0.5f) * sinA + stretch * (a_texcoord0.y - 0.5f) * cosA,
+    0.5f + stretch * (a_texcoord1.x-0.5f) * cosA - stretch * (a_texcoord1.y - 0.5f) * sinA,
+    0.5f + stretch * (a_texcoord1.x-0.5f) * sinA + stretch * (a_texcoord1.y - 0.5f) * cosA,
     u_sparkleAmount * sparkleSize
   );  
 
