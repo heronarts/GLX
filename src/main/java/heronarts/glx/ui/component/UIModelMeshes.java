@@ -150,15 +150,16 @@ public class UIModelMeshes extends UI3dComponent {
       final boolean hasNormals = (mesh.type == LXModel.Mesh.Type.PHONG);
       final boolean hasTexture = (this.texture != null);
 
-      int vertexDecl = VertexDeclaration.ATTRIB_POSITION;
+      final List<VertexDeclaration.Attribute> vertexAttributes = new ArrayList<>();
+      vertexAttributes.add(VertexDeclaration.Attribute.POSITION);
       if (hasColor) {
-        vertexDecl |= VertexDeclaration.ATTRIB_COLOR0;
+        vertexAttributes.add(VertexDeclaration.Attribute.COLOR0);
       }
       if (hasNormals) {
-        vertexDecl |= VertexDeclaration.ATTRIB_NORMAL;
+        vertexAttributes.add(VertexDeclaration.Attribute.NORMAL);
       }
       if (hasTexture) {
-        vertexDecl |= VertexDeclaration.ATTRIB_TEXCOORD0;
+        vertexAttributes.add(VertexDeclaration.Attribute.TEXCOORD0);
       }
 
       final LXModel.Mesh.Vertex[] normals;
@@ -177,7 +178,7 @@ public class UIModelMeshes extends UI3dComponent {
         normals = null;
       }
 
-      this.vertexBuffer = new VertexBuffer(lx, mesh.vertices.size(), vertexDecl) {
+      this.vertexBuffer = new VertexBuffer(lx, mesh.vertices.size(), vertexAttributes.toArray(new VertexDeclaration.Attribute[0])) {
         @Override
         protected void bufferData(ByteBuffer buffer) {
           int vIndex = 0;

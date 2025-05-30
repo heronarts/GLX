@@ -33,10 +33,10 @@ public class DynamicVertexBuffer {
   private final int numVertices;
 
   public DynamicVertexBuffer(GLX glx, int numVertices) {
-    this(glx, numVertices, VertexDeclaration.ATTRIB_POSITION | VertexDeclaration.ATTRIB_COLOR0);
+    this(glx, numVertices, VertexDeclaration.Attribute.POSITION, VertexDeclaration.Attribute.COLOR0);
   }
 
-  public DynamicVertexBuffer(GLX glx, int numVertices, int attributes) {
+  public DynamicVertexBuffer(GLX glx, int numVertices, VertexDeclaration.Attribute ... attributes) {
     this.vertexDeclaration = new VertexDeclaration(glx, attributes);
     this.vertexData = MemoryUtil.memAlloc(this.vertexDeclaration.getStride() * numVertices);
     this.vertexBufferHandle = bgfx_create_dynamic_vertex_buffer(numVertices, this.vertexDeclaration.getHandle(), BGFX_BUFFER_NONE);

@@ -33,7 +33,7 @@ public abstract class VertexBuffer {
 
   public static class UnitCube extends VertexBuffer {
     public UnitCube(GLX glx) {
-      super(glx, 14, VertexDeclaration.ATTRIB_POSITION);
+      super(glx, 14, VertexDeclaration.Attribute.POSITION);
     }
 
     @Override
@@ -64,7 +64,7 @@ public abstract class VertexBuffer {
     }
 
     protected UnitCubeEdges(GLX glx, int numVertices) {
-      super(glx, numVertices, VertexDeclaration.ATTRIB_POSITION);
+      super(glx, numVertices, VertexDeclaration.Attribute.POSITION);
     }
 
     @Override
@@ -108,11 +108,7 @@ public abstract class VertexBuffer {
   }
 
   public VertexBuffer(GLX glx, int numVertices) {
-    this(glx, numVertices, VertexDeclaration.ATTRIB_POSITION | VertexDeclaration.ATTRIB_TEXCOORD0);
-  }
-
-  public VertexBuffer(GLX glx, int numVertices, int attributes) {
-    this(glx, numVertices, new VertexDeclaration(glx, attributes));
+    this(glx, numVertices, VertexDeclaration.Attribute.POSITION, VertexDeclaration.Attribute.TEXCOORD0);
   }
 
   public VertexBuffer(GLX glx, int numVertices, VertexDeclaration.Attribute ... attributes) {
@@ -147,6 +143,16 @@ public abstract class VertexBuffer {
   public static void putTex2d(ByteBuffer buffer, float u, float v) {
     buffer.putFloat(u);
     buffer.putFloat(v);
+  }
+
+  protected void putTex3d(float u, float v, float w) {
+    putTex3d(this.vertexData, u, v, w);
+  }
+
+  public static void putTex3d(ByteBuffer buffer, float u, float v, float w) {
+    buffer.putFloat(u);
+    buffer.putFloat(v);
+    buffer.putFloat(w);
   }
 
   public short getHandle() {

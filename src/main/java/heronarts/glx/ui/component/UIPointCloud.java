@@ -206,7 +206,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     private static final int VERTICES_PER_POINT = 2;
 
     private NormalBuffer(GLX lx) {
-      super(lx, model.size * VERTICES_PER_POINT, VertexDeclaration.ATTRIB_POSITION);
+      super(lx, model.size * VERTICES_PER_POINT, VertexDeclaration.Attribute.POSITION);
     }
 
     @Override
@@ -228,26 +228,26 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     private static final int VERTICES_PER_POINT = 4;
 
     private ModelBuffer(GLX lx) {
-      super(lx, model.size * VERTICES_PER_POINT, VertexDeclaration.ATTRIB_POSITION | VertexDeclaration.ATTRIB_TEXCOORD0 | VertexDeclaration.ATTRIB_NORMAL);
+      super(lx, model.size * VERTICES_PER_POINT, VertexDeclaration.Attribute.POSITION, VertexDeclaration.Attribute.TEXCOORD1, VertexDeclaration.Attribute.NORMAL);
     }
 
     @Override
     protected void bufferData(ByteBuffer buffer) {
       for (LXPoint p : model.points) {
         putVertex(p.x, p.y, p.z);
-        putTex2d(0f, 0f);
+        putTex3d(0f, 0f, p.size);
         putVertex(p.xnormal, p.ynormal, p.znormal);
 
         putVertex(p.x, p.y, p.z);
-        putTex2d(1f, 0f);
+        putTex3d(1f, 0f, p.size);
         putVertex(p.xnormal, p.ynormal, p.znormal);
 
         putVertex(p.x, p.y, p.z);
-        putTex2d(0f, 1f);
+        putTex3d(0f, 1f, p.size);
         putVertex(p.xnormal, p.ynormal, p.znormal);
 
         putVertex(p.x, p.y, p.z);
-        putTex2d(1f, 1f);
+        putTex3d(1f, 1f, p.size);
         putVertex(p.xnormal, p.ynormal, p.znormal);
       }
 
@@ -487,7 +487,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     if (this.colorBuffer != null) {
       this.colorBuffer.dispose();
     }
-    this.colorBuffer = new DynamicVertexBuffer(lx, this.model.size * ModelBuffer.VERTICES_PER_POINT, VertexDeclaration.ATTRIB_COLOR0);
+    this.colorBuffer = new DynamicVertexBuffer(lx, this.model.size * ModelBuffer.VERTICES_PER_POINT, VertexDeclaration.Attribute.COLOR0);
   }
 
   private void buildIndexBuffer() {
