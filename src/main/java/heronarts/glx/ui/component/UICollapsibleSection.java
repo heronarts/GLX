@@ -28,6 +28,8 @@ import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.LX;
 import heronarts.lx.parameter.BooleanParameter;
 import heronarts.lx.parameter.BoundedParameter;
+import heronarts.lx.parameter.DiscreteParameter;
+import heronarts.lx.parameter.LXParameter;
 import heronarts.lx.parameter.LXParameterListener;
 
 /**
@@ -280,11 +282,39 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
     return this.content;
   }
 
+  public static final int CONTROL_WIDTH = 60;
+  public static final int CONTROL_HEIGHT = 16;
+
+  protected UI2dContainer controlRow(UI ui, String label, LXParameter parameter) {
+    return controlRow(ui, label, switch(parameter) {
+      case BooleanParameter bool -> controlButton(bool);
+      case DiscreteParameter discrete -> controlIntegerBox(discrete);
+      case BoundedParameter bounded -> controlDoubleBox(bounded);
+      default -> throw new IllegalArgumentException("Cannot make control row for parameter: " + parameter);
+    });
+  }
+
+  protected UIButton controlButton(BooleanParameter bool) {
+    return new UIButton(CONTROL_WIDTH, CONTROL_HEIGHT, bool);
+  }
+
+  protected UIIntegerBox controlIntegerBox(DiscreteParameter discrete) {
+    return new UIIntegerBox(CONTROL_WIDTH, CONTROL_HEIGHT, discrete);
+  }
+
+  protected UIDoubleBox controlDoubleBox(BoundedParameter bounded) {
+    return new UIDoubleBox(CONTROL_WIDTH, CONTROL_HEIGHT, bounded);
+  }
+
   protected UI2dContainer controlRow(UI ui, String label, UI2dComponent control) {
-    return UI2dContainer.newHorizontalContainer(16, 0,
-      new UILabel.Control(ui, getContentWidth()-60, 16, label),
-      control.setWidth(60)
+    return UI2dContainer.newHorizontalContainer(CONTROL_HEIGHT, 0,
+      controlLabel(ui, label),
+      control.setWidth(CONTROL_WIDTH)
     );
+  }
+
+  protected UILabel controlLabel(UI ui, String label) {
+    return new UILabel.Control(ui, getContentWidth() - CONTROL_WIDTH, CONTROL_HEIGHT, label);
   }
 
   @Override
@@ -296,18 +326,18 @@ public class UICollapsibleSection extends UI2dContainer implements UIMouseFocus 
   public interface Utils {
 
     public default UI2dContainer controlRow(UI ui, float contentWidth, String label, UI2dComponent control) {
-      return UI2dContainer.newHorizontalContainer(16, 0,
-        new UILabel.Control(ui, contentWidth-60, 16, label),
-        control.setWidth(60)
+      return UI2dContainer.newHorizontalContainer(CONTROL_HEIGHT, 0,
+        new UILabel.Control(ui, contentWidth - CONTROL_WIDTH, CONTROL_HEIGHT, label),
+        control.setWidth(CONTROL_WIDTH)
       );
     }
 
     public default UILabel geometryLabel(UI ui, String label) {
-      return (UILabel) new UILabel.Control(ui, 10, 16, label).setTextAlignment(VGraphics.Align.CENTER);
+      return (UILabel) new UILabel.Control(ui, 10, CONTROL_HEIGHT, label).setTextAlignment(VGraphics.Align.CENTER);
     }
 
     public default UIDoubleBox geometryBox(BoundedParameter p) {
-      return (UIDoubleBox) new UIDoubleBox(42, 16, p)
+      return (UIDoubleBox) new UIDoubleBox(42, CONTROL_HEIGHT, p)
         .setNormalizedMouseEditing(false)
         .setShiftMultiplier(10f);
     }

@@ -33,6 +33,7 @@ import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.component.UIInputBox;
 import heronarts.lx.LX;
+import heronarts.lx.LXLoopTask;
 import heronarts.lx.LXSerializable;
 import heronarts.lx.modulator.Click;
 import heronarts.lx.modulator.DampedParameter;
@@ -229,15 +230,20 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       new BoundedParameter("Z", 0, -RANGE_LIMIT, RANGE_LIMIT)
       .setDescription("Camera Z position");
 
-    private Camera() {}
+    private final LXParameter.Collection parameters = new LXParameter.Collection();
+
+    private Camera() {
+      this.parameters.add("active", this.active);
+      this.parameters.add("radius", this.radius);
+      this.parameters.add("theta", this.theta);
+      this.parameters.add("phi", this.phi);
+      this.parameters.add("x", this.x);
+      this.parameters.add("y", this.y);
+      this.parameters.add("z", this.z);
+    }
 
     private void reset() {
-      this.theta.reset();
-      this.phi.reset();
-      this.radius.reset();
-      this.x.reset();
-      this.y.reset();
-      this.z.reset();
+      this.parameters.reset();
     }
 
     private void set(Camera that) {
@@ -274,34 +280,216 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       this.z.setValue(LXUtils.lerp(one.z.getValue(), two.z.getValue(), amt));
     }
 
-    private static final String KEY_ACTIVE = "active";
-    private static final String KEY_RADIUS = "radius";
-    private static final String KEY_THETA = "theta";
-    private static final String KEY_PHI = "phi";
-    private static final String KEY_X = "x";
-    private static final String KEY_Y = "y";
-    private static final String KEY_Z = "z";
-
     @Override
     public void save(LX lx, JsonObject object) {
-      object.addProperty(KEY_ACTIVE, this.active.isOn());
-      object.addProperty(KEY_RADIUS, this.radius.getValue());
-      object.addProperty(KEY_THETA, this.theta.getValue());
-      object.addProperty(KEY_PHI, this.phi.getValue());
-      object.addProperty(KEY_X, this.x.getValue());
-      object.addProperty(KEY_Y, this.y.getValue());
-      object.addProperty(KEY_Z, this.z.getValue());
+      LXSerializable.Utils.saveParameters(object, this.parameters);
     }
 
     @Override
     public void load(LX lx, JsonObject object) {
-      LXSerializable.Utils.loadBoolean(this.active, object, KEY_ACTIVE);
-      LXSerializable.Utils.loadDouble(this.radius, object, KEY_RADIUS);
-      LXSerializable.Utils.loadDouble(this.theta, object, KEY_THETA);
-      LXSerializable.Utils.loadDouble(this.phi, object, KEY_PHI);
-      LXSerializable.Utils.loadDouble(this.x, object, KEY_X);
-      LXSerializable.Utils.loadDouble(this.y, object, KEY_Y);
-      LXSerializable.Utils.loadDouble(this.z, object, KEY_Z);
+      LXSerializable.Utils.loadParameters(object, this.parameters);
+    }
+
+    public static class Autopilot implements LXLoopTask, LXSerializable {
+
+      public enum Motion {
+        SIN("Sin"),
+        CYCLE("Cycle"),
+        NOISE("Noise");
+
+        private final String label;
+
+        private Motion(String label) {
+          this.label = label;
+        }
+
+        @Override
+        public String toString() {
+          return this.label;
+        }
+      }
+
+      private final LXParameter.Collection parameters = new LXParameter.Collection();
+
+      public final BooleanParameter enabled =
+        new BooleanParameter("Active", false)
+        .setDescription("Whether camera autopilot is active");
+
+      public final BoundedParameter radiusPeriod =
+        new BoundedParameter("Radius-Period", 15, 1, 600)
+        .setUnits(BoundedParameter.Units.SECONDS)
+        .setDescription("Time period of distance animation");
+
+      public final BoundedParameter radiusMin =
+        new BoundedParameter("Radius-Min", 120, 0, RANGE_LIMIT)
+        .setDescription("Minimum autopilot distance");
+
+      public final BoundedParameter radiusMax =
+        new BoundedParameter("Radius-Max", 120, 0, RANGE_LIMIT)
+        .setDescription("Maximum autopilot distance");
+
+      public final BoundedParameter radiusContrast =
+        new BoundedParameter("Radius-Contrast", 0)
+        .setUnits(BoundedParameter.Units.PERCENT_NORMALIZED)
+        .setDescription("Contrast boost to the distance animation");
+
+      public final BoundedParameter thetaPeriod =
+        new BoundedParameter("Theta-Period", 60, 1, 600)
+        .setUnits(BoundedParameter.Units.SECONDS)
+        .setDescription("Time period of azimuth animation");
+
+      public final BoundedParameter thetaMin =
+        new BoundedParameter("Theta-Min", 0, -360, 360)
+        .setWrappable(true)
+        .setUnits(BoundedParameter.Units.DEGREES)
+        .setDescription("Minimum autopilot azimuth");
+
+      public final BoundedParameter thetaMax =
+        new BoundedParameter("Theta-Max", 360, -360, 360)
+        .setWrappable(true)
+        .setUnits(BoundedParameter.Units.DEGREES)
+        .setDescription("Maximum autopilot azimuth");
+
+      public final BoundedParameter thetaContrast =
+        new BoundedParameter("Theta-Contrast", 0)
+        .setUnits(BoundedParameter.Units.PERCENT_NORMALIZED)
+        .setDescription("Contrast boost to the azimuth animation");
+
+      public final BoundedParameter phiPeriod =
+        new BoundedParameter("Phi-Period", 15, 1, 600)
+        .setUnits(BoundedParameter.Units.SECONDS)
+        .setDescription("Time period of elevation animation");
+
+      public final BoundedParameter phiMin =
+        new BoundedParameter("Phi-Min", 0, -89, 89)
+        .setUnits(BoundedParameter.Units.DEGREES)
+        .setDescription("Camera elevation from the XZ plane")
+        .setDescription("Minimum autopilot elevation");
+
+      public final BoundedParameter phiMax =
+        new BoundedParameter("Phi-Max", 30, -89, 89)
+        .setUnits(BoundedParameter.Units.DEGREES)
+        .setDescription("Maximum autopilot elevation");
+
+      public final BoundedParameter phiContrast =
+        new BoundedParameter("Phi-Contrast", 0)
+        .setUnits(BoundedParameter.Units.PERCENT_NORMALIZED)
+        .setDescription("Contrast boost to the elevation animation");
+
+      public final EnumParameter<Motion> radiusMotion =
+        new EnumParameter<Motion>("Radius-Motion", Motion.NOISE)
+        .setDescription("Motion type for distance animation");
+
+      public final EnumParameter<Motion> thetaMotion =
+        new EnumParameter<Motion>("Theta-Motion", Motion.CYCLE)
+        .setDescription("Motion type for azimuth animation");
+
+      public final EnumParameter<Motion> phiMotion =
+        new EnumParameter<Motion>("Phi-Motion", Motion.NOISE)
+        .setDescription("Motion type for elevation animation");
+
+      private Autopilot() {
+        this.parameters.add("enabled", this.enabled);
+        this.parameters.add("radiusPeriod", this.radiusPeriod);
+        this.parameters.add("radiusMin", this.radiusMin);
+        this.parameters.add("radiusMax", this.radiusMax);
+        this.parameters.add("radiusContrast", this.radiusContrast);
+        this.parameters.add("radiusMotion", this.radiusMotion);
+        this.parameters.add("thetaPeriod", this.thetaPeriod);
+        this.parameters.add("thetaMin", this.thetaMin);
+        this.parameters.add("thetaMax", this.thetaMax);
+        this.parameters.add("thetaContrast", this.thetaContrast);
+        this.parameters.add("thetaMotion", this.thetaMotion);
+        this.parameters.add("phiPeriod", this.phiPeriod);
+        this.parameters.add("phiMin", this.phiMin);
+        this.parameters.add("phiMax", this.phiMax);
+        this.parameters.add("phiContrast", this.phiContrast);
+        this.parameters.add("phiMotion", this.phiMotion);
+      }
+
+      private final double[] inputBasis = new double[3];
+
+      private final EnumParameter<?>[] inputMotion = {
+        this.radiusMotion,
+        this.thetaMotion,
+        this.phiMotion
+      };
+
+      private final BoundedParameter[] inputPeriod = {
+        this.radiusPeriod,
+        this.thetaPeriod,
+        this.phiPeriod,
+      };
+
+      private final BoundedParameter[] inputContrast = {
+        this.radiusContrast,
+        this.thetaContrast,
+        this.phiContrast
+      };
+
+      public final double[] basis = new double[3];
+
+      @Override
+      public void loop(double deltaMs) {
+        for (int i = 0; i < this.inputBasis.length; ++i) {
+          final double period = this.inputPeriod[i].getValue() * 1000;
+          final Motion motion = (Motion) this.inputMotion[i].getEnum();
+          switch (motion) {
+            case SIN -> {
+              this.inputBasis[i] = (this.inputBasis[i] + deltaMs / period) % 1;
+              this.basis[i] = .5 - .5 * Math.cos(this.inputBasis[i] * LX.TWO_PI);
+            }
+            case NOISE -> {
+              this.inputBasis[i] = (this.inputBasis[i] + deltaMs / (period + 37*i)) % 256;
+              this.basis[i] = 0.5 + 0.5 * LXUtils.noise((float) this.inputBasis[i], i, i);
+            }
+            case CYCLE -> {
+              this.inputBasis[i] = (this.inputBasis[i] + deltaMs / period) % 1;
+              this.basis[i] = this.inputBasis[i];
+            }
+          }
+          final double contrast = this.inputContrast[i].getValue();
+          if ((motion != Motion.CYCLE) && (contrast > 0)) {
+            final double pow = LXUtils.lerp(1, 4, contrast);
+            this.basis[i] = (this.basis[i] < .5) ?
+              .5 * Math.pow(2*this.basis[i], pow) :
+              1 - .5 * Math.pow(2 * (1 - this.basis[i]), pow);
+          }
+        }
+      }
+
+      void setCameraPosition(Camera camera) {
+        camera.radius.setValue(LXUtils.lerp(
+          this.radiusMin.getValue(),
+          this.radiusMax.getValue(),
+          this.basis[0]
+        ));
+        camera.theta.setValue((360 + LXUtils.lerp(
+          this.thetaMin.getValue(),
+          this.thetaMax.getValue(),
+          this.basis[1]
+        )) % 360);
+        camera.phi.setValue(LXUtils.lerp(
+          this.phiMin.getValue(),
+          this.phiMax.getValue(),
+          this.basis[2]
+        ));
+      }
+
+      void reset() {
+        this.parameters.reset();
+      }
+
+      @Override
+      public void save(LX lx, JsonObject object) {
+        LXSerializable.Utils.saveParameters(object, this.parameters);
+
+      }
+
+      @Override
+      public void load(LX lx, JsonObject object) {
+        LXSerializable.Utils.loadParameters(object, this.parameters);
+      }
     }
   }
 
@@ -316,6 +504,8 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   private Camera cameraTo = new Camera();
 
   private final LXPeriodicModulator animating = new Click(this.animationTime).setLooping(false);
+
+  public final Camera.Autopilot autopilot = new Camera.Autopilot();
 
   public final UIInputBox.ProgressIndicator animationProgress = new UIInputBox.ProgressIndicator() {
 
@@ -417,6 +607,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     addLoopTask(this.xDamped);
     addLoopTask(this.yDamped);
     addLoopTask(this.zDamped);
+    addLoopTask(this.autopilot);
 
     this.thetaDamped.start();
     this.radiusDamped.start();
@@ -429,7 +620,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
     addListener(this.camera.radius, p -> {
       double value = this.camera.radius.getValue();
-      if (value < this.minRadius || value > this.maxRadius) {
+      if (LXUtils.inRange(value, this.minRadius, this.maxRadius)) {
         this.camera.radius.setValue(LXUtils.constrain(value, this.minRadius, this.maxRadius));
       }
     });
@@ -555,6 +746,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
    * @return this
    */
   public UI3dContext setCamera(int index) {
+    this.autopilot.enabled.setValue(false);
     if (this.focusCamera.getValuei() != index) {
       this.focusCamera.setValue(index);
     } else {
@@ -738,6 +930,10 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       this.camera.lerp(this.cameraFrom, this.cameraTo, this.animating.getBasis());
     }
 
+    if (this.autopilot.enabled.isOn()) {
+      this.autopilot.setCameraPosition(this.camera);
+    }
+
     final float rv = this.radiusDamped.getValuef();
     final double tv = Math.toRadians(this.thetaDamped.getValue());
     final double pv = Math.toRadians(this.phiDamped.getValue());
@@ -883,6 +1079,8 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     switch (interaction) {
     case ROTATE_VIEW:
     case ROTATE_OBJECT:
+      this.autopilot.enabled.setValue(false);
+
       // NOTE: this is counter-intuitive but the rotation in the theta plane is divided relative
       // to height, as we're almost always in a non-square aspect ratio and want horizontal rotation
       // to feel consistent with vertical, in terms of same number of pixels mouse-movement should
@@ -901,6 +1099,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       break;
 
     case ZOOM:
+      this.autopilot.enabled.setValue(false);
       this.camera.radius.incrementValue(dy * 2.f / getHeight() * this.camera.radius.getValue());
       updateFocusedCamera();
       break;
@@ -955,6 +1154,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
   @Override
   protected void onMouseScroll(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
+    this.autopilot.enabled.setValue(false);
     float multiplier = mouseEvent.isShiftDown() ? 3 : 1;
     this.camera.radius.incrementValue(multiplier * -dy / getHeight() * this.camera.radius.getValue());
     updateFocusedCamera();
@@ -988,6 +1188,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   private static final String KEY_ANIMATION = "animation";
   private static final String KEY_ANIMATION_TIME = "animationTime";
   private static final String KEY_CAMERA = "camera";
+  private static final String KEY_AUTOPILOT = "autopilot";
   private static final String KEY_CUE = "cue";
   private static final String KEY_FOCUS = "focus";
   private static final String KEY_PROJECTION = "projection";
@@ -1003,6 +1204,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     object.addProperty(KEY_DEPTH, this.depth.getValue());
     object.add(KEY_CAMERA, LXSerializable.Utils.toObject(lx, this.camera));
     object.add(KEY_CUE, LXSerializable.Utils.toArray(lx, this.cue));
+    object.add(KEY_AUTOPILOT, LXSerializable.Utils.toObject(lx, this.autopilot));
     object.addProperty(KEY_FOCUS, this.focusCamera.getValuei());
   }
 
@@ -1037,6 +1239,12 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
     // Load animation setting
     LXSerializable.Utils.loadBoolean(this.animation, object, KEY_ANIMATION);
+
+    if (object.has(KEY_AUTOPILOT)) {
+      LXSerializable.Utils.loadObject(lx, this.autopilot, object, KEY_AUTOPILOT);
+    } else {
+      this.autopilot.reset();
+    }
   }
 
 }
