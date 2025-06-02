@@ -218,10 +218,10 @@ public class GLX extends LX {
     this.bgfxThread.start();
 
     // Get BGFX instance and core state
-    GLX.log("GLX Thread awaiting initialized");
+    GLX.log("GLX main thread awaiting BGFX initialization...");
     try {
       while (true) {
-        // NB: this poll is necessary to kick GLFW and get bgfx_init() to return!
+        // NB: this poll call seems to be *necessary* to kick GLFW and get bgfx_init() to return! (on MacOS at least)
         glfwPollEvents();
         if (this.bgfxThread.didInitialize.await(16, TimeUnit.MILLISECONDS)) {
           break;
@@ -268,25 +268,11 @@ public class GLX extends LX {
     log("Bootstrap complete, running main loop.");
     eventLoop();
 
-    // Dispose the BGFX render thread and UI assets
-    try {
-      log("Waiting for BGFX render thread to finish...");
-      this.bgfxThread.join();
-    } catch (InterruptedException ix) {
-      GLX.error(ix, "Interrupted awaiting BGFX shutdown");
-    }
-
-    // Stop the LX engine
-    log("Stopping LX engine...");
-    this.engine.stop();
-
-    // TODO(mcslee): join the LX engine thread? make sure it's really
-    // done before cleaning up the window assets? doesn't seem to be necessary...
-
-    // Clean up after ourselves
-    dispose();
+    // Signal to the BGFX engine thread to stop
+    this.bgfxThread.shutdown();
 
     // Free the window callbacks and destroy the window
+    log("Destroying main thread GLFW window...");
     glfwFreeCallbacks(this.window);
     glfwDestroyWindow(this.window);
 
@@ -605,7 +591,6 @@ public class GLX extends LX {
 
     // Register input dispatching callbacks
     glfwSetKeyCallback(this.window, this.inputDispatch::glfwKeyCallback);
-
     glfwSetCharCallback(this.window, this.inputDispatch::glfwCharCallback);
     glfwSetCursorPosCallback(this.window, this.inputDispatch::glfwCursorPosCallback);
     glfwSetMouseButtonCallback(this.window, this.inputDispatch::glfwMouseButtonCallback);

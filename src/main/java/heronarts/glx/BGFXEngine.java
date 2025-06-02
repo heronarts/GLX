@@ -58,6 +58,8 @@ public class BGFXEngine {
 
     final CountDownLatch run = new CountDownLatch(1);
 
+    private volatile boolean shutdown = false;
+
     boolean hasFailed;
 
     UI ui;
@@ -67,9 +69,25 @@ public class BGFXEngine {
       this.glx = glx;
     }
 
+    // Called by GLX main thread, signals to the RenderThread to clean everything
+    // up and close down BGFX. Blocks until finished, at which point main thread
+    // can destroy the GLFW window.
+    void shutdown() {
+      if (Thread.currentThread() == this) {
+        throw new IllegalThreadStateException(getName() + " may not call shutdown() on itself");
+      }
+      this.shutdown = true;
+      synchronized (this) { notify(); }
+      try {
+        join();
+      } catch (InterruptedException ix) {
+        GLX.error(ix, "Interrupted awaiting BGFX shutdown");
+      }
+    }
+
     @Override
     public void run() {
-      GLX.log("Starting BGFX render thread");
+      GLX.log("Starting " + getName() + "...");
 
       try {
         // Setup BGFX
@@ -80,7 +98,7 @@ public class BGFXEngine {
         try {
           this.buildUI.await();
         } catch (InterruptedException ix) {
-          GLX.error(ix, "BGFX Thread interrupted before build");
+          GLX.error(ix, getName() + " interrupted before buildUI");
           return;
         }
         this.ui = this.glx.buildUI();
@@ -90,7 +108,7 @@ public class BGFXEngine {
         try {
           this.run.await();
         } catch (InterruptedException ix) {
-          GLX.error(ix, "BGFX Thread interrupted before begin");
+          GLX.error(ix, getName() + " interrupted before begin");
           return;
         }
 
@@ -101,11 +119,15 @@ public class BGFXEngine {
         long drawNanos = 0;
 
         // Keep rendering until we're asked to dispose
-        while (!glfwWindowShouldClose(this.glx.window)) {
+        while (!this.shutdown) {
 
           if (this.hasFailed) {
             // Just wait to be told to dispose
-            try { Thread.sleep(100); } catch (InterruptedException ix) {}
+            synchronized (this) {
+              try {
+                wait();
+              } catch (InterruptedException ix) {}
+            }
             continue;
           }
 
@@ -152,8 +174,8 @@ public class BGFXEngine {
           }
         }
 
-        // Dispose
-        this.bgfx.dispose();
+        // We're ka-put, shut it all down.
+        dispose();
 
       } catch (Throwable x) {
         GLX.error(x, "BGFX Thread Failure: " + x.getMessage());
@@ -162,6 +184,29 @@ public class BGFXEngine {
 
       GLX.log(getName() + " finished.");
     }
+
+    private void dispose() {
+      // Stop the LX engine
+      GLX.log("Stopping LX engine...");
+      this.glx.engine.stop();
+
+      // NOTE: destroy the whole UI first, rip down all the listeners
+      // before disposing of the engine itself. Done on the BGFX thread
+      // to properly dispose of BGFX resources.
+      GLX.log("Disposing of GLX UI...");
+      this.glx.ui.dispose();
+      GLX.log("GLX UI disposed.");
+
+      // Clean up the LX instance
+      GLX.log("Disposing of GLX instance...");
+      this.glx.dispose();
+      GLX.log("GLX instance disposed.");
+
+      // Dispose of BGFX
+      GLX.log("Disposing of BGFX engine...");
+      this.bgfx.dispose();
+    }
+
   }
 
   public final class Programs {
@@ -260,15 +305,8 @@ public class BGFXEngine {
   }
 
   private void dispose() {
-    // NOTE: destroy the whole UI first, rip down all the listeners
-    // before disposing of the engine itself. Done on the BGFX thread
-    // to properly dispose of BGFX resources.
-    this.glx.ui.dispose();
-
-    // Dispose of common programs
     this.program.dispose();
-
-    // Done with BGFX!
     bgfx_shutdown();
   }
+
 }
