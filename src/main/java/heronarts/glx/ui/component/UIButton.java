@@ -20,6 +20,7 @@ package heronarts.glx.ui.component;
 
 import java.util.Objects;
 
+import heronarts.glx.event.Event;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
@@ -667,6 +668,10 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     }
   }
 
+  private boolean isMomentaryPressHold(Event event) {
+    return this.isMomentary && !this.active && event.isCommand();
+  }
+
   @Override
   protected void onMouseDragged(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
     if (this.enabled && this.momentaryPressEngaged) {
@@ -684,7 +689,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
       mouseEvent.consume();
       this.momentaryPressValid = this.isMomentary;
       this.momentaryPressEngaged = this.isMomentary;
-      this.momentaryPressHold = this.isMomentary && mouseEvent.isCommand();
+      this.momentaryPressHold = isMomentaryPressHold(mouseEvent);
       setActive(this.isMomentary ? true : !this.active);
     }
   }
@@ -714,7 +719,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
       if (this.enabled) {
         this.momentaryPressValid = this.isMomentary;
         this.momentaryPressEngaged = this.isMomentary;
-        this.momentaryPressHold = this.isMomentary && keyEvent.isCommand();
+        this.momentaryPressHold = isMomentaryPressHold(keyEvent);
         setActive(this.isMomentary ? true : !this.active);
       }
       keyEvent.consume();
