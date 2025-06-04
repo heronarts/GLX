@@ -37,6 +37,15 @@ import org.lwjgl.system.Platform;
 
 public class BGFXEngine {
 
+  /**
+   * Marker interface for resources that need allocation and freeing
+   * on the BGFX thread. Can be enforced by GLX.assertBgfx... family
+   * of methods.
+   */
+  public interface Resource {
+    public void dispose();
+  }
+
   private final GLX glx;
 
   final Thread thread;
@@ -186,8 +195,8 @@ public class BGFXEngine {
     }
   }
 
-  final List<Runnable> threadSafeDisposeQueue = Collections.synchronizedList(new ArrayList<>());
-  private final List<Runnable> bgfxThreadDisposeQueue = new ArrayList<>();
+  final List<BGFXEngine.Resource> threadSafeDisposeQueue = Collections.synchronizedList(new ArrayList<>());
+  private final List<BGFXEngine.Resource> bgfxThreadDisposeQueue = new ArrayList<>();
 
   private void draw() {
     // Copy the latest engine-rendered LED frame
@@ -201,7 +210,7 @@ public class BGFXEngine {
       this.bgfxThreadDisposeQueue.addAll(this.threadSafeDisposeQueue);
       this.threadSafeDisposeQueue.clear();
     }
-    this.bgfxThreadDisposeQueue.forEach(r -> r.run());
+    this.bgfxThreadDisposeQueue.forEach(r -> r.dispose());
     this.bgfxThreadDisposeQueue.clear();
   }
 

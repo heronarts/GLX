@@ -32,6 +32,7 @@ import org.lwjgl.nanovg.NVGPaint;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
+import heronarts.glx.BGFXEngine;
 import heronarts.glx.GLX;
 import heronarts.glx.GLXUtils;
 import heronarts.glx.View;
@@ -48,7 +49,7 @@ import static org.lwjgl.nanovg.NanoVGBGFX.*;
  * idiomatic java style and doesn't require the API client to keep track of the NanoVG context
  * handle or prefix everything with nvg. Also makes for simpler method chaining calls.
  */
-public class VGraphics {
+public class VGraphics implements BGFXEngine.Resource {
 
   public static enum Winding {
     CCW(NVG_CCW),
@@ -145,7 +146,7 @@ public class VGraphics {
     }
   }
 
-  public class Image {
+  public class Image implements BGFXEngine.Resource {
     public final int id;
     public final int width;
     public final int height;
@@ -155,6 +156,7 @@ public class VGraphics {
     private final boolean isRgbData;
 
     private Image(int id, ByteBuffer imageData, int w, int h, boolean is2x, boolean isRgbData) {
+      glx.assertBgfxThreadAllocation(this);
       this.id = id;
       this.imageData = imageData;
       if (is2x) {
@@ -191,7 +193,7 @@ public class VGraphics {
       if (argb.length != (this.width * this.height)) {
         throw new IllegalArgumentException("ARGB array length (" + argb.length + ") doesn't match width(" + this.width + ") x height(" + this.height +")");
       }
-      glx.assertBgfxThreadUpdate(getClass());
+      glx.assertBgfxThreadUpdate(this);
       nvgUpdateImage(vg, this.id, bufferARGB(this.imageData, argb));
     }
 
@@ -241,7 +243,7 @@ public class VGraphics {
     }
   }
 
-  public class Framebuffer {
+  public class Framebuffer implements BGFXEngine.Resource {
     private final UI2dContext context;
     private NVGLUFramebufferBGFX buffer = null;
     private final Paint paint = new Paint();
@@ -321,7 +323,7 @@ public class VGraphics {
     }
 
     private void rebuffer() {
-      glx.assertBgfxThread("VGraphics.rebuffer() must be on BGFX thread");
+      glx.assertBgfxThreadAllocation(this);
       if (this.buffer != null) {
         nvgluDeleteFramebuffer(this.buffer);
       }
@@ -352,11 +354,15 @@ public class VGraphics {
     }
 
     public void dispose() {
-      final NVGLUFramebufferBGFX buffer = this.buffer;
-      if (buffer != null) {
-        glx.bgfxThreadDispose(getClass(), () -> nvgluDeleteFramebuffer(buffer));
+      if (glx.bgfxThreadDispose(this)) {
+        final NVGLUFramebufferBGFX buffer = this.buffer;
+        if (buffer != null) {
+          nvgluDeleteFramebuffer(buffer);
+        }
+        this.buffer = null;
       }
-      this.buffer = null;
+
+      // We know it *will* be removed, whether now or later
       allocatedBuffers.remove(this);
     }
 
@@ -375,7 +381,7 @@ public class VGraphics {
   private final List<Image> allocatedImages = new ArrayList<Image>();
 
   public VGraphics(GLX glx) {
-    glx.assertBgfxThreadAllocation(getClass());
+    glx.assertBgfxThreadAllocation(this);
     this.glx = glx;
     this.vg = nvgCreate(true, 0, NULL);
     this.view = new View(glx);
@@ -810,6 +816,7 @@ public class VGraphics {
   }
 
   public void dispose() {
+    this.glx.assertBgfxThreadDispose(this);
     if (!this.allocatedBuffers.isEmpty()) {
       new ArrayList<>(this.allocatedBuffers).forEach(buffer -> {
         GLX.error("Stranded VGraphics.Framebuffer: " + buffer);

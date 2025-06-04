@@ -26,15 +26,16 @@ import java.nio.FloatBuffer;
 
 import org.lwjgl.system.MemoryUtil;
 
+import heronarts.glx.BGFXEngine;
 import heronarts.glx.GLX;
 import heronarts.glx.GLXUtils;
 import heronarts.glx.Texture;
 import heronarts.glx.VertexBuffer;
 import heronarts.glx.View;
 
-public class ShaderProgram {
+public class ShaderProgram implements BGFXEngine.Resource {
 
-  public abstract static class Uniform {
+  public abstract static class Uniform implements BGFXEngine.Resource {
 
     public enum Type {
       SAMPLER(BGFX_UNIFORM_TYPE_SAMPLER),
@@ -51,13 +52,13 @@ public class ShaderProgram {
     protected final short handle;
 
     protected Uniform(GLX glx, Type type, String name) {
-      glx.assertBgfxThreadAllocation(getClass());
+      glx.assertBgfxThreadAllocation(this);
       this.glx = glx;
       this.handle = bgfx_create_uniform(name, type.bgfxType, 1);
     }
 
     public void dispose() {
-      this.glx.assertBgfxThreadDispose(getClass());
+      this.glx.assertBgfxThreadDispose(this);
       bgfx_destroy_uniform(this.handle);
     }
 
@@ -71,7 +72,7 @@ public class ShaderProgram {
       }
 
       public void setTexture(int stage, short textureHandle, int textureFlags) {
-        this.glx.assertBgfxThreadUpdate(getClass());
+        this.glx.assertBgfxThreadUpdate(this);
         bgfx_set_texture(stage, this.handle, textureHandle, textureFlags);
       }
     }
@@ -91,7 +92,7 @@ public class ShaderProgram {
       }
 
       public void set(float... values) {
-        this.glx.assertBgfxThreadUpdate(getClass());
+        this.glx.assertBgfxThreadUpdate(this);
         if (values.length > 4) {
           throw new IllegalArgumentException(
             "Cannot pass more than 4 values to Uniform.Vec4f.set()");
@@ -125,7 +126,7 @@ public class ShaderProgram {
   protected long bgfxState = DEFAULT_BGFX_STATE;
 
   public ShaderProgram(GLX glx, String vsName, String fsName) {
-    glx.assertBgfxThreadAllocation(getClass());
+    glx.assertBgfxThreadAllocation(this);
     this.glx = glx;
     try {
       this.vertexShaderCode = GLXUtils.loadShader(glx, vsName);
@@ -180,10 +181,10 @@ public class ShaderProgram {
   }
 
   public void dispose() {
-    this.glx.bgfxThreadDispose(getClass(), () -> {
+    if (this.glx.bgfxThreadDispose(this)) {
       bgfx_destroy_program(this.handle);
       MemoryUtil.memFree(this.vertexShaderCode);
       MemoryUtil.memFree(this.fragmentShaderCode);
-    });
+    }
   }
 }

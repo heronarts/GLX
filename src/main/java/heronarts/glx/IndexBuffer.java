@@ -23,7 +23,7 @@ import static org.lwjgl.bgfx.BGFX.*;
 import java.nio.ByteBuffer;
 import org.lwjgl.system.MemoryUtil;
 
-public abstract class IndexBuffer {
+public abstract class IndexBuffer implements BGFXEngine.Resource {
 
   private final GLX glx;
   private final ByteBuffer indexData;
@@ -31,7 +31,7 @@ public abstract class IndexBuffer {
   private final int numIndices;
 
   public IndexBuffer(GLX glx, int numIndices, boolean int32) {
-    glx.assertBgfxThreadAllocation(getClass());
+    glx.assertBgfxThreadAllocation(this);
     this.glx = glx;
     this.indexData = MemoryUtil.memAlloc((int32 ? Integer.BYTES : Short.BYTES) * numIndices);
     bufferData(this.indexData);
@@ -55,9 +55,9 @@ public abstract class IndexBuffer {
   }
 
   public void dispose() {
-    this.glx.bgfxThreadDispose(getClass(), () -> {
+    if (this.glx.bgfxThreadDispose(this)) {
       bgfx_destroy_index_buffer(this.indexBufferHandle);
       MemoryUtil.memFree(this.indexData);
-    });
+    }
   }
 }

@@ -22,7 +22,7 @@ import static org.lwjgl.bgfx.BGFX.*;
 
 import org.lwjgl.bgfx.BGFXVertexLayout;
 
-public class VertexDeclaration {
+public class VertexDeclaration implements BGFXEngine.Resource {
 
   public enum Attribute {
     POSITION,
@@ -37,7 +37,7 @@ public class VertexDeclaration {
   private int stride = 0;
 
   public VertexDeclaration(GLX glx, Attribute ... attributes) {
-    glx.assertBgfxThreadAllocation(getClass());
+    glx.assertBgfxThreadAllocation(this);
     this.glx = glx;
     this.handle = BGFXVertexLayout.calloc();
     bgfx_vertex_layout_begin(this.handle, glx.bgfx.getRenderer());
@@ -84,9 +84,9 @@ public class VertexDeclaration {
   }
 
   public void dispose() {
-    this.glx.bgfxThreadDispose(getClass(), () -> {
+    if (this.glx.bgfxThreadDispose(this)) {
       this.handle.free();
-    });
+    }
   }
 
 }

@@ -30,7 +30,7 @@ import static org.lwjgl.stb.STBImage.STBI_rgb_alpha;
 import static org.lwjgl.stb.STBImage.stbi_load;
 import static org.lwjgl.stb.STBImage.stbi_image_free;
 
-public class Texture {
+public class Texture implements BGFXEngine.Resource {
 
   private final GLX glx;
   private final short th;
@@ -42,7 +42,7 @@ public class Texture {
   }
 
   public Texture(GLX glx, String path) {
-    glx.assertBgfxThreadAllocation(getClass());
+    glx.assertBgfxThreadAllocation(this);
     this.glx = glx;
     this.stbiData = null;
     try {
@@ -54,7 +54,7 @@ public class Texture {
   }
 
   private Texture(GLX glx, String path, boolean is2d) throws IOException {
-    glx.assertBgfxThreadAllocation(getClass());
+    glx.assertBgfxThreadAllocation(this);
     this.glx = glx;
     this.textureData = null;
     try (MemoryStack stack = MemoryStack.stackPush()) {
@@ -74,7 +74,7 @@ public class Texture {
   }
 
   public void dispose() {
-    this.glx.bgfxThreadDispose(getClass(), () -> {
+    if (this.glx.bgfxThreadDispose(this)) {
       bgfx_destroy_texture(this.th);
       if (this.stbiData != null) {
         stbi_image_free(this.stbiData);
@@ -82,6 +82,6 @@ public class Texture {
       if (this.textureData != null) {
         MemoryUtil.memFree(this.textureData);
       }
-    });
+    }
   }
 }

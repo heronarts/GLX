@@ -28,6 +28,7 @@ import org.joml.Matrix4f;
 import org.lwjgl.bgfx.BGFXVertexLayout;
 import org.lwjgl.system.MemoryUtil;
 
+import heronarts.glx.BGFXEngine;
 import heronarts.glx.GLX;
 import heronarts.glx.GLXUtils;
 import heronarts.glx.Texture;
@@ -35,7 +36,7 @@ import heronarts.glx.VertexBuffer;
 import heronarts.glx.View;
 import heronarts.glx.shader.ShaderProgram.Uniform;
 
-public class Tex2d {
+public class Tex2d implements BGFXEngine.Resource {
 
   private final GLX glx;
   private BGFXVertexLayout vertexLayout;
@@ -68,7 +69,7 @@ public class Tex2d {
   };
 
   public Tex2d(GLX glx) {
-    glx.assertBgfxThreadAllocation(getClass());
+    glx.assertBgfxThreadAllocation(this);
     this.glx = glx;
 
     this.modelMatrixBuf = MemoryUtil.memAllocFloat(16);
@@ -142,7 +143,7 @@ public class Tex2d {
   }
 
   public void dispose() {
-    this.glx.bgfxThreadDispose(getClass(), () -> {
+    if (this.glx.bgfxThreadDispose(this)) {
       MemoryUtil.memFree(this.vertexBuffer);
       MemoryUtil.memFree(this.vsCode);
       MemoryUtil.memFree(this.fsCode);
@@ -150,7 +151,7 @@ public class Tex2d {
       MemoryUtil.memFree(this.modelMatrixBuf);
       this.uniformTexture.dispose();
       bgfx_destroy_program(this.program);
-    });
+    }
   }
 
 }

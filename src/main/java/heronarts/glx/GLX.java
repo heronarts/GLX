@@ -212,16 +212,16 @@ public class GLX extends LX {
     log("UI thread performance logging " + (this.flagUIDebug ? "ON" : "OFF"));
   }
 
-  public void assertBgfxThreadAllocation(Class<?> cls) {
-    assertBgfxThread(cls.getName() + " must be created on the BGFX thread");
+  public void assertBgfxThreadAllocation(BGFXEngine.Resource resource) {
+    assertBgfxThread(resource.getClass().getName() + " must be created on the BGFX thread");
   }
 
-  public void assertBgfxThreadUpdate(Class<?> cls) {
-    assertBgfxThread(cls.getName() + " may only be updated on the BGFX thread");
+  public void assertBgfxThreadUpdate(BGFXEngine.Resource resource) {
+    assertBgfxThread(resource.getClass().getName() + " may only be updated on the BGFX thread");
   }
 
-  public void assertBgfxThreadDispose(Class<?> cls) {
-    assertBgfxThread(cls.getName() + " must be disposed on the BGFX thread");
+  public void assertBgfxThreadDispose(BGFXEngine.Resource resource) {
+    assertBgfxThread(resource.getClass().getName() + " must be disposed on the BGFX thread");
   }
 
   public void assertBgfxThread(String error) {
@@ -230,13 +230,21 @@ public class GLX extends LX {
     }
   }
 
-  public void bgfxThreadDispose(Class<?> cls, Runnable runnable) {
+  /**
+   * Returns true if we are on the BGFX thread and can immediately dispose
+   * of this resource. Otherwise it is scheduled to run later on the BGFX thread
+   * at which point this call will succeed.
+   *
+   * @param resource Resource
+   * @return true if the dispose code should run now
+   */
+  public boolean bgfxThreadDispose(BGFXEngine.Resource resource) {
     if (Thread.currentThread() != this.bgfx.thread) {
-      warning(cls.getName() + ".dispose() re-scheduled to run on BGFX thread");
-      this.bgfx.threadSafeDisposeQueue.add(runnable);
-    } else {
-      runnable.run();
+      debug(resource.getClass().getName() + "dispose() queued to run on BGFX thread");
+      this.bgfx.threadSafeDisposeQueue.add(resource);
+      return false;
     }
+    return true;
   }
 
   public void run() {
