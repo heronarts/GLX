@@ -240,7 +240,7 @@ public class GLX extends LX {
    */
   public boolean bgfxThreadDispose(BGFXEngine.Resource resource) {
     if (Thread.currentThread() != this.bgfx.thread) {
-      debug(resource.getClass().getName() + "dispose() queued to run on BGFX thread");
+      debug(resource.getClass().getName() + ".dispose() queued to run on BGFX thread");
       this.bgfx.threadSafeDisposeQueue.add(resource);
       return false;
     }
