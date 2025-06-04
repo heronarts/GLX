@@ -470,7 +470,6 @@ public class GLX extends LX {
       glfwGetWindowSize(this.window, xSize, ySize);
       this.windowWidth = xSize.get(0);
       this.windowHeight = ySize.get(0);
-      log("GLX windowSize: " + this.windowWidth + "x" + this.windowHeight);
 
       // Restore window position if restored from preferences
       if (this.windowPosX >= 0 && this.windowPosY >= 0) {
@@ -480,12 +479,15 @@ public class GLX extends LX {
         // this.windowPosY = 0;
         log("GLX setWindowPos: " + this.windowPosX + "," + this.windowPosY);
         glfwSetWindowPos(this.window, this.windowPosX, this.windowPosY);
-      }
 
-      IntBuffer xPos = stack.mallocInt(1);
-      IntBuffer yPos = stack.mallocInt(1);
-      glfwGetWindowPos(this.window, xPos, yPos);
-      log("GLX windowPos: " + xPos.get() + "x" + yPos.get());
+        // NOTE: apparently been observed in the wild that the window may end up too big to fit,
+        // (email exchange w/ jkbelcher june 4 2025), check again here after setting position
+        // that it's been fixed?
+        glfwGetWindowSize(this.window, xSize, ySize);
+        this.windowWidth = xSize.get(0);
+        this.windowHeight = ySize.get(0);
+      }
+      log("GLX windowSize: " + this.windowWidth + "x" + this.windowHeight);
 
       // See what is in the framebuffer. A retina Mac probably supplies
       // 2x the dimensions on framebuffer relative to window.
