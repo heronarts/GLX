@@ -454,6 +454,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       this.normalBuffer.dispose();
     }
     this.program.dispose();
+    super.dispose();
   }
 
   private void buildModelBuffer() {
