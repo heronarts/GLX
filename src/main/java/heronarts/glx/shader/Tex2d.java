@@ -30,6 +30,7 @@ import org.lwjgl.bgfx.BGFXVertexLayout;
 import org.lwjgl.system.MemoryUtil;
 
 import heronarts.glx.BGFXEngine;
+import heronarts.glx.GLX;
 import heronarts.glx.GLXUtils;
 import heronarts.glx.Texture;
 import heronarts.glx.VertexBuffer;
@@ -38,6 +39,7 @@ import heronarts.glx.shader.ShaderProgram.Uniform;
 
 public class Tex2d {
 
+  private final GLX glx;
   private BGFXVertexLayout vertexLayout;
   private short program;
 
@@ -68,6 +70,8 @@ public class Tex2d {
   };
 
   public Tex2d(BGFXEngine bgfx) {
+    bgfx.glx.assertBgfxThreadAllocation(getClass());
+    this.glx = bgfx.glx;
 
     this.modelMatrixBuf = MemoryUtil.memAllocFloat(16);
     this.modelMatrix.get(this.modelMatrixBuf);
@@ -99,7 +103,7 @@ public class Tex2d {
         bgfx_create_shader(bgfx_make_ref(this.fsCode)),
         true
       );
-      this.uniformTexture = new Uniform.Sampler("s_texColor");
+      this.uniformTexture = new Uniform.Sampler(bgfx.glx, "s_texColor");
     } catch (IOException iox) {
       throw new RuntimeException(iox);
     }
@@ -146,13 +150,15 @@ public class Tex2d {
   }
 
   public void dispose() {
-    MemoryUtil.memFree(this.vertexBuffer);
-    MemoryUtil.memFree(this.vsCode);
-    MemoryUtil.memFree(this.fsCode);
-    this.vertexLayout.free();
-    MemoryUtil.memFree(this.modelMatrixBuf);
-    this.uniformTexture.dispose();
-    bgfx_destroy_program(this.program);
+    this.glx.bgfxThreadDispose(getClass(), () -> {
+      MemoryUtil.memFree(this.vertexBuffer);
+      MemoryUtil.memFree(this.vsCode);
+      MemoryUtil.memFree(this.fsCode);
+      this.vertexLayout.free();
+      MemoryUtil.memFree(this.modelMatrixBuf);
+      this.uniformTexture.dispose();
+      bgfx_destroy_program(this.program);
+    });
   }
 
 }

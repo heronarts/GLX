@@ -190,6 +190,7 @@ public class VGraphics {
       if (argb.length != (this.width * this.height)) {
         throw new IllegalArgumentException("ARGB array length (" + argb.length + ") doesn't match width(" + this.width + ") x height(" + this.height +")");
       }
+      glx.assertBgfxThreadUpdate(getClass());
       nvgUpdateImage(vg, this.id, bufferARGB(this.imageData, argb));
     }
 
@@ -218,6 +219,7 @@ public class VGraphics {
     }
 
     public void dispose() {
+      glx.assertBgfxThread("VGraphics.Image.dispose()  must happen on the BGFX thread");
       nvgDeleteImage(vg, this.id);
       MemoryUtil.memFree(this.imageData);
     }
@@ -297,6 +299,7 @@ public class VGraphics {
     }
 
     private Framebuffer bind() {
+      glx.assertBgfxThread("VGraphics.Framebuffer.bind() must be on BGFX thread");
       if (this.isStale) {
         rebuffer();
       }
@@ -315,6 +318,7 @@ public class VGraphics {
     }
 
     private void rebuffer() {
+      glx.assertBgfxThread("VGraphics.rebuffer() must be on BGFX thread");
       if (this.buffer != null) {
         nvgluDeleteFramebuffer(this.buffer);
       }
@@ -345,8 +349,9 @@ public class VGraphics {
     }
 
     public void dispose() {
-      if (this.buffer != null) {
-        nvgluDeleteFramebuffer(this.buffer);
+      final NVGLUFramebufferBGFX buffer = this.buffer;
+      if (buffer != null) {
+        glx.bgfxThreadDispose(getClass(), () ->  nvgluDeleteFramebuffer(buffer));
       }
       this.buffer = null;
     }
@@ -364,6 +369,7 @@ public class VGraphics {
   private final Set<Framebuffer> allocatedBuffers = new HashSet<Framebuffer>();
 
   public VGraphics(GLX glx) {
+    glx.assertBgfxThreadAllocation(getClass());
     this.glx = glx;
     this.vg = nvgCreate(true, 0, NULL);
     this.view = new View(glx);
@@ -384,7 +390,7 @@ public class VGraphics {
     framebuffer.bind();
   }
 
-  public void deleteFrameBuffer(Framebuffer framebuffer) {
+  public void deleteFramebuffer(Framebuffer framebuffer) {
     nvgluDeleteFramebuffer(framebuffer.buffer);
     this.allocatedBuffers.remove(framebuffer);
   }

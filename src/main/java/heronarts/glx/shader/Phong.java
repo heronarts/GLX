@@ -39,16 +39,16 @@ public class Phong extends ShaderProgram {
   public Phong(BGFXEngine bgfx) {
     super(bgfx, "vs_phong", "fs_phong");
 
-    this.uniformLightColor = new Uniform.Vec4f("u_lightColor");
+    this.uniformLightColor = new Uniform.Vec4f(bgfx.glx, "u_lightColor");
     setLightColor(0xffffffff);
 
-    this.uniformLightDirection = new Uniform.Vec4f("u_lightDirection");
+    this.uniformLightDirection = new Uniform.Vec4f(bgfx.glx, "u_lightDirection");
     setLightDirection(0, 0, 1);
 
-    this.uniformLighting = new Uniform.Vec4f("u_lighting");
+    this.uniformLighting = new Uniform.Vec4f(bgfx.glx,"u_lighting");
     setLighting(LXModel.Mesh.Lighting.DEFAULT);
 
-    this.uniformEyePosition = new Uniform.Vec4f("u_eyePosition");
+    this.uniformEyePosition = new Uniform.Vec4f(bgfx.glx,"u_eyePosition");
   }
 
   /**

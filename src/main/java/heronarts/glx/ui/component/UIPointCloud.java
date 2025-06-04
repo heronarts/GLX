@@ -66,12 +66,12 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
 
     Program(BGFXEngine bgfx) {
       super(bgfx, "vs_led", "fs_led");
-      this.uniformTextureBase = new Uniform.Sampler("s_texColor");
-      this.uniformTextureSparkle = new Uniform.Sampler("s_texSparkle");
-      this.uniformDimensions = new Uniform.Vec4f("u_dimensions");
-      this.uniformSparkle = new Uniform.Vec4f("u_sparkle");
-      this.uniformDirectional = new Uniform.Vec4f("u_directional");
-      this.uniformEyePosition = new Uniform.Vec4f("u_eyePosition");
+      this.uniformTextureBase = new Uniform.Sampler(bgfx.glx, "s_texColor");
+      this.uniformTextureSparkle = new Uniform.Sampler(bgfx.glx, "s_texSparkle");
+      this.uniformDimensions = new Uniform.Vec4f(bgfx.glx, "u_dimensions");
+      this.uniformSparkle = new Uniform.Vec4f(bgfx.glx, "u_sparkle");
+      this.uniformDirectional = new Uniform.Vec4f(bgfx.glx, "u_directional");
+      this.uniformEyePosition = new Uniform.Vec4f(bgfx.glx, "u_eyePosition");
     }
 
     @Override
@@ -395,8 +395,8 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     this.program = new Program(glx.bgfx);
     int ti = 0;
     for (LedStyle ledStyle : LedStyle.values()) {
-      this.textures[ti] = new Texture(ledStyle.texture);
-      this.sparkles[ti] = new Texture(ledStyle.sparkle);
+      this.textures[ti] = new Texture(glx, ledStyle.texture);
+      this.sparkles[ti] = new Texture(glx, ledStyle.sparkle);
       ++ti;
     };
     this.indexBuffer = null;

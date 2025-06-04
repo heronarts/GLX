@@ -146,12 +146,6 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     return this.ui.lx;
   }
 
-  protected void requireUIThread() {
-    if (Thread.currentThread() != UI.thread) {
-      throw new IllegalStateException("Method may only be called on UI thread");
-    }
-  }
-
   /**
    * Add a task to be performed on every loop of the UI engine.
    *

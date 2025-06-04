@@ -32,10 +32,13 @@ public class VertexDeclaration {
     NORMAL;
   }
 
+  private final GLX glx;
   private final BGFXVertexLayout handle;
   private int stride = 0;
 
   public VertexDeclaration(GLX glx, Attribute ... attributes) {
+    glx.assertBgfxThreadAllocation(getClass());
+    this.glx = glx;
     this.handle = BGFXVertexLayout.calloc();
     bgfx_vertex_layout_begin(this.handle, glx.getRenderer());
     for (Attribute attribute : attributes) {
@@ -76,11 +79,14 @@ public class VertexDeclaration {
     return this.handle;
   }
 
-  public void dispose() {
-    this.handle.free();
-  }
-
   public int getStride() {
     return this.stride;
   }
+
+  public void dispose() {
+    this.glx.bgfxThreadDispose(getClass(), () -> {
+      this.handle.free();
+    });
+  }
+
 }

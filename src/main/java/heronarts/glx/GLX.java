@@ -254,6 +254,33 @@ public class GLX extends LX {
     log("UI thread performance logging " + (this.flagUIDebug ? "ON" : "OFF"));
   }
 
+  public void assertBgfxThreadAllocation(Class<?> cls) {
+    assertBgfxThread(cls.getName() + " must be created on the BGFX thread");
+  }
+
+  public void assertBgfxThreadUpdate(Class<?> cls) {
+    assertBgfxThread(cls.getName() + " may only be updated on the BGFX thread");
+  }
+
+  public void assertBgfxThreadDispose(Class<?> cls) {
+    assertBgfxThread(cls.getName() + " must be disposed on the BGFX thread");
+  }
+
+  public void assertBgfxThread(String error) {
+    if (Thread.currentThread() != this.bgfxThread) {
+      throw new IllegalThreadStateException(error);
+    }
+  }
+
+  public void bgfxThreadDispose(Class<?> cls, Runnable runnable) {
+    if (Thread.currentThread() != this.bgfxThread) {
+      GLX.warning(cls.getName() + ".dispose() scheduled to run on BGFX thread\n");
+      this.bgfxThread.threadSafeDisposeQueue.add(runnable);
+    } else {
+      runnable.run();
+    }
+  }
+
   public void run() {
 
     // Start the LX engine thread
@@ -449,9 +476,16 @@ public class GLX extends LX {
       if (this.windowPosX >= 0 && this.windowPosY >= 0) {
         this.windowPosX = LXUtils.constrain(this.windowPosX, this.displayX, this.displayX + this.displayWidth - this.windowWidth);
         this.windowPosY = LXUtils.constrain(this.windowPosY, this.displayY, this.displayY + this.displayHeight - this.windowHeight);
+        this.windowPosY = 44;
+        // this.windowPosY = 0;
         log("GLX setWindowPos: " + this.windowPosX + "," + this.windowPosY);
         glfwSetWindowPos(this.window, this.windowPosX, this.windowPosY);
       }
+
+      IntBuffer xPos = stack.mallocInt(1);
+      IntBuffer yPos = stack.mallocInt(1);
+      glfwGetWindowPos(this.window, xPos, yPos);
+      log("GLX windowPos: " + xPos.get() + "x" + yPos.get());
 
       // See what is in the framebuffer. A retina Mac probably supplies
       // 2x the dimensions on framebuffer relative to window.

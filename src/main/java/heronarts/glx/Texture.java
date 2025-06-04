@@ -32,15 +32,18 @@ import static org.lwjgl.stb.STBImage.stbi_image_free;
 
 public class Texture {
 
+  private final GLX glx;
   private final short th;
   private final ByteBuffer textureData;
   private final ByteBuffer stbiData;
 
-  public static Texture from2dImage(String path) throws IOException {
-    return new Texture(path, true);
+  public static Texture from2dImage(GLX glx, String path) throws IOException {
+    return new Texture(glx, path, true);
   }
 
-  public Texture(String path) {
+  public Texture(GLX glx, String path) {
+    glx.assertBgfxThreadAllocation(getClass());
+    this.glx = glx;
     this.stbiData = null;
     try {
       this.textureData = GLXUtils.loadResource("textures/" + path);
@@ -50,7 +53,9 @@ public class Texture {
     this.th = bgfx_create_texture(bgfx_make_ref(this.textureData), BGFX_TEXTURE_NONE, 0, null);
   }
 
-  private Texture(String path, boolean is2d) throws IOException {
+  private Texture(GLX glx, String path, boolean is2d) throws IOException {
+    glx.assertBgfxThreadAllocation(getClass());
+    this.glx = glx;
     this.textureData = null;
     try (MemoryStack stack = MemoryStack.stackPush()) {
       IntBuffer width = stack.mallocInt(1);
@@ -69,12 +74,14 @@ public class Texture {
   }
 
   public void dispose() {
-    bgfx_destroy_texture(this.th);
-    if (this.stbiData != null) {
-      stbi_image_free(this.stbiData);
-    }
-    if (this.textureData != null) {
-      MemoryUtil.memFree(this.textureData);
-    }
+    this.glx.bgfxThreadDispose(getClass(), () -> {
+      bgfx_destroy_texture(this.th);
+      if (this.stbiData != null) {
+        stbi_image_free(this.stbiData);
+      }
+      if (this.textureData != null) {
+        MemoryUtil.memFree(this.textureData);
+      }
+    });
   }
 }

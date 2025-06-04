@@ -38,7 +38,8 @@ public class ShaderProgram {
   public abstract static class Uniform {
 
     public enum Type {
-      SAMPLER(BGFX_UNIFORM_TYPE_SAMPLER), VEC4(BGFX_UNIFORM_TYPE_VEC4);
+      SAMPLER(BGFX_UNIFORM_TYPE_SAMPLER),
+      VEC4(BGFX_UNIFORM_TYPE_VEC4);
 
       private final int bgfxType;
 
@@ -47,19 +48,23 @@ public class ShaderProgram {
       }
     }
 
+    protected final GLX glx;
     protected final short handle;
 
-    protected Uniform(Type type, String name) {
+    protected Uniform(GLX glx, Type type, String name) {
+      glx.assertBgfxThreadAllocation(getClass());
+      this.glx = glx;
       this.handle = bgfx_create_uniform(name, type.bgfxType, 1);
     }
 
     public void dispose() {
+      this.glx.assertBgfxThreadDispose(getClass());
       bgfx_destroy_uniform(this.handle);
     }
 
     public static class Sampler extends Uniform {
-      public Sampler(String name) {
-        super(Type.SAMPLER, name);
+      public Sampler(GLX glx, String name) {
+        super(glx, Type.SAMPLER, name);
       }
 
       public void setTexture(int stage, Texture texture, int textureFlags) {
@@ -67,6 +72,7 @@ public class ShaderProgram {
       }
 
       public void setTexture(int stage, short textureHandle, int textureFlags) {
+        this.glx.assertBgfxThreadUpdate(getClass());
         bgfx_set_texture(stage, this.handle, textureHandle, textureFlags);
       }
     }
@@ -75,8 +81,8 @@ public class ShaderProgram {
 
       private final FloatBuffer buffer;
 
-      public Vec4f(String name) {
-        super(Type.VEC4, name);
+      public Vec4f(GLX glx, String name) {
+        super(glx, Type.VEC4, name);
         this.buffer = MemoryUtil.memAllocFloat(4);
       }
 
@@ -86,6 +92,7 @@ public class ShaderProgram {
       }
 
       public void set(float... values) {
+        this.glx.assertBgfxThreadUpdate(getClass());
         if (values.length > 4) {
           throw new IllegalArgumentException(
             "Cannot pass more than 4 values to Uniform.Vec4f.set()");
@@ -106,15 +113,21 @@ public class ShaderProgram {
     }
   }
 
-  public static final long DEFAULT_BGFX_STATE = BGFX_STATE_WRITE_RGB
-    | BGFX_STATE_WRITE_A | BGFX_STATE_WRITE_Z | BGFX_STATE_BLEND_ALPHA;
+  public static final long DEFAULT_BGFX_STATE = 0
+    | BGFX_STATE_WRITE_RGB
+    | BGFX_STATE_WRITE_A
+    | BGFX_STATE_WRITE_Z
+    | BGFX_STATE_BLEND_ALPHA;
 
+  private final GLX glx;
   private short handle;
   private ByteBuffer vertexShaderCode;
   private ByteBuffer fragmentShaderCode;
   protected long bgfxState = DEFAULT_BGFX_STATE;
 
   public ShaderProgram(BGFXEngine bgfx, String vsName, String fsName) {
+    bgfx.glx.assertBgfxThreadAllocation(getClass());
+    this.glx = bgfx.glx;
     try {
       this.vertexShaderCode = GLXUtils.loadShader(bgfx, vsName);
       this.fragmentShaderCode = GLXUtils.loadShader(bgfx, fsName);
@@ -123,7 +136,9 @@ public class ShaderProgram {
     }
     this.handle = bgfx_create_program(
       bgfx_create_shader(bgfx_make_ref(this.vertexShaderCode)),
-      bgfx_create_shader(bgfx_make_ref(this.fragmentShaderCode)), true);
+      bgfx_create_shader(bgfx_make_ref(this.fragmentShaderCode)),
+      true
+    );
   }
 
   public void submit(View view) {
@@ -166,8 +181,10 @@ public class ShaderProgram {
   }
 
   public void dispose() {
-    bgfx_destroy_program(this.handle);
-    MemoryUtil.memFree(this.vertexShaderCode);
-    MemoryUtil.memFree(this.fragmentShaderCode);
+    this.glx.bgfxThreadDispose(getClass(), () -> {
+      bgfx_destroy_program(this.handle);
+      MemoryUtil.memFree(this.vertexShaderCode);
+      MemoryUtil.memFree(this.fragmentShaderCode);
+    });
   }
 }

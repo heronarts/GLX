@@ -131,10 +131,10 @@ public class UIModelMeshes extends UI3dComponent {
     private final VertexBuffer vertexBuffer;
     private final Texture texture;
 
-    private static Texture loadTexture(File texture) {
+    private static Texture loadTexture(GLX glx, File texture) {
       if (texture != null) {
         try {
-          return Texture.from2dImage(texture.getPath().toString());
+          return Texture.from2dImage(glx, texture.getPath().toString());
         } catch (IOException iox) {
           GLX.error("Could not load texture image from: " + texture.getPath());
         }
@@ -145,7 +145,7 @@ public class UIModelMeshes extends UI3dComponent {
     private VertexMesh(LXModel model, LXModel.Mesh mesh) {
       super(model, mesh);
 
-      this.texture = loadTexture(mesh.texture);
+      this.texture = loadTexture(lx, mesh.texture);
       final boolean hasColor = (mesh.type == LXModel.Mesh.Type.PHONG);
       final boolean hasNormals = (mesh.type == LXModel.Mesh.Type.PHONG);
       final boolean hasTexture = (this.texture != null);

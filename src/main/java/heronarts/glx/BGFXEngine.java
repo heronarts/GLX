@@ -21,6 +21,9 @@ package heronarts.glx;
 import static org.lwjgl.glfw.GLFW.*;
 import static org.lwjgl.bgfx.BGFX.*;
 
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -61,6 +64,8 @@ public class BGFXEngine {
     private volatile boolean shutdown = false;
 
     boolean hasFailed;
+
+    final List<Runnable> threadSafeDisposeQueue = Collections.synchronizedList(new ArrayList<>());
 
     UI ui;
 
@@ -131,6 +136,9 @@ public class BGFXEngine {
             continue;
           }
 
+          // Dispose of queued graphics resources
+          disposeQueue();
+
           // Window size changed, reset backing framebuffer
           if (this.resizeFramebuffer.getAndSet(false)) {
             bgfx_reset(this.glx.frameBufferWidth, this.glx.frameBufferHeight, BGFX_RESET_VSYNC, this.bgfx.format);
@@ -185,7 +193,21 @@ public class BGFXEngine {
       GLX.log(getName() + " finished.");
     }
 
+    private final List<Runnable> bgfxThreadDisposeQueue = new ArrayList<>();
+
+    private void disposeQueue() {
+      synchronized (this.threadSafeDisposeQueue) {
+        this.bgfxThreadDisposeQueue.addAll(this.threadSafeDisposeQueue);
+        this.threadSafeDisposeQueue.clear();
+      }
+      this.bgfxThreadDisposeQueue.forEach(r -> r.run());
+      this.bgfxThreadDisposeQueue.clear();
+    }
+
     private void dispose() {
+      // Last ditch any bgfx resources queued for removal
+      disposeQueue();
+
       // Stop the LX engine
       GLX.log("Stopping LX engine...");
       this.glx.engine.stop();
@@ -231,7 +253,7 @@ public class BGFXEngine {
     }
   }
 
-  private final GLX glx;
+  public final GLX glx;
 
   final boolean zZeroToOne;
   final int renderer;

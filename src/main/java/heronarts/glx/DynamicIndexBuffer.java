@@ -28,6 +28,7 @@ import org.lwjgl.system.MemoryUtil;
  */
 public class DynamicIndexBuffer {
 
+  private final GLX glx;
   private final ByteBuffer indexData;
   private final short indexBufferHandle;
   private final int numIndices;
@@ -50,6 +51,8 @@ public class DynamicIndexBuffer {
    * @param int32 Whether to use int32 size rather than int16 for index references (for large buffers > 65K)
    */
   public DynamicIndexBuffer(GLX glx, int numIndices, boolean int32) {
+    glx.assertBgfxThreadAllocation(getClass());
+    this.glx = glx;
     this.indexData = MemoryUtil.memAlloc((int32 ? Integer.BYTES : Short.BYTES) * numIndices);
     this.indexBufferHandle = bgfx_create_dynamic_index_buffer(numIndices, int32 ? BGFX_BUFFER_INDEX32 : BGFX_BUFFER_NONE);
     this.numIndices = numIndices;
@@ -86,6 +89,7 @@ public class DynamicIndexBuffer {
    * Update the underlying BGFX index buffer with the index buffer data
    */
   public void update() {
+    this.glx.assertBgfxThreadUpdate(getClass());
     bgfx_update_dynamic_index_buffer(this.indexBufferHandle, 0, bgfx_make_ref(this.indexData));
   }
 
@@ -93,7 +97,9 @@ public class DynamicIndexBuffer {
    * Clean up this component, free all memory resources
    */
   public void dispose() {
-    bgfx_destroy_dynamic_index_buffer(this.indexBufferHandle);
-    MemoryUtil.memFree(this.indexData);
+    this.glx.bgfxThreadDispose(getClass(), () -> {
+      bgfx_destroy_dynamic_index_buffer(this.indexBufferHandle);
+      MemoryUtil.memFree(this.indexData);
+    });
   }
 }

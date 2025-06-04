@@ -25,11 +25,14 @@ import org.lwjgl.system.MemoryUtil;
 
 public abstract class IndexBuffer {
 
+  private final GLX glx;
   private final ByteBuffer indexData;
   private final short indexBufferHandle;
   private final int numIndices;
 
   public IndexBuffer(GLX glx, int numIndices, boolean int32) {
+    glx.assertBgfxThreadAllocation(getClass());
+    this.glx = glx;
     this.indexData = MemoryUtil.memAlloc((int32 ? Integer.BYTES : Short.BYTES) * numIndices);
     bufferData(this.indexData);
     this.indexData.flip();
@@ -52,7 +55,9 @@ public abstract class IndexBuffer {
   }
 
   public void dispose() {
-    bgfx_destroy_index_buffer(this.indexBufferHandle);
-    MemoryUtil.memFree(this.indexData);
+    this.glx.bgfxThreadDispose(getClass(), () -> {
+      bgfx_destroy_index_buffer(this.indexBufferHandle);
+      MemoryUtil.memFree(this.indexData);
+    });
   }
 }

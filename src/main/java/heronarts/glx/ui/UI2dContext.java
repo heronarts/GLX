@@ -147,7 +147,7 @@ public class UI2dContext extends UI2dContainer implements UILayer {
 
   @Override
   public void dispose() {
-    this.ui.disposeFramebuffer(this.framebuffer);
+    this.framebuffer.dispose();
     super.dispose();
   }
 

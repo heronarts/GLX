@@ -34,7 +34,7 @@ public class UniformFill extends ShaderProgram {
 
   public UniformFill(BGFXEngine bgfx) {
     super(bgfx, "vs_shape", "fs_shape");
-    this.uniformFillColor = new Uniform.Vec4f("u_fillColor");
+    this.uniformFillColor = new Uniform.Vec4f(bgfx.glx, "u_fillColor");
     setFillColor(0xffffffff);
   }
 
