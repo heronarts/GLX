@@ -19,7 +19,7 @@
 package heronarts.glx.ui;
 
 import heronarts.glx.GLX;
-import heronarts.glx.GLX.MouseCursor;
+import heronarts.glx.GLXWindow.MouseCursor;
 import heronarts.glx.View;
 import heronarts.glx.event.Event;
 import heronarts.glx.event.GamepadEvent;
@@ -86,16 +86,16 @@ public class UI {
       this.viewClear.setRect(
         0,
         0,
-        lx.getFrameBufferWidth(),
-        lx.getFrameBufferHeight()
+        lx.window.getFrameBufferWidth(),
+        lx.window.getFrameBufferHeight()
       );
       this.viewClear.setScreenOrtho();
 
       this.view2d.setRect(
         0,
         0,
-        lx.getFrameBufferWidth(),
-        lx.getFrameBufferHeight()
+        lx.window.getFrameBufferWidth(),
+        lx.window.getFrameBufferHeight()
       );
       this.view2d.setScreenOrtho();
 
@@ -108,7 +108,7 @@ public class UI {
      */
     @Override
     public float getWidth() {
-      return this.ui.lx.getUIWidth();
+      return this.ui.lx.window.getUIWidth();
     }
 
     /**
@@ -118,7 +118,7 @@ public class UI {
      */
     @Override
     public float getHeight() {
-      return this.ui.lx.getUIHeight();
+      return this.ui.lx.window.getUIHeight();
     }
 
     @Override
@@ -1008,19 +1008,19 @@ public class UI {
   }
 
   public float getContentScaleX() {
-    return this.lx.getUIContentScaleX();
+    return this.lx.window.getUIContentScaleX();
   }
 
   public float getContentScaleY() {
-    return this.lx.getUIContentScaleY();
+    return this.lx.window.getUIContentScaleY();
   }
 
   public float getWidth() {
-    return this.lx.getUIWidth();
+    return this.lx.window.getUIWidth();
   }
 
   public float getHeight() {
-    return this.lx.getUIHeight();
+    return this.lx.window.getUIHeight();
   }
 
   public void resize() {
@@ -1144,6 +1144,10 @@ public class UI {
   }
 
   public void dispose() {
+    hideContextOverlay();
+    hideDropMenu();
+    this.contextOverlay.dispose();
+    this.dropMenuOverlay.dispose();
     this.root.dispose();
     this.theme.dispose();
   }

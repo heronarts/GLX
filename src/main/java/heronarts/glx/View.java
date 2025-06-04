@@ -50,7 +50,7 @@ public class View {
    * @param glx GLX instance
    */
   public View(GLX glx) {
-    this(glx, 0, 0, glx.getFrameBufferWidth(), glx.getFrameBufferHeight());
+    this(glx, 0, 0, glx.window.getFrameBufferWidth(), glx.window.getFrameBufferHeight());
   }
 
   /**
@@ -148,13 +148,13 @@ public class View {
   }
 
   public View setOrthographic(float x1, float x2, float y1, float y2, float z1, float z2) {
-    this.projectionMatrix.setOrthoLH(x1, x2, y1, y2, z1, z2, this.glx.zZeroToOne);
+    this.projectionMatrix.setOrthoLH(x1, x2, y1, y2, z1, z2, this.glx.bgfx.zZeroToOne);
     this.projectionMatrix.get(this.projectionMatrixBuf);
     return this;
   }
 
   public View setPerspective(float radians, float aspectRatio, float zNear, float zFar) {
-    this.projectionMatrix.setPerspectiveLH(radians, aspectRatio, zNear, zFar, this.glx.zZeroToOne);
+    this.projectionMatrix.setPerspectiveLH(radians, aspectRatio, zNear, zFar, this.glx.bgfx.zZeroToOne);
     this.projectionMatrix.get(this.projectionMatrixBuf);
     return this;
   }
@@ -166,10 +166,10 @@ public class View {
   public View setScreenOrtho(float width, float height) {
     this.viewMatrix.identity();
     this.viewMatrix.get(this.viewMatrixBuf);
-    if (this.glx.isOpenGL()) {
+    if (this.glx.bgfx.isOpenGL()) {
       this.projectionMatrix.setOrtho(0, width, 0, height, -1, 1);
     } else {
-      this.projectionMatrix.setOrthoLH(0, width, height, 0, -1, 1, this.glx.zZeroToOne);
+      this.projectionMatrix.setOrthoLH(0, width, height, 0, -1, 1, this.glx.bgfx.zZeroToOne);
     }
     this.projectionMatrix.get(this.projectionMatrixBuf);
     return this;
@@ -215,28 +215,32 @@ public class View {
    * @return this
    */
   public View image(UI2dContext context) {
-    if (this.glx.isOpenGL()) {
+    if (this.glx.bgfx.isOpenGL()) {
       // NOTE: buncha hacks here. OpenGL/Mac seems to have already taken framebuffer scaling into
       // acccount, so we just correct for UI zooming and the fact that Y is up on OpenGL framebuffers
+      final float uiZoom = this.glx.window.getUIZoom();
+
       this.glx.program.tex2d.submit(
         this,
         bgfx_get_texture(context.getTexture(), 0),
-        context.getX() * this.glx.uiZoom,
-        getHeight() / glx.getSystemContentScaleY() - context.getY() * this.glx.uiZoom,
-        context.getWidth() * this.glx.uiZoom,
-        -context.getHeight() * this.glx.uiZoom
+        context.getX() * uiZoom,
+        getHeight() / this.glx.window.getSystemContentScaleY() - context.getY() * uiZoom,
+        context.getWidth() * uiZoom,
+        -context.getHeight() * uiZoom
       );
     } else {
       // NOTE: context coordinates are in UI coordinate space. But the tex2d program
       // is in framebuffer coordinate space. We need to scale the bounds by the content
       // scale factor here to move from context's UI-space to framebuffer-space
+      final float contentScaleX = this.glx.window.getUIContentScaleX();
+      final float contentScaleY = this.glx.window.getUIContentScaleY();
       this.glx.program.tex2d.submit(
         this,
         bgfx_get_texture(context.getTexture(), 0),
-        context.getX() * this.glx.getUIContentScaleX(),
-        context.getY() * this.glx.getUIContentScaleY(),
-        context.getWidth() * this.glx.getUIContentScaleX(),
-        context.getHeight() * this.glx.getUIContentScaleY()
+        context.getX() * contentScaleX,
+        context.getY() * contentScaleY,
+        context.getWidth() * contentScaleX,
+        context.getHeight() * contentScaleY
       );
     }
     return this;

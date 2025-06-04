@@ -18,7 +18,7 @@
 
 package heronarts.glx.shader;
 
-import heronarts.glx.BGFXEngine;
+import heronarts.glx.GLX;
 
 /**
  * A global program used for rendering basic polygons with
@@ -26,8 +26,8 @@ import heronarts.glx.BGFXEngine;
  */
 public class VertexFill extends ShaderProgram {
 
-  public VertexFill(BGFXEngine bgfx) {
-    super(bgfx, "vs_poly", "fs_poly");
+  public VertexFill(GLX glx) {
+    super(glx, "vs_poly", "fs_poly");
   }
 
 }

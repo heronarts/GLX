@@ -20,7 +20,7 @@ package heronarts.glx.shader;
 
 import org.joml.Vector3f;
 
-import heronarts.glx.BGFXEngine;
+import heronarts.glx.GLX;
 import heronarts.glx.View;
 import heronarts.lx.model.LXModel;
 
@@ -36,19 +36,19 @@ public class Phong extends ShaderProgram {
   private float[] lighting = new float[4];
   private float[] eyePosition = new float[4];
 
-  public Phong(BGFXEngine bgfx) {
-    super(bgfx, "vs_phong", "fs_phong");
+  public Phong(GLX glx) {
+    super(glx, "vs_phong", "fs_phong");
 
-    this.uniformLightColor = new Uniform.Vec4f(bgfx.glx, "u_lightColor");
+    this.uniformLightColor = new Uniform.Vec4f(glx, "u_lightColor");
     setLightColor(0xffffffff);
 
-    this.uniformLightDirection = new Uniform.Vec4f(bgfx.glx, "u_lightDirection");
+    this.uniformLightDirection = new Uniform.Vec4f(glx, "u_lightDirection");
     setLightDirection(0, 0, 1);
 
-    this.uniformLighting = new Uniform.Vec4f(bgfx.glx,"u_lighting");
+    this.uniformLighting = new Uniform.Vec4f(glx,"u_lighting");
     setLighting(LXModel.Mesh.Lighting.DEFAULT);
 
-    this.uniformEyePosition = new Uniform.Vec4f(bgfx.glx,"u_eyePosition");
+    this.uniformEyePosition = new Uniform.Vec4f(glx,"u_eyePosition");
   }
 
   /**

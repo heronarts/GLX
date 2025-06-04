@@ -44,7 +44,8 @@ public class InputDispatch implements LXEngine.Dispatch {
   private static final int NUM_GAMEPAD_BUTTONS = GLFW_GAMEPAD_BUTTON_LAST + 1;
   private static final float GAMEPAD_AXIS_CHANGE_THRESHOLD = 0.001f;
 
-  private final GLX lx;
+  private final GLXWindow window;
+  private GLX glx;
 
   private int modifiers = 0;
   private boolean mouseDragging = false;
@@ -61,8 +62,18 @@ public class InputDispatch implements LXEngine.Dispatch {
   private final List<Event> lxThreadEventQueue = new ArrayList<Event>();
   private final List<Event> glfwThreadEventQueue = Collections.synchronizedList(new ArrayList<Event>());
 
-  InputDispatch(GLX lx) {
-    this.lx = lx;
+  InputDispatch(GLXWindow window) {
+    this.window = window;
+  }
+
+  void setGLX(GLX glx) {
+    if (glx == null) {
+      throw new IllegalArgumentException("InputDispatch.setGLX() may not be passed null");
+    }
+    if (this.glx != null) {
+      throw new IllegalStateException("InputDispatch.setGLX() may only be called once");
+    }
+    this.glx = glx;
   }
 
   private void queueEvent(Event event) {
@@ -81,7 +92,9 @@ public class InputDispatch implements LXEngine.Dispatch {
 
     // Hack-toggle to UI perf logging on the UI thread
     if ((key == KeyEvent.VK_U) && (action == GLFW_PRESS) && keyEvent.isCommand() && keyEvent.isShiftDown()) {
-      lx.toggleUIPerformanceDebug();
+      if (this.glx != null) {
+        this.glx.toggleUIPerformanceDebug();
+      }
     }
   }
 
@@ -93,8 +106,8 @@ public class InputDispatch implements LXEngine.Dispatch {
 
   void glfwCursorPosCallback(long window, double x, double y) {
     // Apply cursor position scaling, to go from window-space into ui-space
-    x *= this.lx.cursorScaleX;
-    y *= this.lx.cursorScaleY;
+    x *= this.window.getCursorScaleX();
+    y *= this.window.getCursorScaleY();
     double dx = x - this.cursorX;
     double dy = y - this.cursorY;
     MouseEvent.Action action = this.mouseDragging ? MouseEvent.Action.DRAG : MouseEvent.Action.MOVE;
@@ -144,8 +157,8 @@ public class InputDispatch implements LXEngine.Dispatch {
   void glfwScrollCallback(long window, double dx, double dy) {
     switch (Platform.get()) {
       case MACOSX:
-        dx *= this.lx.systemContentScaleX;
-        dy *= this.lx.systemContentScaleY;
+        dx *= this.window.getSystemContentScaleX();
+        dy *= this.window.getSystemContentScaleY();
         break;
       case WINDOWS:
         dx *= 20;
@@ -160,16 +173,10 @@ public class InputDispatch implements LXEngine.Dispatch {
   public static final double POLL_TIMEOUT = 1/60.;
 
   void poll() {
-    // It doesn't seem like V-Sync always works, definitely not on a Mac...
-    // or we're getting stupidly high 100+ FPS framerate if we leave this
-    // as just poll.
-    // glfwPollEvents();
-
-    // So we're going to do wait instead with a timeout such
-    // that we'll only draw at max rate when input is active, otherwise
-    // throttle to a reasonable framerate
+    // Wait with a timeout so that we don't block other operations like
+    // clipboard checks from the main GLXWindow loop, even if there's no
+    // user input
     glfwWaitEventsTimeout(POLL_TIMEOUT);
-
     pollGamepad();
   }
 
@@ -230,6 +237,10 @@ public class InputDispatch implements LXEngine.Dispatch {
    */
   @Override
   public void dispatch() {
+    if (this.glx == null) {
+      throw new IllegalStateException("Cannot call InputDispatch.dispatch() before setting GLX instance");
+    }
+
     if (!this.hasInputEvents.compareAndSet(true, false)) {
       // Nothing happened!
       return;
@@ -267,24 +278,25 @@ public class InputDispatch implements LXEngine.Dispatch {
     }
 
     // Now process all of them in the UI layer
-    boolean updateCursor = false;
+    boolean updateMouseCursor = false;
     for (Event event : this.lxThreadEventQueue) {
-      if (event instanceof MouseEvent) {
-        this.lx.ui.mouseEvent((MouseEvent) event);
-        updateCursor = true;
-      } else if (event instanceof KeyEvent) {
-        this.lx.ui.keyEvent((KeyEvent) event);
-        updateCursor = true;
-      } else if (event instanceof GamepadEvent) {
-        this.lx.ui.gamepadEvent((GamepadEvent) event);
-      } else {
-        throw new IllegalStateException("Illegal event type in queue: " + event);
+      switch (event) {
+      case MouseEvent mouseEvent -> {
+        this.glx.ui.mouseEvent(mouseEvent);
+        updateMouseCursor = true;
       }
+      case KeyEvent keyEvent -> {
+        this.glx.ui.keyEvent(keyEvent);
+        updateMouseCursor = true;
+      }
+      case GamepadEvent gamepadEvent -> this.glx.ui.gamepadEvent(gamepadEvent);
+      default -> throw new IllegalStateException("Illegal event type in queue: " + event);
+      };
     }
 
     // Set the cursor if any mouse events may have changed it
-    if (updateCursor) {
-      this.lx.setMouseCursor(this.lx.ui.getMouseCursor());
+    if (updateMouseCursor) {
+      this.window.setMouseCursor(this.glx.ui.getMouseCursor());
     }
   }
 

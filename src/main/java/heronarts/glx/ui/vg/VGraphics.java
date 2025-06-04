@@ -24,9 +24,8 @@ import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.FloatBuffer;
 import java.nio.IntBuffer;
-import java.util.HashSet;
-import java.util.Set;
-
+import java.util.ArrayList;
+import java.util.List;
 import org.lwjgl.nanovg.NVGColor;
 import org.lwjgl.nanovg.NVGLUFramebufferBGFX;
 import org.lwjgl.nanovg.NVGPaint;
@@ -167,6 +166,8 @@ public class VGraphics {
       this.paint = imagePattern(0, 0, w, h, id);
       this.isRgbData = isRgbData;
       noTint();
+
+      allocatedImages.add(this);
     }
 
     private static ByteBuffer bufferARGB(ByteBuffer rgbaData, int[] argb) {
@@ -222,6 +223,7 @@ public class VGraphics {
       glx.assertBgfxThread("VGraphics.Image.dispose()  must happen on the BGFX thread");
       nvgDeleteImage(vg, this.id);
       MemoryUtil.memFree(this.imageData);
+      allocatedImages.remove(this);
     }
   }
 
@@ -258,6 +260,7 @@ public class VGraphics {
       this.height = h;
       this.imageFlags = imageFlags;
       this.viewId = 0;
+      allocatedBuffers.add(this);
     }
 
     private Framebuffer markStale() {
@@ -330,8 +333,8 @@ public class VGraphics {
       // extra sub-pixel is okay, see the nvgBeginFrame() call where
       // the actual frame size is passed as a float.
       this.buffer = nvgluCreateFramebuffer(vg,
-        (int) Math.ceil(this.width * glx.getUIContentScaleX()),
-        (int) Math.ceil(this.height * glx.getUIContentScaleY()),
+        (int) Math.ceil(this.width * glx.window.getUIContentScaleX()),
+        (int) Math.ceil(this.height * glx.window.getUIContentScaleY()),
         this.imageFlags
       );
 
@@ -343,7 +346,7 @@ public class VGraphics {
       // when we're going to paint it into another UI2dContext, those pixels will be in
       // UI-space. So the paint image pattern is in UI-space width/height
 
-      this.paint.imagePattern(0, 0, this.width, glx.isOpenGL() ? -this.height : this.height, this.buffer.image());
+      this.paint.imagePattern(0, 0, this.width, glx.bgfx.isOpenGL() ? -this.height : this.height, this.buffer.image());
 
       this.isStale = false;
     }
@@ -351,9 +354,10 @@ public class VGraphics {
     public void dispose() {
       final NVGLUFramebufferBGFX buffer = this.buffer;
       if (buffer != null) {
-        glx.bgfxThreadDispose(getClass(), () ->  nvgluDeleteFramebuffer(buffer));
+        glx.bgfxThreadDispose(getClass(), () -> nvgluDeleteFramebuffer(buffer));
       }
       this.buffer = null;
+      allocatedBuffers.remove(this);
     }
 
   }
@@ -366,7 +370,9 @@ public class VGraphics {
   private final NVGColor fillColorLinearGradientEnd = NVGColor.create();
   private final NVGColor fillColor = NVGColor.create();
   private final NVGColor strokeColor = NVGColor.create();
-  private final Set<Framebuffer> allocatedBuffers = new HashSet<Framebuffer>();
+
+  private final List<Framebuffer> allocatedBuffers = new ArrayList<Framebuffer>();
+  private final List<Image> allocatedImages = new ArrayList<Image>();
 
   public VGraphics(GLX glx) {
     glx.assertBgfxThreadAllocation(getClass());
@@ -381,18 +387,11 @@ public class VGraphics {
   }
 
   public Framebuffer createFramebuffer(UI2dContext context, float w, float h, int imageFlags) {
-    Framebuffer framebuffer = new Framebuffer(context, w, h, imageFlags);
-    this.allocatedBuffers.add(framebuffer);
-    return framebuffer;
+    return new Framebuffer(context, w, h, imageFlags);
   }
 
   public void bindFramebuffer(Framebuffer framebuffer) {
     framebuffer.bind();
-  }
-
-  public void deleteFramebuffer(Framebuffer framebuffer) {
-    nvgluDeleteFramebuffer(framebuffer.buffer);
-    this.allocatedBuffers.remove(framebuffer);
   }
 
   public void notifyContentScaleChanged() {
@@ -504,7 +503,7 @@ public class VGraphics {
       this.vg,
       width, // * this.glx.getUIContentScaleX(),
       height, // * this.glx.getUIContentScaleY(),
-      this.glx.getUIContentScaleX()
+      this.glx.window.getUIContentScaleX()
     );
     return this;
   }
@@ -810,4 +809,18 @@ public class VGraphics {
     return this;
   }
 
+  public void dispose() {
+    if (!this.allocatedBuffers.isEmpty()) {
+      new ArrayList<>(this.allocatedBuffers).forEach(buffer -> {
+        GLX.error("Stranded VGraphics.Framebuffer: " + buffer);
+        buffer.dispose();
+      });
+    }
+    if (!this.allocatedImages.isEmpty()) {
+      new ArrayList<>(this.allocatedImages).forEach(image -> {
+        GLX.error("Stranded VGraphics.Image: " + image);
+        image.dispose();
+      });
+    }
+  }
 }

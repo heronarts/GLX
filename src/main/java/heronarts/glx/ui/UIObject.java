@@ -19,7 +19,7 @@
 package heronarts.glx.ui;
 
 import heronarts.glx.GLX;
-import heronarts.glx.GLX.MouseCursor;
+import heronarts.glx.GLXWindow.MouseCursor;
 import heronarts.glx.event.Event;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;

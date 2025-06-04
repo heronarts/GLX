@@ -18,29 +18,17 @@
 
 package heronarts.glx;
 
-import static org.lwjgl.glfw.GLFW.*;
-import static org.lwjgl.glfw.Callbacks.*;
-import static org.lwjgl.system.MemoryUtil.*;
 import static org.lwjgl.util.tinyfd.TinyFileDialogs.*;
 
 import java.io.File;
 import java.io.IOException;
-import java.nio.ByteBuffer;
-import java.nio.DoubleBuffer;
-import java.nio.FloatBuffer;
-import java.nio.IntBuffer;
-import java.util.Map;
-import java.util.concurrent.TimeUnit;
-
 import org.lwjgl.PointerBuffer;
-import org.lwjgl.glfw.GLFW;
-import org.lwjgl.glfw.GLFWDropCallback;
-import org.lwjgl.glfw.GLFWErrorCallback;
-import org.lwjgl.glfw.GLFWImage;
-import org.lwjgl.stb.STBImage;
-import org.lwjgl.system.APIUtil;
 import org.lwjgl.system.MemoryStack;
-import org.lwjgl.system.MemoryUtil;
+
+import heronarts.glx.shader.Phong;
+import heronarts.glx.shader.Tex2d;
+import heronarts.glx.shader.UniformFill;
+import heronarts.glx.shader.VertexFill;
 import heronarts.glx.ui.UI;
 import heronarts.glx.ui.UIDialogBox;
 import heronarts.glx.ui.vg.VGraphics;
@@ -49,133 +37,34 @@ import heronarts.lx.LXClassLoader;
 import heronarts.lx.LXEngine;
 import heronarts.lx.clipboard.LXTextValue;
 import heronarts.lx.model.LXModel;
-import heronarts.lx.utils.LXUtils;
 
 public class GLX extends LX {
 
-  private static final int MIN_WINDOW_WIDTH = 820;
-  private static final int MIN_WINDOW_HEIGHT = 480;
+  public final class Programs {
 
-  private static final int DEFAULT_WINDOW_WIDTH = 1280;
-  private static final int DEFAULT_WINDOW_HEIGHT = 720;
+    public final Tex2d tex2d;
+    public final UniformFill uniformFill;
+    public final VertexFill vertexFill;
+    public final Phong phong;
 
-  long window;
-
-  private volatile MouseCursor mouseCursor = null;
-  private volatile boolean needsCursorUpdate = false;
-
-  private int displayX = -1;
-  private int displayY = -1;
-  private int displayWidth = -1;
-  private int displayHeight = -1;
-  private int windowWidth = DEFAULT_WINDOW_WIDTH;
-  private int windowHeight = DEFAULT_WINDOW_HEIGHT;
-  private int windowPosX = -1;
-  private int windowPosY = -1;
-
-  int frameBufferWidth = 0;
-  int frameBufferHeight = 0;
-
-  private float uiWidth = 0;
-  private float uiHeight = 0;
-
-  boolean flagUIDebug = false;
-
-  float systemContentScaleX = 1;
-  float systemContentScaleY = 1;
-
-  float uiZoom = 1;
-
-  float cursorScaleX = 1;
-  float cursorScaleY = 1;
-
-  final boolean zZeroToOne;
-
-  public final VGraphics vg;
-
-  private final InputDispatch inputDispatch = new InputDispatch(this);
-
-  public final UI ui;
-  public final LXEngine.Frame uiFrame;
-
-  public enum MouseCursor {
-    ARROW(GLFW_ARROW_CURSOR),
-    HAND(GLFW_HAND_CURSOR),
-    HRESIZE(GLFW_HRESIZE_CURSOR),
-    VRESIZE(GLFW_VRESIZE_CURSOR),
-    MAGNIFYING_GLASS("magnifying.png", 4, 4),
-    LEFT_BRACE("left-brace.png", 2, 7),
-    RIGHT_BRACE("right-brace.png", 2, 7),
-    START_MARKER("start-marker.png", 1, 4),
-    END_MARKER("end-marker.png", 8, 4),
-    CLIP_PLAY("clip-play.png", 1, 5);
-
-    private final int glfwShape;
-    private final String resourceName;
-    private final int xhot, yhot;
-    private ByteBuffer stbiBuffer;
-    private GLFWImage glfwImage;
-    private long handle;
-
-    private MouseCursor(int glfwShape) {
-      this.glfwShape = glfwShape;
-      this.resourceName = null;
-      this.xhot = this.yhot = 0;
+    public Programs() {
+      this.tex2d = new Tex2d(GLX.this);
+      this.uniformFill = new UniformFill(GLX.this);
+      this.vertexFill = new VertexFill(GLX.this);
+      this.phong = new Phong(GLX.this);
     }
 
-    private MouseCursor(String resourceName) {
-      this(resourceName, 0, 0);
+    public void dispose() {
+      this.tex2d.dispose();
+      this.uniformFill.dispose();
+      this.vertexFill.dispose();
+      this.phong.dispose();
     }
-
-    private MouseCursor(String resourceName, int xhot, int yhot) {
-      this.glfwShape = -1;
-      this.resourceName = resourceName;
-      this.xhot = xhot;
-      this.yhot = yhot;
-    }
-
-    private void initialize() {
-      if (this.resourceName != null) {
-        this.glfwImage = GLFWImage.create();
-        ByteBuffer buffer = null;
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-          buffer = GLXUtils.loadResource("cursors/" + this.resourceName);
-
-          IntBuffer width = stack.mallocInt(1);
-          IntBuffer height = stack.mallocInt(1);
-          IntBuffer components = stack.mallocInt(1);
-
-          this.stbiBuffer = STBImage.stbi_load_from_memory(buffer, width, height, components, STBImage.STBI_rgb_alpha);
-          this.glfwImage.set(width.get(), height.get(), this.stbiBuffer);
-          this.handle = glfwCreateCursor(this.glfwImage, this.xhot, this.yhot);
-
-        } catch (Exception x) {
-          GLX.error(x, "Cannot load mouse cursor: " + this.resourceName);
-        } finally {
-          if (buffer != null) {
-            MemoryUtil.memFree(buffer);
-          }
-        }
-
-      } else {
-        this.handle = glfwCreateStandardCursor(this.glfwShape);
-      }
-    }
-
-    private void dispose() {
-      glfwDestroyCursor(this.handle);
-      if (this.stbiBuffer != null) {
-        STBImage.stbi_image_free(this.stbiBuffer);
-      }
-
-    }
-  };
+  }
 
   /**
-   * Publicly accessible, globally reusable shader programs.
+   * Flags that control the behavior of the application
    */
-  public final BGFXEngine.Programs program;
-
   public static class Flags extends LX.Flags {
     public int windowWidth = -1;
     public int windowHeight = -1;
@@ -186,67 +75,136 @@ public class GLX extends LX {
 
   public final Flags flags;
 
-  public final BGFXEngine.RenderThread bgfxThread;
+  /**
+   * The window that runs this application
+   */
+  public final GLXWindow window;
+
+  /**
+   * BGFX rendering engine
+   */
   public final BGFXEngine bgfx;
 
-  protected GLX(Flags flags) throws IOException {
-    this(flags, null);
+  /**
+   * The Vector Graphics implementation
+   */
+  public final VGraphics vg;
+
+  /**
+   * Publicly accessible, globally reusable shader programs.
+   */
+  public final Programs program;
+
+  /**
+   * The UI stack
+   */
+  public final UI ui;
+
+  public final LXEngine.Frame uiFrame;
+
+  boolean flagUIDebug = false;
+
+  protected GLX(GLXWindow window) throws IOException {
+    this(window, window.flags);
   }
 
-  protected GLX(Flags flags, LXModel model) throws IOException {
-    super(flags, model);
+  protected GLX(GLXWindow window, Flags flags) throws IOException {
+    this(window, flags, null);
+  }
+
+  protected GLX(GLXWindow window, Flags flags, LXModel model) throws IOException {
+    super(window.preferences, flags, model);
+    this.window = window;
     this.flags = flags;
 
-    // Get initial window size from preferences
-    int preferenceWidth = this.preferences.getWindowWidth();
-    int preferenceHeight = this.preferences.getWindowHeight();
-    if (preferenceWidth > 0 && preferenceHeight > 0) {
-      this.windowWidth = preferenceWidth;
-      this.windowHeight = preferenceHeight;
-    } else if (this.flags.windowWidth > 0 && this.flags.windowHeight > 0) {
-      this.windowWidth = this.flags.windowWidth;
-      this.windowHeight = this.flags.windowHeight;
-    }
-    this.windowPosX = this.preferences.getWindowPosX();
-    this.windowPosY = this.preferences.getWindowPosY();
+    // Register ourselves as delegate for window events
+    this.window.setDelegate(new WindowDelegate());
+    this.window.inputDispatch.setGLX(this);
 
-    // GLFW initialization
-    initializeWindow();
+    // Construct the BGFX instance
+    this.bgfx = new BGFXEngine(this);
+    this.program = new Programs();
+    this.vg = new VGraphics(this);
 
-    // BGFX initialization
-    this.bgfxThread = new BGFXEngine.RenderThread(this);
-    this.bgfxThread.start();
-
-    // Get BGFX instance and core state
-    GLX.log("GLX main thread awaiting BGFX initialization...");
-    try {
-      while (true) {
-        // NB: this poll call seems to be *necessary* to kick GLFW and get bgfx_init() to return! (on MacOS at least)
-        glfwPollEvents();
-        if (this.bgfxThread.didInitialize.await(16, TimeUnit.MILLISECONDS)) {
-          break;
-        }
-      }
-    } catch (InterruptedException ix) {
-      GLX.error(ix, "GLX interrupted awaiting BGFX initialization");
-    }
-    this.bgfx = this.bgfxThread.bgfx;
-    this.zZeroToOne = this.bgfx.zZeroToOne;
-    this.program = this.bgfx.program;
-    this.vg = this.bgfx.vg;
-
-    // Have the BGFX build the UI
-    this.bgfxThread.buildUI.countDown();
-    try {
-      this.bgfxThread.didBuildUI.await();
-    } catch (InterruptedException ix) {
-      GLX.error(ix, "GLX interrupted awaiting BGFX to buildUI");
-    }
-    this.ui = this.bgfxThread.ui;
+    // Build the application UI
+    this.ui = buildUI();
 
     // Initialize LED frame buffer for the UI
     this.uiFrame = new LXEngine.Frame(this);
     this.engine.getFrameNonThreadSafe(this.uiFrame);
+  }
+
+  private class WindowDelegate implements GLXWindow.Delegate {
+
+    @Override
+    public void setClipboardText(GLXWindow window, String clipboardText) {
+      clipboard.setItem(new LXTextValue(clipboardText), false);
+    }
+
+    @Override
+    public void onWindowClose(GLXWindow window) {
+      if (!bgfx.hasFailed) {
+        window.setShouldClose(false);
+        // Confirm that we really want to do it
+        confirmChangesSaved("quit", () -> window.setShouldClose(true));
+      }
+    }
+
+    @Override
+    public void onZoomChanged(GLXWindow window, float uiZoom) {
+      vg.notifyContentScaleChanged();
+      bgfx.resizeUI.set(true);
+    }
+
+    @Override
+    public void onContentScaleChanged(GLXWindow window, float contentScaleX, float contentScaleY) {
+      bgfx.resizeUI.set(true);
+    }
+
+    @Override
+    public void onFramebufferSizeChanged(GLXWindow window, float framebufferWidth, float framebufferHeight) {
+      bgfx.resizeFramebuffer.set(true);
+    }
+
+    @Override
+    public void onDropFile(GLXWindow window, String fileName) {
+      try {
+        final File file = new File(fileName);
+        if (file.exists() && file.isFile()) {
+          if (file.getName().endsWith(".lxp")) {
+            engine.addTask(() -> {
+              confirmChangesSaved("open project " + file.getName(), () -> openProject(file));
+            });
+          } else if (file.getName().endsWith(".jar")) {
+            engine.addTask(() -> {
+              importContentJar(file, true);
+            });
+          }
+        }
+      } catch (Exception x) {
+        error(x, "Exception in drop-file handler: " + x.getLocalizedMessage());
+      }
+    }
+
+    @Override
+    public void onShutdown(GLXWindow window) {
+      if (Thread.currentThread() == bgfx.thread) {
+        throw new IllegalThreadStateException("BGFX thread may not shutdown itself, shutdown should come from GLXWindow");
+      }
+
+      // Signal to the BGFX thread that it should shutdown
+      bgfx.shutdown = true;
+
+      // Notify in case bgfx has failed and is in wait()
+      synchronized (bgfx.thread) { bgfx.thread.notify(); }
+
+      // Ensure the thread has finished
+      try {
+        bgfx.thread.join();
+      } catch (InterruptedException ix) {
+        error(ix, "Interrupted awaiting BGFX shutdown");
+      }
+    }
   }
 
   void toggleUIPerformanceDebug() {
@@ -267,15 +225,15 @@ public class GLX extends LX {
   }
 
   public void assertBgfxThread(String error) {
-    if (Thread.currentThread() != this.bgfxThread) {
+    if (Thread.currentThread() != this.bgfx.thread) {
       throw new IllegalThreadStateException(error);
     }
   }
 
   public void bgfxThreadDispose(Class<?> cls, Runnable runnable) {
-    if (Thread.currentThread() != this.bgfxThread) {
-      GLX.warning(cls.getName() + ".dispose() scheduled to run on BGFX thread\n");
-      this.bgfxThread.threadSafeDisposeQueue.add(runnable);
+    if (Thread.currentThread() != this.bgfx.thread) {
+      warning(cls.getName() + ".dispose() re-scheduled to run on BGFX thread");
+      this.bgfx.threadSafeDisposeQueue.add(runnable);
     } else {
       runnable.run();
     }
@@ -285,30 +243,43 @@ public class GLX extends LX {
 
     // Start the LX engine thread
     log("Starting LX Engine...");
-    this.engine.setInputDispatch(this.inputDispatch);
+    this.engine.setInputDispatch(this.window.inputDispatch);
     this.engine.start();
 
-    // Start the render thread
-    this.bgfxThread.run.countDown();
+    // Start the GLFW window main event polling loop
+    this.window.start();
 
     // Enter the core event loop
-    log("Bootstrap complete, running main loop.");
-    eventLoop();
+    log("Running main BGFX loop...");
+    this.bgfx.mainLoop();
 
-    // Signal to the BGFX engine thread to stop
-    this.bgfxThread.shutdown();
+    // We're ka-put, shut it all down.
+    log("Stopping LX engine...");
+    this.engine.stop();
 
-    // Free the window callbacks and destroy the window
-    log("Destroying main thread GLFW window...");
-    glfwFreeCallbacks(this.window);
-    glfwDestroyWindow(this.window);
+    // Clean up the LX instance
+    log("Disposing GLX...");
+    dispose();
+    log("GLX disposed.");
 
-    // Terminate GLFW and free the error callback
-    glfwTerminate();
-    glfwSetErrorCallback(null).free();
+    // Dispose of BGFX graphics assets
+    this.vg.dispose();
+    this.program.dispose();
+    this.bgfx.dispose();
+    log(bgfx.thread.getName() + " finished.");
+  }
 
-    // The program *should* end now, if not it means we hung a thread somewhere...
-    log("Done with main thread, GLX shutdown complete. Thanks for playing. <3");
+  @Override
+  public void dispose() {
+    // NOTE: destroy the whole UI first, rip down all the listeners
+    // before disposing of the engine itself. Done on the BGFX thread
+    // to properly dispose of BGFX resources.
+    log("Disposing GLX.UI...");
+    this.ui.dispose();
+    log("GLX.UI disposed.");
+
+    // Now dispose of LX itself
+    super.dispose();
   }
 
   /**
@@ -319,402 +290,6 @@ public class GLX extends LX {
    */
   protected UI buildUI() throws IOException {
     return new UI(this);
-  }
-
-  public int getRenderer() {
-    return this.bgfx.getRenderer();
-  }
-
-  public boolean isOpenGL() {
-    return this.bgfx.isOpenGL();
-  }
-
-  public float getUIWidth() {
-    return this.uiWidth;
-  }
-
-  public float getUIHeight() {
-    return this.uiHeight;
-  }
-
-  public int getFrameBufferWidth() {
-    return this.frameBufferWidth;
-  }
-
-  public int getFrameBufferHeight() {
-    return this.frameBufferHeight;
-  }
-
-  public float getUIZoom() {
-    return this.uiZoom;
-  }
-
-  public float getUIContentScaleX() {
-    return this.systemContentScaleX * this.uiZoom;
-  }
-
-  public float getUIContentScaleY() {
-    return this.systemContentScaleY * this.uiZoom;
-  }
-
-  public float getSystemContentScaleX() {
-    return this.systemContentScaleX;
-  }
-
-  public float getSystemContentScaleY() {
-    return this.systemContentScaleY;
-  }
-
-  private boolean ignoreClipboardError = false;
-
-  private void initializeWindow() {
-    glfwSetErrorCallback(new GLFWErrorCallback() {
-      private Map<Integer, String> ERROR_CODES =
-        APIUtil.apiClassTokens((field, value) -> 0x10000 < value && value < 0x20000, null, GLFW.class);
-
-      @Override
-      public void invoke(int error, long description) {
-        if (ignoreClipboardError) {
-          return;
-        }
-
-        StringBuilder logMessage = new StringBuilder();
-        logMessage.append(
-          ERROR_CODES.get(error) + " error\n" +
-          "\tDescription : " + getDescription(description) + "\n" +
-          "\tStacktrace  :"
-        );
-
-        StackTraceElement[] stack = Thread.currentThread().getStackTrace();
-        for (int i = 4; i < stack.length; ++i) {
-          logMessage.append("\n\t\t" + stack[i].toString());
-        }
-
-        LX._error("LWJGL", logMessage.toString());
-      }
-    });
-
-    // Initialize GLFW. Most GLFW functions will not work before doing this.
-    if (!glfwInit()) {
-      throw new RuntimeException("Unable to initialize GLFW");
-    }
-
-    // Grab uiZoom from preferences
-    this.uiZoom = this.preferences.uiZoom.getValuef() / 100f;
-    this.preferences.uiZoom.addListener((p) -> {
-      setUIZoom(this.preferences.uiZoom.getValuef() / 100f);
-    });
-
-    // Configure GLFW
-    glfwWindowHint(GLFW_CLIENT_API, GLFW_NO_API);
-    glfwWindowHint(GLFW_SCALE_TO_MONITOR, GLFW_FALSE);
-    glfwWindowHint(GLFW_COCOA_RETINA_FRAMEBUFFER, GLFW_TRUE);
-    glfwWindowHint(GLFW_RESIZABLE, this.flags.windowResizable ? GLFW_TRUE : GLFW_FALSE);
-
-    // Detect window/framebuffer sizes and content scale
-    try (MemoryStack stack = MemoryStack.stackPush()) {
-      long primaryMonitor = glfwGetPrimaryMonitor();
-      if (primaryMonitor == NULL) {
-        error("Running on a system with no monitor, is this intended?");
-      } else {
-        IntBuffer xPos = stack.mallocInt(1);
-        IntBuffer yPos = stack.mallocInt(1);
-        IntBuffer xSize = stack.mallocInt(1);
-        IntBuffer ySize = stack.mallocInt(1);
-        glfwGetMonitorWorkarea(primaryMonitor, xPos, yPos, xSize, ySize);
-        this.displayX = xPos.get();
-        this.displayY = yPos.get();
-        this.displayWidth = xSize.get();
-        this.displayHeight = ySize.get();
-      }
-      log("GLX monitorWorkarea: size(" + this.displayWidth + "x" + this.displayHeight + "), pos(x:" + this.displayX + ",y:" + this.displayY + ")");
-    }
-
-    // Ensure initial window bounds do not exceed the available display
-    this.windowWidth = LXUtils.min(this.windowWidth, this.displayWidth);
-    this.windowHeight = LXUtils.min(this.windowHeight, this.displayHeight);
-
-    // Create GLFW window
-    log("GLX createWindow: " + this.windowWidth + "x" + this.windowHeight);
-    this.window = glfwCreateWindow(
-      this.windowWidth,
-      this.windowHeight,
-      this.flags.windowTitle,
-      NULL,
-      NULL
-    );
-    if (this.window == NULL) {
-      throw new RuntimeException("Failed to create the GLFW window");
-    }
-
-    // Detect window/framebuffer sizes and content scale
-    try (MemoryStack stack = MemoryStack.stackPush()) {
-
-      // NOTE: content scale is different across platforms. On a Retina Mac,
-      // content scale will be 2x and the framebuffer will have dimensions
-      // that are twice that of the window. On Windows, content-scaling is
-      // a setting that might be 125%, 150%, etc. - we'll have to look at
-      // the window and framebuffer sizes to figure this all out
-      FloatBuffer xScale = stack.mallocFloat(1);
-      FloatBuffer yScale = stack.mallocFloat(1);
-      glfwGetWindowContentScale(this.window, xScale, yScale);
-      this.systemContentScaleX = xScale.get(0);
-      this.systemContentScaleY = yScale.get(0);
-      log("GLX systemContentScale: " + this.systemContentScaleX + "x" + this.systemContentScaleY);
-
-      // The window size is in terms of "OS window size" - best thought of
-      // as an abstract setting which may or may not exactly correspond to
-      // pixels (e.g. a Mac retina display may have 2x as many pixels)
-      IntBuffer xSize = stack.mallocInt(1);
-      IntBuffer ySize = stack.mallocInt(1);
-      glfwGetWindowSize(this.window, xSize, ySize);
-      this.windowWidth = xSize.get(0);
-      this.windowHeight = ySize.get(0);
-
-      // Restore window position if restored from preferences
-      if (this.windowPosX >= 0 && this.windowPosY >= 0) {
-        this.windowPosX = LXUtils.constrain(this.windowPosX, this.displayX, this.displayX + this.displayWidth - this.windowWidth);
-        this.windowPosY = LXUtils.constrain(this.windowPosY, this.displayY, this.displayY + this.displayHeight - this.windowHeight);
-        this.windowPosY = 44;
-        // this.windowPosY = 0;
-        log("GLX setWindowPos: " + this.windowPosX + "," + this.windowPosY);
-        glfwSetWindowPos(this.window, this.windowPosX, this.windowPosY);
-
-        // NOTE: apparently been observed in the wild that the window may end up too big to fit,
-        // (email exchange w/ jkbelcher june 4 2025), check again here after setting position
-        // that it's been fixed?
-        glfwGetWindowSize(this.window, xSize, ySize);
-        this.windowWidth = xSize.get(0);
-        this.windowHeight = ySize.get(0);
-      }
-      log("GLX windowSize: " + this.windowWidth + "x" + this.windowHeight);
-
-      // See what is in the framebuffer. A retina Mac probably supplies
-      // 2x the dimensions on framebuffer relative to window.
-      glfwGetFramebufferSize(this.window, xSize, ySize);
-      this.frameBufferWidth = xSize.get(0);
-      this.frameBufferHeight = ySize.get(0);
-      log("GLX framebufferSize: " + this.frameBufferWidth + "x" + this.frameBufferHeight);
-
-      // Okay, let's figure out how many "virtual pixels" the GLX UI should
-      // be. Note that on a Mac with 2x retina display, contentScale will be
-      // 2, but the framebuffer will have dimensions twice that of the window.
-      // So we should end up with uiWidth/uiHeight matching the window.
-      // But on Windows it's a different situation, if contentScale > 100%
-      // then we're going to "scale down" our number of UI pixels and draw them
-      // into a larger framebuffer.
-      this.uiWidth = this.frameBufferWidth / this.systemContentScaleX / this.uiZoom;
-      this.uiHeight = this.frameBufferHeight / this.systemContentScaleY / this.uiZoom;
-      log("GLX uiSize: " + this.uiWidth + "x" + this.uiHeight);
-
-      // To make things even trickier... keep in mind that the OS specifies cursor
-      // movement relative to its window size. We need to scale those onto our
-      // virtual UI window size.
-      this.cursorScaleX = this.uiWidth / this.windowWidth;
-      this.cursorScaleY = this.uiHeight / this.windowHeight;
-      log("GLX cursorScale: " + this.cursorScaleX + "x" + this.cursorScaleY);
-
-      // Set UI Zoom bounds based upon content scaling
-      this.preferences.uiZoom.setRange((int) Math.ceil(100 / this.systemContentScaleX), 201);
-
-      // TODO(mcslee): nanovg test
-//      this.frameBufferWidth = this.windowWidth;
-//      this.frameBufferHeight = this.windowHeight;
-//      this.contentScaleX = 1.25f;
-//      this.contentScaleY = 1.25f;
-//      this.uiWidth = this.frameBufferWidth / this.contentScaleX;
-//      this.uiHeight = this.frameBufferHeigh t / this.contentScaleY;
-//      this.cursorScaleX = this.uiWidth / this.windowWidth;
-//      this.cursorScaleY = this.uiHeight / this.windowHeight;
-
-    }
-
-    glfwSetWindowFocusCallback(this.window, (window, focused) -> {
-      if (focused) {
-        // Update the cursor position callback... if the window wasn't focused
-        // and the user re-focused it with a click followed by mouse drag, then
-        // the CursorPosCallback won't have had a chance to fire yet. So
-        // we give it a kick whenever the window refocuses.
-        try (MemoryStack stack = MemoryStack.stackPush()) {
-          DoubleBuffer xPos = stack.mallocDouble(1);
-          DoubleBuffer yPos = stack.mallocDouble(1);
-          glfwGetCursorPos(this.window, xPos, yPos);
-          this.inputDispatch.onFocus(xPos.get(0) * this.cursorScaleX, yPos.get(0) * this.cursorScaleY);
-        }
-      }
-    });
-
-    glfwSetWindowCloseCallback(this.window, (window) -> {
-      if (!this.bgfxThread.hasFailed) {
-        // Confirm that we really want to do it
-        glfwSetWindowShouldClose(this.window, false);
-        confirmChangesSaved("quit", () -> {
-          glfwSetWindowShouldClose(this.window, true);
-        });
-      }
-    });
-
-    glfwSetWindowSizeCallback(this.window, (window, width, height) -> {
-      // NOTE(mcslee): This call should *follow* a call from glfwSetFramebufferSizeCallback, the window
-      // properties change after the underlying framebuffer
-      this.windowWidth = width;
-      this.windowHeight = height;
-      this.cursorScaleX = this.uiWidth / this.windowWidth;
-      this.cursorScaleY = this.uiHeight / this.windowHeight;
-      try (MemoryStack stack = MemoryStack.stackPush()) {
-        // NOTE(mcslee): need to grab the new window position here as well! If a top or left
-        // corner of the window is used for a drag-resize operation, then the window's X or Y
-        // position can change without a glfwSetWindowPosCallback being invoked from a window
-        // move operation
-        IntBuffer xPos = stack.mallocInt(1);
-        IntBuffer yPos = stack.mallocInt(1);
-        glfwGetWindowPos(this.window, xPos, yPos);
-        this.windowPosX = xPos.get();
-        this.windowPosY = yPos.get();
-      }
-      this.preferences.setWindowSize(this.windowWidth, this.windowHeight, this.windowPosX, this.windowPosY);
-    });
-
-    glfwSetWindowPosCallback(this.window, (window, x, y) -> {
-      this.windowPosX = x;
-      this.windowPosY = y;
-      this.preferences.setWindowPosition(this.windowPosX, this.windowPosY);
-    });
-
-    glfwSetWindowContentScaleCallback(this.window, (window, contentScaleX, contentScaleY) -> {
-      this.systemContentScaleX = contentScaleX;
-      this.systemContentScaleY = contentScaleY;
-      this.uiWidth = this.frameBufferWidth / this.systemContentScaleX / this.uiZoom;
-      this.uiHeight = this.frameBufferHeight / this.systemContentScaleY / this.uiZoom;
-      this.cursorScaleX = this.uiWidth / this.windowWidth;
-      this.cursorScaleY = this.uiHeight / this.windowHeight;
-      this.preferences.uiZoom.setRange((int) Math.ceil(100 / this.systemContentScaleX), 201);
-      this.bgfxThread.resizeUI.set(true);
-    });
-
-    glfwSetFramebufferSizeCallback(this.window, (window, width, height) -> {
-      this.frameBufferWidth = width;
-      this.frameBufferHeight = height;
-      this.uiWidth = this.frameBufferWidth / this.systemContentScaleX / this.uiZoom;
-      this.uiHeight = this.frameBufferHeight / this.systemContentScaleY / this.uiZoom;
-      this.cursorScaleX = this.uiWidth / this.windowWidth;
-      this.cursorScaleY = this.uiHeight / this.windowHeight;
-      this.bgfxThread.resizeFramebuffer.set(true);
-    });
-
-    glfwSetDropCallback(this.window, (window, count, names) -> {
-      if (count == 1) {
-        try {
-          final File file = new File(GLFWDropCallback.getName(names, 0));
-          if (file.exists() && file.isFile()) {
-            if (file.getName().endsWith(".lxp")) {
-              this.engine.addTask(() -> {
-                confirmChangesSaved("open project " + file.getName(), () -> {
-                  openProject(file);
-                });
-              });
-            } else if (file.getName().endsWith(".jar")) {
-              this.engine.addTask(() -> {
-                importContentJar(file, true);
-              });
-            }
-          }
-        } catch (Exception x) {
-          error(x, "Exception on drop-file handler: " + x.getLocalizedMessage());
-        }
-      }
-    });
-
-    // Register input dispatching callbacks
-    glfwSetKeyCallback(this.window, this.inputDispatch::glfwKeyCallback);
-    glfwSetCharCallback(this.window, this.inputDispatch::glfwCharCallback);
-    glfwSetCursorPosCallback(this.window, this.inputDispatch::glfwCursorPosCallback);
-    glfwSetMouseButtonCallback(this.window, this.inputDispatch::glfwMouseButtonCallback);
-    glfwSetScrollCallback(window, this.inputDispatch::glfwScrollCallback);
-
-    // Initialize standard mouse cursors
-    for (MouseCursor cursor : MouseCursor.values()) {
-      cursor.initialize();
-    }
-  }
-
-  private boolean setWindowSizeLimits = true;
-
-  private void setUIZoom(float uiScale) {
-    this.uiZoom = uiScale;
-    this.uiWidth = this.frameBufferWidth / this.systemContentScaleX / this.uiZoom;
-    this.uiHeight = this.frameBufferHeight / this.systemContentScaleY / this.uiZoom;
-    this.cursorScaleX = this.uiWidth / this.windowWidth;
-    this.cursorScaleY = this.uiHeight / this.windowHeight;
-    this.vg.notifyContentScaleChanged();
-    this.bgfxThread.resizeUI.set(true);
-    this.setWindowSizeLimits = true;
-  }
-
-  protected void setWindowSize(int windowWidth, int windowHeight) {
-    glfwSetWindowSize(this.window, windowWidth, windowHeight);
-  }
-
-  private void eventLoop() {
-
-    while (!glfwWindowShouldClose(this.window)) {
-
-      // Update window size limits
-      if (this.setWindowSizeLimits) {
-        this.setWindowSizeLimits = false;
-        int minWindowWidth = (int) (MIN_WINDOW_WIDTH / this.cursorScaleX);
-        int minWindowHeight = (int) (MIN_WINDOW_HEIGHT / this.cursorScaleY);
-        glfwSetWindowSizeLimits(this.window, minWindowWidth, minWindowHeight, GLFW_DONT_CARE, GLFW_DONT_CARE);
-        if (this.windowWidth < minWindowWidth || this.windowHeight < minWindowHeight) {
-          glfwSetWindowSize(
-            this.window,
-            LXUtils.max(this.windowWidth, minWindowWidth),
-            LXUtils.max(this.windowHeight, minWindowHeight)
-          );
-        }
-      }
-
-      // Poll for input events
-      this.inputDispatch.poll();
-
-      // Update mouse cursor if needed
-      if (this.needsCursorUpdate) {
-        final MouseCursor mc = this.mouseCursor;
-        glfwSetCursor(this.window, (mc != null) ? mc.handle : 0);
-        this.needsCursorUpdate = false;
-      }
-
-      // Copy something to the clipboard
-      final String copyToClipboard = this._setSystemClipboardString;
-      if (copyToClipboard != null) {
-        glfwSetClipboardString(this.window, copyToClipboard);
-        this._getSystemClipboardString = copyToClipboard;
-        this._setSystemClipboardString = null;
-      } else {
-        this.ignoreClipboardError = true;
-        String str = glfwGetClipboardString(NULL);
-        this.ignoreClipboardError = false;
-        if ((str != null) && !str.equals(this._getSystemClipboardString)) {
-          this._getSystemClipboardString = str;
-          this.clipboard.setItem(new LXTextValue(str), false);
-        }
-      }
-    }
-  }
-
-  @Override
-  public void dispose() {
-    for (MouseCursor cursor : MouseCursor.values()) {
-      cursor.dispose();
-    }
-    super.dispose();
-  }
-
-  public void setMouseCursor(MouseCursor mouseCursor) {
-    if (this.mouseCursor != mouseCursor) {
-      this.mouseCursor = mouseCursor;
-      this.needsCursorUpdate = true;
-    }
   }
 
   public void importContentJar(File file, boolean overwrite) {
@@ -954,12 +529,9 @@ public class GLX extends LX {
     ));
   }
 
-  private String _getSystemClipboardString = null;
-  private String _setSystemClipboardString = null;
-
   @Override
   public void setSystemClipboardString(String str) {
-    this._setSystemClipboardString = str;
+    this.window.setSystemClipboardString(str);
   }
 
   private static final String GLX_PREFIX = "GLX";
@@ -974,6 +546,10 @@ public class GLX extends LX {
 
   public static void error(String message) {
     LX._error(GLX_PREFIX, message);
+  }
+
+  protected static void _error(String prefix, String message) {
+    _log(System.err, null, prefix, message);
   }
 
 }

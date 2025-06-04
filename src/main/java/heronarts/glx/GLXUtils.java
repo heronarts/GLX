@@ -122,11 +122,7 @@ public class GLXUtils {
   }
 
   public static ByteBuffer loadShader(GLX glx, String name) throws IOException {
-    return loadShader(glx.bgfx, name);
-  }
-
-  public static ByteBuffer loadShader(BGFXEngine bgfx, String name) throws IOException {
-    return loadResource("shaders/" + rendererPath(bgfx.getRenderer()) + name + ".bin");
+    return loadResource("shaders/" + rendererPath(glx.bgfx.getRenderer()) + name + ".bin");
   }
 
   /**

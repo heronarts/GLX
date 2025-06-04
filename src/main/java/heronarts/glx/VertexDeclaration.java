@@ -40,7 +40,7 @@ public class VertexDeclaration {
     glx.assertBgfxThreadAllocation(getClass());
     this.glx = glx;
     this.handle = BGFXVertexLayout.calloc();
-    bgfx_vertex_layout_begin(this.handle, glx.getRenderer());
+    bgfx_vertex_layout_begin(this.handle, glx.bgfx.getRenderer());
     for (Attribute attribute : attributes) {
       addLayout(attribute);
     }

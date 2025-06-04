@@ -135,4 +135,5 @@ public abstract class Event {
   public boolean isConsumed() {
     return this.isConsumed;
   }
+
 }
