@@ -108,7 +108,7 @@ public class Text3d extends ShaderProgram {
   public class Label {
 
     private boolean visible = true;
-    private final String label;
+    public final String label;
     private final Vector3f textPosition = new Vector3f();
     private TextOrientation textOrientation = TextOrientation.WORLD;
     private TextScale textScale = TextScale.WORLD;
@@ -124,6 +124,10 @@ public class Text3d extends ShaderProgram {
     private Label(String label, FontTexture font) {
       this.label = label;
       this.font = font;
+    }
+
+    public boolean isVisible() {
+      return this.visible;
     }
 
     public Label setVisible(boolean visible) {
