@@ -33,7 +33,7 @@ public abstract class VertexBuffer implements BGFXEngine.Resource {
   private final int numVertices;
 
   public static class UnitCube extends VertexBuffer {
-    public UnitCube(GLX glx) {
+    UnitCube(GLX glx) {
       super(glx, 14, VertexDeclaration.Attribute.POSITION);
     }
 
@@ -56,11 +56,69 @@ public abstract class VertexBuffer implements BGFXEngine.Resource {
     }
   }
 
+  public static class UnitCubeWithNormals extends VertexBuffer {
+    UnitCubeWithNormals(GLX glx) {
+      super(glx, 36, VertexDeclaration.Attribute.POSITION, VertexDeclaration.Attribute.NORMAL);
+    }
+
+    @Override
+    protected void bufferData(ByteBuffer buffer) {
+      // Front
+      putVertex(-0.5f, -0.5f, -0.5f, 0, 0, -1f);
+      putVertex(+0.5f, -0.5f, -0.5f, 0, 0, -1f);
+      putVertex(-0.5f, +0.5f, -0.5f, 0, 0, -1f);
+      putVertex(-0.5f, +0.5f, -0.5f, 0, 0, -1f);
+      putVertex(+0.5f, -0.5f, -0.5f, 0, 0, -1f);
+      putVertex(+0.5f, +0.5f, -0.5f, 0, 0, -1f);
+
+      // Right
+      putVertex(+0.5f, -0.5f, -0.5f, 1f, 0, 0);
+      putVertex(+0.5f, -0.5f, +0.5f, 1f, 0, 0);
+      putVertex(+0.5f, +0.5f, -0.5f, 1f, 0, 0);
+      putVertex(+0.5f, +0.5f, -0.5f, 1f, 0, 0);
+      putVertex(+0.5f, -0.5f, +0.5f, 1f, 0, 0);
+      putVertex(+0.5f, +0.5f, +0.5f, 1f, 0, 0);
+
+      // Back
+      putVertex(+0.5f, -0.5f, +0.5f, 0, 0, 1f);
+      putVertex(-0.5f, -0.5f, +0.5f, 0, 0, 1f);
+      putVertex(+0.5f, +0.5f, +0.5f, 0, 0, 1f);
+      putVertex(+0.5f, +0.5f, +0.5f, 0, 0, 1f);
+      putVertex(-0.5f, -0.5f, +0.5f, 0, 0, 1f);
+      putVertex(-0.5f, +0.5f, +0.5f, 0, 0, 1f);
+
+      // Left
+      putVertex(-0.5f, -0.5f, +0.5f, -1f, 0, 0);
+      putVertex(-0.5f, -0.5f, -0.5f, -1f, 0, 0);
+      putVertex(-0.5f, +0.5f, +0.5f, -1f, 0, 0);
+      putVertex(-0.5f, +0.5f, +0.5f, -1f, 0, 0);
+      putVertex(-0.5f, -0.5f, -0.5f, -1f, 0, 0);
+      putVertex(-0.5f, +0.5f, -0.5f, -1f, 0, 0);
+
+      // Top
+      putVertex(-0.5f, +0.5f, -0.5f, 0, 1f, 0);
+      putVertex(+0.5f, +0.5f, -0.5f, 0, 1f, 0);
+      putVertex(-0.5f, +0.5f, +0.5f, 0, 1f, 0);
+      putVertex(-0.5f, +0.5f, +0.5f, 0, 1f, 0);
+      putVertex(+0.5f, +0.5f, -0.5f, 0, 1f, 0);
+      putVertex(+0.5f, +0.5f, +0.5f, 0, 1f, 0);
+
+      // Bottom
+      putVertex(+0.5f, -0.5f, -0.5f, 0, 1f, 0);
+      putVertex(-0.5f, -0.5f, -0.5f, 0, 1f, 0);
+      putVertex(+0.5f, -0.5f, +0.5f, 0, 1f, 0);
+      putVertex(+0.5f, -0.5f, +0.5f, 0, 1f, 0);
+      putVertex(-0.5f, -0.5f, -0.5f, 0, 1f, 0);
+      putVertex(-0.5f, -0.5f, +0.5f, 0, 1f, 0);
+
+    }
+  }
+
   public static class UnitCubeEdges extends VertexBuffer {
 
     public static final int NUM_VERTICES = 24;
 
-    public UnitCubeEdges(GLX glx) {
+    UnitCubeEdges(GLX glx) {
       this(glx, NUM_VERTICES);
     }
 
@@ -108,6 +166,7 @@ public abstract class VertexBuffer implements BGFXEngine.Resource {
     }
   }
 
+  @Deprecated
   public VertexBuffer(GLX glx, int numVertices) {
     this(glx, numVertices, VertexDeclaration.Attribute.POSITION, VertexDeclaration.Attribute.TEXCOORD0);
   }
@@ -129,6 +188,14 @@ public abstract class VertexBuffer implements BGFXEngine.Resource {
 
   protected abstract void bufferData(ByteBuffer buffer);
 
+  protected void putNormal(float nx, float ny, float nz) {
+    putVertex(nx, ny, nz);
+  }
+
+  protected void putVertex(float x, float y, float z, float nx, float ny, float nz) {
+    putVertex(this.vertexData, x, y, z, nx, ny, nz);
+  }
+
   protected void putVertex(float x, float y, float z) {
     putVertex(this.vertexData, x, y, z);
   }
@@ -137,6 +204,15 @@ public abstract class VertexBuffer implements BGFXEngine.Resource {
     buffer.putFloat(x);
     buffer.putFloat(y);
     buffer.putFloat(z);
+  }
+
+  public static void putVertex(ByteBuffer buffer, float x, float y, float z, float nx, float ny, float nz) {
+    buffer.putFloat(x);
+    buffer.putFloat(y);
+    buffer.putFloat(z);
+    buffer.putFloat(nx);
+    buffer.putFloat(ny);
+    buffer.putFloat(nz);
   }
 
   protected void putTex2d(float u, float v) {

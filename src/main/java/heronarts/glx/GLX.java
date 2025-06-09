@@ -49,7 +49,7 @@ public class GLX extends LX {
     public final Phong phong;
     public final Text3d text3d;
 
-    public Programs() {
+    private Programs() {
       this.tex2d = new Tex2d(GLX.this);
       this.uniformFill = new UniformFill(GLX.this);
       this.vertexFill = new VertexFill(GLX.this);
@@ -57,12 +57,30 @@ public class GLX extends LX {
       this.text3d = new Text3d(GLX.this);
     }
 
-    public void dispose() {
+    private void dispose() {
       this.tex2d.dispose();
       this.uniformFill.dispose();
       this.vertexFill.dispose();
       this.phong.dispose();
       this.text3d.dispose();
+    }
+  }
+
+  public final class VertexBuffers {
+    public final VertexBuffer.UnitCube unitCube;
+    public final VertexBuffer.UnitCubeEdges unitCubeEdges;
+    public final VertexBuffer.UnitCubeWithNormals unitCubeWithNormals;
+
+    private VertexBuffers() {
+      this.unitCube = new VertexBuffer.UnitCube(GLX.this);
+      this.unitCubeWithNormals = new VertexBuffer.UnitCubeWithNormals(GLX.this);
+      this.unitCubeEdges = new VertexBuffer.UnitCubeEdges(GLX.this);
+    }
+
+    private void dispose() {
+      this.unitCube.dispose();
+      this.unitCubeWithNormals.dispose();
+      this.unitCubeEdges.dispose();
     }
   }
 
@@ -100,6 +118,11 @@ public class GLX extends LX {
   public final Programs program;
 
   /**
+   * Publicly accessible, globally reusable vertex buffers
+   */
+  public final VertexBuffers vertexBuffer;
+
+  /**
    * The UI stack
    */
   public final UI ui;
@@ -128,6 +151,7 @@ public class GLX extends LX {
     // Construct the BGFX instance
     this.bgfx = new BGFXEngine(this);
     this.program = new Programs();
+    this.vertexBuffer = new VertexBuffers();
     this.vg = new VGraphics(this);
 
     // Build the application UI
@@ -277,6 +301,7 @@ public class GLX extends LX {
     // Dispose of BGFX graphics assets
     this.vg.dispose();
     this.program.dispose();
+    this.vertexBuffer.dispose();
     this.bgfx.dispose();
     log(bgfx.thread.getName() + " finished.");
   }

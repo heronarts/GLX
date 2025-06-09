@@ -100,6 +100,7 @@ public class UIModelMeshes extends UI3dComponent {
           ui.lx.program.phong.setLightColor(this.mesh.lightColor);
           ui.lx.program.phong.setLightDirection(this.mesh.lightDirection);
           ui.lx.program.phong.setLighting(this.mesh.lighting);
+          ui.lx.program.phong.setObjectColor(0xffffffff);
           ui.lx.program.phong.submit(view, bgfxState, vertexBuffer);
         }
       }
@@ -146,7 +147,7 @@ public class UIModelMeshes extends UI3dComponent {
       super(model, mesh);
 
       this.texture = loadTexture(lx, mesh.texture);
-      final boolean hasColor = (mesh.type == LXModel.Mesh.Type.PHONG);
+      final boolean hasColor = false;
       final boolean hasNormals = (mesh.type == LXModel.Mesh.Type.PHONG);
       final boolean hasTexture = (this.texture != null);
 

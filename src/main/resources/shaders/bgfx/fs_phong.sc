@@ -1,4 +1,4 @@
-$input v_color0, v_normal, v_pos
+$input v_normal, v_pos
 
 /*
  * Copyright 2011-2023 Branimir Karadzic. All rights reserved.
@@ -16,6 +16,8 @@ uniform vec4 u_lighting;
 #define u_shininess u_lighting.w
 
 uniform vec4 u_eyePosition;
+
+uniform vec4 u_objectColor;
 
 void main()
 {
@@ -43,5 +45,5 @@ void main()
   
   vec3 specular = u_specular * spec * lightColor; 
 
-  gl_FragColor = vec4(ambient + diffuse + specular, 1.0) * v_color0;
+  gl_FragColor = vec4(ambient + diffuse + specular, 1.0) * u_objectColor;
 }

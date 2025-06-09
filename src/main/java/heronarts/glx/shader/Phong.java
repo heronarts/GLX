@@ -22,6 +22,7 @@ import org.joml.Vector3f;
 
 import heronarts.glx.GLX;
 import heronarts.glx.View;
+import heronarts.lx.color.LXColor;
 import heronarts.lx.model.LXModel;
 
 public class Phong extends ShaderProgram {
@@ -30,8 +31,10 @@ public class Phong extends ShaderProgram {
   private final Uniform.Vec4f uniformLightDirection;
   private final Uniform.Vec4f uniformLighting;
   private final Uniform.Vec4f uniformEyePosition;
+  private final Uniform.Vec4f uniformObjectColor;
 
-  private int lightColorARGB = 0;
+  private int lightColorARGB = LXColor.WHITE;
+  private int objectColorARGB = LXColor.WHITE;
   private float[] lightDirection = new float[4];
   private float[] lighting = new float[4];
   private float[] eyePosition = new float[4];
@@ -45,10 +48,13 @@ public class Phong extends ShaderProgram {
     this.uniformLightDirection = new Uniform.Vec4f(glx, "u_lightDirection");
     setLightDirection(0, 0, 1);
 
-    this.uniformLighting = new Uniform.Vec4f(glx,"u_lighting");
+    this.uniformLighting = new Uniform.Vec4f(glx, "u_lighting");
     setLighting(LXModel.Mesh.Lighting.DEFAULT);
 
-    this.uniformEyePosition = new Uniform.Vec4f(glx,"u_eyePosition");
+    this.uniformEyePosition = new Uniform.Vec4f(glx, "u_eyePosition");
+
+    this.uniformObjectColor = new Uniform.Vec4f(glx, "u_objectColor");
+    setObjectColor(0xffffffff);
   }
 
   /**
@@ -58,6 +64,10 @@ public class Phong extends ShaderProgram {
    */
   public void setLightColor(int lightColorARGB) {
     this.lightColorARGB = lightColorARGB;
+  }
+
+  public void setObjectColor(int objectColorARGB) {
+    this.objectColorARGB = objectColorARGB;
   }
 
   public void setLightDirection(LXModel.Mesh.Vertex v) {
@@ -100,6 +110,7 @@ public class Phong extends ShaderProgram {
     this.uniformLightDirection.set(this.lightDirection);
     this.uniformLighting.set(this.lighting);
     this.uniformEyePosition.set(this.eyePosition);
+    this.uniformObjectColor.setARGB(this.objectColorARGB);
   }
 
   @Override
@@ -108,6 +119,7 @@ public class Phong extends ShaderProgram {
     this.uniformLightDirection.dispose();
     this.uniformLightColor.dispose();
     this.uniformEyePosition.dispose();
+    this.uniformObjectColor.dispose();
     super.dispose();
   }
 }
