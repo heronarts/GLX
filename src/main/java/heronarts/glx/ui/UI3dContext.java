@@ -76,13 +76,10 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
     @Override
     public String toString() {
-      switch (this) {
-      case OBJECT:
-        return "Move Fixtures";
-      default:
-      case VIEW:
-        return "Move Camera";
-      }
+      return switch (this) {
+        case OBJECT -> "Move Fixtures";
+        case VIEW -> "Move Camera";
+      };
     }
   }
 
@@ -1077,8 +1074,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   protected void onMouseDragged(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
     MouseInteraction interaction = getInteraction(mouseEvent);
     switch (interaction) {
-    case ROTATE_VIEW:
-    case ROTATE_OBJECT:
+    case ROTATE_VIEW, ROTATE_OBJECT -> {
       this.autopilot.enabled.setValue(false);
 
       // NOTE: this is counter-intuitive but the rotation in the theta plane is divided relative
@@ -1096,16 +1092,15 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
           listener.rotate(rt, rp);
         }
       }
-      break;
+    }
 
-    case ZOOM:
+    case ZOOM -> {
       this.autopilot.enabled.setValue(false);
       this.camera.radius.incrementValue(dy * 2.f / getHeight() * this.camera.radius.getValue());
       updateFocusedCamera();
-      break;
+    }
 
-    case TRANSLATE_XY:
-    case TRANSLATE_Z:
+    case TRANSLATE_XY, TRANSLATE_Z -> {
       final double thetaDampedRadians = Math.toRadians(this.thetaDamped.getValue());
       final double phiDampedRadians = Math.toRadians(this.phiDamped.getValue());
 
@@ -1137,18 +1132,28 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
         tz = dcy * cosTheta * cosPhi;
       }
 
-      if (this.mouseMode.getEnum() == MouseMode.VIEW) {
-        this.camera.x.incrementValue(tx);
-        this.camera.y.incrementValue(ty);
-        this.camera.z.incrementValue(tz);
-        updateFocusedCamera();
-      } else {
-        for (MovementListener listener : this.movementListeners) {
-          listener.translate(tx, ty, tz);
+      switch (this.mouseMode.getEnum()) {
+        case VIEW -> {
+          this.camera.x.incrementValue(tx);
+          this.camera.y.incrementValue(ty);
+          this.camera.z.incrementValue(tz);
+          updateFocusedCamera();
+        }
+        case OBJECT -> {
+          for (MovementListener listener : this.movementListeners) {
+            listener.translate(tx, ty, tz);
+          }
         }
       }
-      break;
+    }
+    }
+  }
 
+  @Override
+  protected void onMouseReleased(MouseEvent mouseEvent, float mx, float my) {
+    super.onMouseReleased(mouseEvent, mx, my);
+    for (MovementListener listener : this.movementListeners) {
+      listener.reset();
     }
   }
 
