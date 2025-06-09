@@ -149,7 +149,9 @@ public class Text3d extends ShaderProgram {
     /**
      * Position of the label in world-space
      *
-     * @param position Position in world-space
+     * @param x World-space x-coordinate
+     * @param y World-space y-coordinate
+     * @param z World-space z-coordinate
      * @return this
      */
     public Label setPosition(float x, float y, float z) {
