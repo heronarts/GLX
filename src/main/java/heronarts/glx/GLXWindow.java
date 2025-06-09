@@ -509,11 +509,11 @@ public class GLXWindow {
     return this.uiZoom;
   }
 
-  float getSystemContentScaleX() {
+  public float getSystemContentScaleX() {
     return this.systemContentScaleX;
   }
 
-  float getSystemContentScaleY() {
+  public float getSystemContentScaleY() {
     return this.systemContentScaleY;
   }
 

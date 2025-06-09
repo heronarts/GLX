@@ -30,8 +30,8 @@ void main()
   if (u_textOrientation == 1.0) {
     // Camera orientation
     gl_Position = t_base + textSize * vec4(
-      a_position.x + u_textOffset.x,
-      u_aspectRatio * (a_position.y + u_textOffset.y),
+      (a_position.x + u_textOffset.x) / u_aspectRatio,
+      a_position.y + u_textOffset.y,
       0.0,
       0.0
     );

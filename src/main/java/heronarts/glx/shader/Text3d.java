@@ -488,7 +488,7 @@ public class Text3d extends ShaderProgram {
     this.uniformFontSampler.setTexture(0, getFontTexture(this.textFont).texture, BGFX_SAMPLER_NONE);
     this.uniformTextPosition.set(this.textPosition.x, this.textPosition.y, this.textPosition.z, this.textOrientation.ordinal());
     this.uniformTextOffset.set(this.textOffsetX, this.textOffsetY);
-    this.uniformTextMetrics.set(this.textSize, this.textScale.ordinal(), view.getAspectRatio(), 2f / view.getHeight() * this.glx.window.getUIZoom());
+    this.uniformTextMetrics.set(this.textSize, this.textScale.ordinal(), view.getAspectRatio(), this.glx.window.getUIZoom() * 2f / view.getHeight() * this.glx.window.getSystemContentScaleY());
     this.uniformTextColor.setARGB(this.textColorARGB);
     this.uniformBackgroundColor.setARGB(this.backgroundColorARGB);
   }
