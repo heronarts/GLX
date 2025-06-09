@@ -53,6 +53,23 @@ public class Texture implements BGFXEngine.Resource {
     this.th = bgfx_create_texture(bgfx_make_ref(this.textureData), BGFX_TEXTURE_NONE, 0, null);
   }
 
+  /**
+   * Create a texture from a byte array of image data
+   *
+   * @param glx GLX instance
+   * @param width Texture width
+   * @param height Texture height
+   * @param textureFormat BGFX texture format
+   * @param textureData Texture data
+   */
+  public Texture(GLX glx, int width, int height, int textureFormat, byte[] textureData) {
+    glx.assertBgfxThreadAllocation(this);
+    this.glx = glx;
+    this.stbiData = null;
+    this.textureData = MemoryUtil.memAlloc(width * height).put(textureData).flip();
+    this.th = bgfx_create_texture_2d(width, height, false, 1, textureFormat, BGFX_TEXTURE_NONE, bgfx_make_ref(this.textureData));
+  }
+
   private Texture(GLX glx, String path, boolean is2d) throws IOException {
     glx.assertBgfxThreadAllocation(this);
     this.glx = glx;

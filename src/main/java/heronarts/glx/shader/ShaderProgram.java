@@ -79,6 +79,8 @@ public class ShaderProgram implements BGFXEngine.Resource {
 
     public static class Vec4f extends Uniform {
 
+      private static final int LENGTH = 4;
+
       private final FloatBuffer buffer;
 
       public Vec4f(GLX glx, String name) {
@@ -87,19 +89,27 @@ public class ShaderProgram implements BGFXEngine.Resource {
       }
 
       public void setARGB(int argb) {
-        set(((argb >>> 16) & 0xff) / 255f, ((argb >>> 8) & 0xff) / 255f,
-          (argb & 0xff) / 255f, ((argb >>> 24) & 0xff) / 255f);
+        // Uniform buffers are in RGBA order, floating point
+        set(
+          ((argb >>> 16) & 0xff) / 255f,
+          ((argb >>> 8) & 0xff) / 255f,
+          (argb & 0xff) / 255f,
+          ((argb >>> 24) & 0xff) / 255f
+        );
       }
 
       public void set(float... values) {
         this.glx.assertBgfxThreadUpdate(this);
-        if (values.length > 4) {
+        if (values.length > LENGTH) {
           throw new IllegalArgumentException(
-            "Cannot pass more than 4 values to Uniform.Vec4f.set()");
+            "Cannot pass more than " + LENGTH + " values to Uniform.Vec4f.set()");
         }
         int i = 0;
         for (float f : values) {
           this.buffer.put(i++, f);
+        }
+        while (i < LENGTH) {
+          this.buffer.put(i++, 0);
         }
         bgfx_set_uniform(this.handle, this.buffer, 1);
       }
@@ -119,7 +129,7 @@ public class ShaderProgram implements BGFXEngine.Resource {
     | BGFX_STATE_WRITE_Z
     | BGFX_STATE_BLEND_ALPHA;
 
-  private final GLX glx;
+  protected final GLX glx;
   private short handle;
   private ByteBuffer vertexShaderCode;
   private ByteBuffer fragmentShaderCode;

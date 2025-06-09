@@ -27,6 +27,7 @@ import org.lwjgl.system.MemoryStack;
 
 import heronarts.glx.shader.Phong;
 import heronarts.glx.shader.Tex2d;
+import heronarts.glx.shader.Text3d;
 import heronarts.glx.shader.UniformFill;
 import heronarts.glx.shader.VertexFill;
 import heronarts.glx.ui.UI;
@@ -46,12 +47,14 @@ public class GLX extends LX {
     public final UniformFill uniformFill;
     public final VertexFill vertexFill;
     public final Phong phong;
+    public final Text3d text3d;
 
     public Programs() {
       this.tex2d = new Tex2d(GLX.this);
       this.uniformFill = new UniformFill(GLX.this);
       this.vertexFill = new VertexFill(GLX.this);
       this.phong = new Phong(GLX.this);
+      this.text3d = new Text3d(GLX.this);
     }
 
     public void dispose() {
@@ -59,6 +62,7 @@ public class GLX extends LX {
       this.uniformFill.dispose();
       this.vertexFill.dispose();
       this.phong.dispose();
+      this.text3d.dispose();
     }
   }
 
