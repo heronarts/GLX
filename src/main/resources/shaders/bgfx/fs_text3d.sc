@@ -15,4 +15,7 @@ SAMPLER2D(s_font, 0);
 void main()
 {
   gl_FragColor = mix(u_backgroundColor, u_textColor, texture2D(s_font, v_texcoord0.xy).a);
+  if (gl_FragColor.a <= 0) {
+    discard;
+  }
 }

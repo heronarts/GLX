@@ -118,7 +118,7 @@ public class Text3d extends ShaderProgram {
     private HorizontalAlignment horizontalAlignment = HorizontalAlignment.LEFT;
     private VerticalAlignment verticalAlignment = VerticalAlignment.BOTTOM;
     private VertexBuffer vertexBuffer = null;
-    private boolean depthTest = false;
+    private boolean depthTest = true;
     private final FontTexture font;
 
     private Label(String label, FontTexture font) {
