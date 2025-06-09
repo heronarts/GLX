@@ -505,7 +505,7 @@ public class GLXWindow {
     return this.systemContentScaleY * this.uiZoom;
   }
 
-  float getUIZoom() {
+  public float getUIZoom() {
     return this.uiZoom;
   }
 
