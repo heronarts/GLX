@@ -33,6 +33,7 @@ import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.component.UIInputBox;
 import heronarts.lx.LX;
+import heronarts.lx.LXEngineUtilities;
 import heronarts.lx.LXLoopTask;
 import heronarts.lx.LXSerializable;
 import heronarts.lx.modulator.Click;
@@ -52,7 +53,7 @@ import heronarts.lx.utils.LXUtils;
  */
 public class UI3dContext extends UIObject implements LXSerializable, UILayer, UITabFocus {
 
-  public static final int NUM_CAMERA_POSITIONS = 6;
+  public static final int NUM_CAMERA_POSITIONS = LXEngineUtilities.NUM_CAMERA_POSITIONS;
 
   public static interface MovementListener {
     public void reset();
