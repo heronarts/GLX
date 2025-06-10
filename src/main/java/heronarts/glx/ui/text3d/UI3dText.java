@@ -38,11 +38,7 @@ public class UI3dText extends UI3dComponent {
   }
 
   public Text3d.Label addLabel(String text) {
-    return addLabel(text, Text3d.TextFont.NORMAL);
-  }
-
-  public Text3d.Label addLabel(String text, Text3d.TextFont textFont) {
-    final Text3d.Label label = this.glx.program.text3d.createLabel(text, textFont);
+    final Text3d.Label label = this.glx.program.text3d.createLabel(text);
     this.labels.add(label);
     return label;
   }

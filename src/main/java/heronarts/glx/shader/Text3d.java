@@ -23,6 +23,7 @@ import java.io.DataInputStream;
 import java.io.InputStream;
 import java.io.IOException;
 import java.nio.ByteBuffer;
+import java.util.Objects;
 
 import org.joml.Vector3f;
 import static org.lwjgl.bgfx.BGFX.*;
@@ -108,7 +109,8 @@ public class Text3d extends ShaderProgram {
   public class Label {
 
     private boolean visible = true;
-    public final String label;
+    private String label = "";
+    private TextFont textFont = TextFont.NORMAL;
     private final Vector3f textPosition = new Vector3f();
     private TextOrientation textOrientation = TextOrientation.WORLD;
     private TextScale textScale = TextScale.WORLD;
@@ -119,11 +121,27 @@ public class Text3d extends ShaderProgram {
     private VerticalAlignment verticalAlignment = VerticalAlignment.BOTTOM;
     private VertexBuffer vertexBuffer = null;
     private boolean depthTest = true;
-    private final FontTexture font;
+    private boolean dirty = false;
 
-    private Label(String label, FontTexture font) {
+    private Label(String label) {
       this.label = label;
-      this.font = font;
+    }
+
+    public Label setLabel(String label) {
+      Objects.requireNonNull(label, "Cannot set null label on Text3d.Label");
+      if (!label.equals(this.label)) {
+        this.label = label;
+        this.dirty = true;
+      }
+      return this;
+    }
+
+    public Label setTextFont(TextFont textFont) {
+      if (this.textFont != textFont) {
+        this.textFont = textFont;
+        this.dirty = true;
+      }
+      return this;
     }
 
     public boolean isVisible() {
@@ -219,10 +237,19 @@ public class Text3d extends ShaderProgram {
     }
 
     private void _initVertexBuffer(UI ui) {
+      if (this.dirty) {
+        if (this.vertexBuffer != null) {
+          this.vertexBuffer.dispose();
+          this.vertexBuffer = null;
+        }
+        this.dirty = false;
+      }
+
       if (this.vertexBuffer != null) {
         return;
       }
       final char[] chars = this.label.toCharArray();
+      final FontTexture font = getFontTexture(this.textFont);
       this.vertexBuffer = new VertexBuffer(chars) {
         @Override
         protected void bufferData(ByteBuffer buffer) {
@@ -281,7 +308,7 @@ public class Text3d extends ShaderProgram {
         if (this.depthTest) {
           state |= BGFX_STATE_DEPTH_TEST_LESS;
         }
-        setLabel(this).submit(view, state, this.vertexBuffer);
+        Text3d.this.setLabel(this).submit(view, state, this.vertexBuffer);
       }
     }
 
@@ -309,8 +336,6 @@ public class Text3d extends ShaderProgram {
       }
     }
 
-    private final TextFont textFont;
-
     private final float descent;
 
     private final float atlasWidth;
@@ -321,8 +346,6 @@ public class Text3d extends ShaderProgram {
     private final Texture texture;
 
     private FontTexture(TextFont textFont) {
-      this.textFont = textFont;
-
       try (InputStream resource = GLXUtils.loadResourceStream("fonts/" + textFont.name + ".font3d");
            DataInputStream is = new DataInputStream(resource)) {
 
@@ -399,11 +422,7 @@ public class Text3d extends ShaderProgram {
   }
 
   public Label createLabel(String text) {
-    return createLabel(text, TextFont.NORMAL);
-  }
-
-  public Label createLabel(String text, TextFont textFont) {
-    return new Label(text, getFontTexture(textFont));
+    return new Label(text);
   }
 
   private FontTexture getFontTexture(TextFont textFont) {
@@ -467,10 +486,10 @@ public class Text3d extends ShaderProgram {
     setTextColorARGB(label.textColorARGB);
     setBackgroundColorARGB(label.backgroundColorARGB);
     setTextPosition(label.textPosition);
-    setTextFont(label.font.textFont);
+    setTextFont(label.textFont);
     setTextOffset(
       label.horizontalAlignment.offset * label.vertexBuffer.getWidth(),
-      label.verticalAlignment.getOffset(label.font)
+      label.verticalAlignment.getOffset(getFontTexture(label.textFont))
     );
     setTextSize(label.textSize);
     setTextOrientation(label.textOrientation);
