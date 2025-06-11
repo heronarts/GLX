@@ -372,10 +372,14 @@ public class Text3d extends ShaderProgram {
           this.glyphMetrics[i] = new GlyphMetrics(charWidth, charHeight, charX, charY);
         }
         // read image alpha texture data
+        int position = 0;
         final byte[] imageData = new byte[texWidth * texHeight];
-        is.read(imageData, 0, imageData.length);
+        while (position < imageData.length) {
+          position += is.read(imageData, position, imageData.length - position);
+        }
         this.texture = new Texture(glx, texWidth, texHeight, BGFX_TEXTURE_FORMAT_A8, imageData);
       } catch (IOException iox) {
+        GLX.error(iox, "Failed to load Text3d font atlas: " + textFont.name);
         throw new RuntimeException(iox);
       }
     }
