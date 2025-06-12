@@ -21,7 +21,7 @@ package heronarts.glx.ui.component;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
 import heronarts.glx.ui.UI2dComponent;
-import heronarts.glx.ui.UI2dContainer;
+import heronarts.glx.ui.UI2dOverlay;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.command.LXCommand;
 import heronarts.lx.midi.MidiFilterParameter;
@@ -32,13 +32,10 @@ public class UIMidiFilter extends UI2dComponent {
   public static final int WIDTH = 12;
   public static final int HEIGHT = 12;
 
-  private class Overlay extends UI2dContainer {
+  private class Overlay extends UI2dOverlay {
 
     Overlay(UI ui) {
-      super(0, 0, 68, (midiSource == null) ? 110 : 128);
-      setBackgroundColor(ui.theme.deviceFocusedBackgroundColor);
-      setBorderColor(ui.theme.contextBorderColor);
-      setBorderRounding(4);
+      super(ui, 68, (midiSource == null) ? 110 : 128);
 
       final float yp = (midiSource == null) ? 20 : 38;
 
