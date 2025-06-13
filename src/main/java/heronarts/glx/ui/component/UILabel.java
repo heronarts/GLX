@@ -96,7 +96,11 @@ public class UILabel extends UI2dComponent {
 
   public static class Box extends Control {
     public Box(UI ui, float w, float h, String label) {
-      super(ui, 0, 0, w, h, label);
+      this(ui, 0, 0, w, h, label);
+    }
+
+    public Box(UI ui, float x, float y, float w, float h, String label) {
+      super(ui, x, y, w, h, label);
       setBorderColor(ui.theme.controlBorderColor);
       setBackgroundColor(ui.theme.controlBackgroundColor);
     }
