@@ -463,8 +463,8 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
   boolean isTriggerSourceMapping() {
     return
       this.ui.triggerSourceMapping &&
-      (this instanceof UITriggerSource) &&
-      ((UITriggerSource) this).getTriggerSource() != null;
+      (this instanceof UITriggerSource uiTriggerSource) &&
+      isValidSourceMappingScope(uiTriggerSource.getTriggerSource());
   }
 
   /**
@@ -479,7 +479,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       final BooleanParameter target = uiTriggerTarget.getTriggerTarget();
       return
         (target != null) &&
-        this.ui.modulationEngine.isParameterInScope(target) &&
+        this.ui.lx.engine.mapping.getModulationEngine().isTargetParameterInScope(target) &&
         !target.isDescendant(this.ui.getTriggerSourceComponent());
     }
     return false;
@@ -501,8 +501,8 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       if (this == modulationSource) {
         return true;
       }
-      if (this instanceof UIModulationSource) {
-        if (((UIModulationSource) this).getModulationSource() == modulationSource.getModulationSource()) {
+      if (this instanceof UIModulationSource uiModulationSource) {
+        if (uiModulationSource.getModulationSource() == modulationSource.getModulationSource()) {
           return true;
         }
       }
@@ -510,8 +510,8 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     return false;
   }
 
-  boolean isValidMappingScope(LXParameter parameter) {
-    return this.ui.modulationEngine.isParameterInScope(parameter);
+  boolean isValidSourceMappingScope(LXParameter parameter) {
+    return this.ui.lx.engine.mapping.getModulationEngine().isSourceParameterInScope(parameter);
   }
 
   /**
@@ -524,12 +524,12 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
   boolean isModulationSourceMapping() {
     if (this.ui.modulationSourceMapping) {
       if (this instanceof UIModulationSource uiModulationSource) {
-        if (isValidMappingScope(uiModulationSource.getModulationSource())) {
+        if (isValidSourceMappingScope(uiModulationSource.getModulationSource())) {
           return true;
         }
       }
       if (this instanceof UITriggerSource uiTriggerSource) {
-        if (isValidMappingScope(uiTriggerSource.getTriggerSource())) {
+        if (isValidSourceMappingScope(uiTriggerSource.getTriggerSource())) {
           return true;
         }
       }
@@ -547,7 +547,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
   boolean isModulationTargetMapping() {
     if (this.ui.modulationTargetMapping && (this instanceof UIModulationTarget uiModulationTarget)) {
       final LXCompoundModulation.Target target = uiModulationTarget.getModulationTarget();
-      return (target != null) && this.ui.modulationEngine.isParameterInScope(target);
+      return (target != null) && this.ui.lx.engine.mapping.getModulationEngine().isTargetParameterInScope(target);
     }
     return false;
   }
@@ -640,7 +640,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       LXNormalizedParameter source = this.ui.getModulationSource().getModulationSource();
       LXCompoundModulation.Target target = ((UIModulationTarget) this).getModulationTarget();
       if (source != null && target != null) {
-        getLX().command.perform(new LXCommand.Modulation.AddModulation(this.ui.modulationEngine, source, target));
+        getLX().command.perform(new LXCommand.Modulation.AddModulation(this.ui.lx.engine.mapping.getModulationEngine(), source, target));
       }
       this.ui.mapModulationOff();
     } else if (isTriggerSourceMapping()) {
@@ -651,7 +651,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       BooleanParameter source = this.ui.getTriggerSource().getTriggerSource();
       BooleanParameter target = ((UITriggerTarget)this).getTriggerTarget();
       if (source != null && target != null) {
-        getLX().command.perform(new LXCommand.Modulation.AddTrigger(this.ui.modulationEngine, source, target));
+        getLX().command.perform(new LXCommand.Modulation.AddTrigger(this.ui.lx.engine.mapping.getModulationEngine(), source, target));
       }
       this.ui.mapModulationOff();
     }
