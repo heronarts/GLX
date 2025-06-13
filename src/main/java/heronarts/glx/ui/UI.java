@@ -620,14 +620,19 @@ public class UI {
 
     lx.engine.mapping.mode.addListener((p) -> {
 
-      LXMappingEngine.Mode mappingMode = lx.engine.mapping.getMode();
+      final LXMappingEngine.Mode mappingMode = lx.engine.mapping.getMode();
 
-      boolean mappingOff = mappingMode == LXMappingEngine.Mode.OFF;
+      final boolean mappingOff = mappingMode == LXMappingEngine.Mode.OFF;
       this.midiMapping = mappingMode == LXMappingEngine.Mode.MIDI;
       this.modulationSourceMapping = mappingMode == LXMappingEngine.Mode.MODULATION_SOURCE;
       this.modulationTargetMapping = mappingMode == LXMappingEngine.Mode.MODULATION_TARGET;
       this.triggerSourceMapping = mappingMode == LXMappingEngine.Mode.TRIGGER_SOURCE;
       this.triggerTargetMapping = mappingMode == LXMappingEngine.Mode.TRIGGER_TARGET;
+
+      // Bootstrap modulation engine if missing
+      if (this.modulationEngine == null) {
+        this.modulationEngine = this.lx.engine.modulation;
+      }
 
       // Clear mapping state when mapping is finished
       if (mappingOff) {
@@ -845,7 +850,11 @@ public class UI {
   }
 
   public UI mapTriggerSource(UITriggerSource triggerSource) {
-    return mapTriggerSource(this.lx.engine.modulation, triggerSource);
+    return mapTriggerSource(triggerSource, false);
+  }
+
+  public UI mapTriggerSource(UITriggerSource triggerSource, boolean preserveEngine) {
+    return mapTriggerSource(preserveEngine ? this.modulationEngine : this.lx.engine.modulation, triggerSource);
   }
 
   public UI mapTriggerSource(LXModulationEngine modulationEngine, UITriggerSource triggerSource) {
@@ -872,7 +881,11 @@ public class UI {
   }
 
   public UI mapModulationSource(UIModulationSource modulationSource) {
-    return mapModulationSource(this.lx.engine.modulation, modulationSource);
+    return mapModulationSource(modulationSource, false);
+  }
+
+  public UI mapModulationSource(UIModulationSource modulationSource, boolean preserveEngine) {
+    return mapModulationSource(preserveEngine ? this.modulationEngine : this.lx.engine.modulation, modulationSource);
   }
 
   public UI mapModulationSource(LXModulationEngine modulationEngine, UIModulationSource modulationSource) {

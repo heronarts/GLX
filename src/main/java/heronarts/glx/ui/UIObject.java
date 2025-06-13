@@ -475,11 +475,11 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    * is a valid, selectable trigger target.
    */
   boolean isTriggerTargetMapping() {
-    if (this.ui.triggerTargetMapping && (this instanceof UITriggerTarget)) {
-      BooleanParameter target = ((UITriggerTarget) this).getTriggerTarget();
+    if (this.ui.triggerTargetMapping && (this instanceof UITriggerTarget uiTriggerTarget)) {
+      final BooleanParameter target = uiTriggerTarget.getTriggerTarget();
       return
         (target != null) &&
-        this.ui.modulationEngine.isValidTarget(target) &&
+        this.ui.modulationEngine.isParameterInScope(target) &&
         !target.isDescendant(this.ui.getTriggerSourceComponent());
     }
     return false;
@@ -510,6 +510,10 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     return false;
   }
 
+  boolean isValidMappingScope(LXParameter parameter) {
+    return this.ui.modulationEngine.isParameterInScope(parameter);
+  }
+
   /**
    * Returns true if the UI is in modulation source mapping mode and this element
    * is a valid modulation source.
@@ -518,11 +522,19 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    * is a valid modulation source.
    */
   boolean isModulationSourceMapping() {
-    return
-      this.ui.modulationSourceMapping && (
-        ((this instanceof UIModulationSource) && ((UIModulationSource) this).getModulationSource() != null) ||
-        ((this instanceof UITriggerSource) && ((UITriggerSource) this).getTriggerSource() != null)
-      );
+    if (this.ui.modulationSourceMapping) {
+      if (this instanceof UIModulationSource uiModulationSource) {
+        if (isValidMappingScope(uiModulationSource.getModulationSource())) {
+          return true;
+        }
+      }
+      if (this instanceof UITriggerSource uiTriggerSource) {
+        if (isValidMappingScope(uiTriggerSource.getTriggerSource())) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /**
@@ -533,9 +545,9 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    * is a valid modulation target.
    */
   boolean isModulationTargetMapping() {
-    if (this.ui.modulationTargetMapping && (this instanceof UIModulationTarget)) {
-      LXCompoundModulation.Target target = ((UIModulationTarget) this).getModulationTarget();
-      return (target != null) && this.ui.modulationEngine.isValidTarget(target);
+    if (this.ui.modulationTargetMapping && (this instanceof UIModulationTarget uiModulationTarget)) {
+      final LXCompoundModulation.Target target = uiModulationTarget.getModulationTarget();
+      return (target != null) && this.ui.modulationEngine.isParameterInScope(target);
     }
     return false;
   }
@@ -564,8 +576,8 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
   boolean isMidiMapping() {
     return
       this.ui.midiMapping &&
-      (this instanceof UIControlTarget) &&
-      ((UIControlTarget) this).getControlTarget() != null;
+      (this instanceof UIControlTarget uiControlTarget) &&
+      (uiControlTarget.getControlTarget() != null);
   }
 
   void resize(UI ui) {
@@ -616,10 +628,10 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       this.ui.setControlTarget((UIControlTarget) this);
     } else if (isModulationSourceMapping()) {
       isMappingEvent = true;
-      if (this instanceof UIModulationSource) {
-        this.ui.mapModulationSource((UIModulationSource) this);
-      } else if (this instanceof UITriggerSource) {
-        this.ui.mapTriggerSource((UITriggerSource) this);
+      if (this instanceof UIModulationSource uiModulationSource) {
+        this.ui.mapModulationSource(uiModulationSource, true);
+      } else if (this instanceof UITriggerSource uiTriggerSource) {
+        this.ui.mapTriggerSource(uiTriggerSource, true);
       } else {
         throw new IllegalStateException("isModulationSourceMapping() was true but the element is not a modulation or trigger source: " + this);
       }
@@ -633,7 +645,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       this.ui.mapModulationOff();
     } else if (isTriggerSourceMapping()) {
       isMappingEvent = true;
-      this.ui.mapTriggerSource((UITriggerSource) this);
+      this.ui.mapTriggerSource((UITriggerSource) this, true);
     } else if (isTriggerTargetMapping() && !isTriggerSource()) {
       isMappingEvent = true;
       BooleanParameter source = this.ui.getTriggerSource().getTriggerSource();
