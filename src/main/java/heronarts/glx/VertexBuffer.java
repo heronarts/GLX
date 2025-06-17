@@ -183,7 +183,7 @@ public abstract class VertexBuffer implements BGFXEngine.Resource {
     bufferData(this.vertexData);
     this.vertexData.flip();
     this.vbh = bgfx_create_vertex_buffer(bgfx_make_ref(this.vertexData), this.vertexDeclaration.getHandle(), BGFX_BUFFER_NONE);
-    if (this.vbh < 0) {
+    if (this.vbh == BGFX_INVALID_HANDLE) {
       throw new BGFXEngine.ResourceException("Could not create VertexBuffer");
     }
     this.numVertices = numVertices;

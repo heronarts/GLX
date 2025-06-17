@@ -37,7 +37,7 @@ public abstract class IndexBuffer implements BGFXEngine.Resource {
     bufferData(this.indexData);
     this.indexData.flip();
     this.indexBufferHandle = bgfx_create_index_buffer(bgfx_make_ref(this.indexData), int32 ? BGFX_BUFFER_INDEX32 : BGFX_BUFFER_NONE);
-    if (this.indexBufferHandle < 0) {
+    if (this.indexBufferHandle == BGFX_INVALID_HANDLE) {
       throw new BGFXEngine.ResourceException("Could not create IndexBuffer");
     }
     this.numIndices = numIndices;

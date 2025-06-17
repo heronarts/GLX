@@ -93,7 +93,7 @@ public class Tex2d implements BGFXEngine.Resource {
       this.vertexLayout,
       BGFX_BUFFER_NONE
     );
-    if (this.vbh < 0) {
+    if (this.vbh == BGFX_INVALID_HANDLE) {
       throw new BGFXEngine.ResourceException("Could not create Tex2d.vertex_buffer");
     }
 

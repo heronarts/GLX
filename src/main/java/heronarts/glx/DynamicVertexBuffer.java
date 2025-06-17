@@ -43,7 +43,7 @@ public class DynamicVertexBuffer implements BGFXEngine.Resource {
     this.vertexDeclaration = new VertexDeclaration(glx, attributes);
     this.vertexData = MemoryUtil.memAlloc(this.vertexDeclaration.getStride() * numVertices);
     this.vertexBufferHandle = bgfx_create_dynamic_vertex_buffer(numVertices, this.vertexDeclaration.getHandle(), BGFX_BUFFER_NONE);
-    if (this.vertexBufferHandle < 0) {
+    if (this.vertexBufferHandle == BGFX_INVALID_HANDLE) {
       throw new BGFXEngine.ResourceException("Could not create DynamicVertexBuffer");
     }
     this.numVertices = numVertices;
