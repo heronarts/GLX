@@ -420,11 +420,15 @@ public class UIModelMeshes extends UI3dComponent {
     }
   }
 
+  private static final int MAX_MESHES = 2048;
+  private boolean meshLimitReached = false;
+
   private void updateMeshes(LXModel model) {
     this.meshes.forEach(mesh -> mesh.dispose());
     this.meshes.clear();
 
     final List<Mesh> newMeshes = new ArrayList<>();
+    this.meshLimitReached = false;
     _addMeshes(newMeshes, model);
     if (!newMeshes.isEmpty()) {
       this.meshes.addAll(newMeshes); // addAll for COWarraylist
@@ -432,8 +436,18 @@ public class UIModelMeshes extends UI3dComponent {
   }
 
   private void _addMeshes(List<Mesh> meshes, LXModel model) {
+    if (this.meshLimitReached) {
+      return;
+    }
     if (model.meshes != null) {
       for (LXModel.Mesh mesh : model.meshes) {
+        if (meshes.size() >= MAX_MESHES) {
+          lx.engine.addTask(() -> {
+            lx.pushError("Model exceeds maximum of " + MAX_MESHES + " UI meshes. Not all meshes will be drawn.");
+          });
+          this.meshLimitReached = true;
+          return;
+        }
         if (mesh.vertices != null) {
           meshes.add(new VertexMesh(model, mesh));
         } else if (mesh.file != null) {
