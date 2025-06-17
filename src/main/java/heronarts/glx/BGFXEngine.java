@@ -46,6 +46,15 @@ public class BGFXEngine {
     public void dispose();
   }
 
+  public static class ResourceException extends RuntimeException {
+    private static final long serialVersionUID = -3148578246159355331L;
+
+    public ResourceException(String message) {
+      super(message);
+    }
+  }
+
+
   private final GLX glx;
 
   final Thread thread;

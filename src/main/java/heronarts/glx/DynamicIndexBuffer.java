@@ -55,6 +55,9 @@ public class DynamicIndexBuffer implements BGFXEngine.Resource {
     this.glx = glx;
     this.indexData = MemoryUtil.memAlloc((int32 ? Integer.BYTES : Short.BYTES) * numIndices);
     this.indexBufferHandle = bgfx_create_dynamic_index_buffer(numIndices, int32 ? BGFX_BUFFER_INDEX32 : BGFX_BUFFER_NONE);
+    if (this.indexBufferHandle < 0) {
+      throw new BGFXEngine.ResourceException("Could not create DynamicIndexBuffer");
+    }
     this.numIndices = numIndices;
   }
 

@@ -62,6 +62,8 @@ public class UIModelMeshes extends UI3dComponent {
 
   private final List<Mesh> meshes = new CopyOnWriteArrayList<>();
 
+  private final UIModelMeshes source;
+
   private abstract class Mesh {
 
     protected final LXModel model;
@@ -388,14 +390,24 @@ public class UIModelMeshes extends UI3dComponent {
   }
 
   public UIModelMeshes(GLX lx) {
+    this(lx, null);
+  }
+
+  public UIModelMeshes(GLX lx, UIModelMeshes source) {
     this.lx = lx;
+    this.source = source;
     this.modelMatrixBuf = MemoryUtil.memAllocFloat(16);
   }
 
   @Override
   public void onDraw(UI ui, View view) {
-    LXEngine.Frame frame = ui.lx.uiFrame;
-    LXModel frameModel = frame.getModel();
+    if (this.source != null) {
+      this.source.onDraw(ui, view);
+      return;
+    }
+
+    final LXEngine.Frame frame = ui.lx.uiFrame;
+    final LXModel frameModel = frame.getModel();
 
     if (this.model != frameModel) {
       this.model = frameModel;
@@ -411,7 +423,8 @@ public class UIModelMeshes extends UI3dComponent {
   private void updateMeshes(LXModel model) {
     this.meshes.forEach(mesh -> mesh.dispose());
     this.meshes.clear();
-    List<Mesh> newMeshes = new ArrayList<>();
+
+    final List<Mesh> newMeshes = new ArrayList<>();
     _addMeshes(newMeshes, model);
     if (!newMeshes.isEmpty()) {
       this.meshes.addAll(newMeshes); // addAll for COWarraylist

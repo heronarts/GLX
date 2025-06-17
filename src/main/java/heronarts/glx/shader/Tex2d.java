@@ -93,6 +93,9 @@ public class Tex2d implements BGFXEngine.Resource {
       this.vertexLayout,
       BGFX_BUFFER_NONE
     );
+    if (this.vbh < 0) {
+      throw new BGFXEngine.ResourceException("Could not create Tex2d.vertex_buffer");
+    }
 
     try {
       this.vsCode = GLXUtils.loadShader(this.glx, "vs_view2d");

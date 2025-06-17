@@ -55,6 +55,9 @@ public class ShaderProgram implements BGFXEngine.Resource {
       glx.assertBgfxThreadAllocation(this);
       this.glx = glx;
       this.handle = bgfx_create_uniform(name, type.bgfxType, 1);
+      if (this.handle < 0) {
+        throw new BGFXEngine.ResourceException("Could not create Uniform");
+      }
     }
 
     public void dispose() {
