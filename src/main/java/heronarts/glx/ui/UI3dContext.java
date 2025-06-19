@@ -153,6 +153,52 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     .setUnits(LXParameter.Units.MILLISECONDS)
     .setDescription("Animation duration between camera positions");
 
+  public final BoundedParameter animationEase =
+    new BoundedParameter("Animation Ease", .5)
+    .setUnits(BoundedParameter.Units.PERCENT_NORMALIZED)
+    .setDescription("Applies sinusoidal shaping to the animation path");
+
+  public enum AnimationEase {
+    SINUSOIDAL("Sinusoid"),
+    QUADRATIC("Quadratic"),
+    CUBIC("Cubic");
+
+    private final String label;
+
+    private AnimationEase(String label) {
+      this.label = label;
+    }
+
+    public double getValue(double basis) {
+      return switch (this) {
+        case SINUSOIDAL -> .5 - .5 * Math.cos(basis * Math.PI);
+        case QUADRATIC -> (basis < 0.5) ? (2 * basis * basis) : (1 - 2 * (1-basis) * (1-basis));
+        case CUBIC -> (basis < 0.5) ? (4 * basis * basis * basis) : (1 - 4 * (1-basis) * (1-basis) * (1-basis));
+      };
+    }
+
+    @Override
+    public String toString() {
+      return this.label;
+    }
+  }
+
+  public final EnumParameter<AnimationEase> animationEaseShape =
+    new EnumParameter<>("Animation Ease Shape", AnimationEase.SINUSOIDAL)
+    .setDescription("Type of shaping applied to the animation path");
+
+  public final BooleanParameter animationClampY =
+    new BooleanParameter("Animation Clamp Y")
+    .setDescription("Enables clamping of the camera Y-position in animations");
+
+  public final BoundedParameter animationMinY =
+    new BoundedParameter("Animation Minimum Y", 0, -Float.MAX_VALUE, Float.MAX_VALUE)
+    .setDescription("Minimum camera Y position during animations");
+
+  public final BoundedParameter animationMaxY =
+    new BoundedParameter("Animation Maximum Y", 10000, -Float.MAX_VALUE, Float.MAX_VALUE)
+    .setDescription("Maximum camera Y position during animations");
+
   /**
    * Max velocity used to damp changes to radius (zoom)
    */
@@ -261,6 +307,12 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     }
 
     private void lerp(Camera one, Camera two, double amt) {
+      amt = LXUtils.lerp(
+        amt,
+        animationEaseShape.getEnum().getValue(amt),
+        animationEase.getValue()
+      );
+
       double thetaOne = one.theta.getValue();
       double thetaTwo = two.theta.getValue();
       if (Math.abs(thetaOne - thetaTwo) > 180) {
@@ -276,6 +328,17 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       this.x.setValue(LXUtils.lerp(one.x.getValue(), two.x.getValue(), amt));
       this.y.setValue(LXUtils.lerp(one.y.getValue(), two.y.getValue(), amt));
       this.z.setValue(LXUtils.lerp(one.z.getValue(), two.z.getValue(), amt));
+
+      if (animationClampY.isOn()) {
+        final float minY = animationMinY.getValuef();
+        final float maxY = animationMaxY.getValuef();
+        double y = this.y.getValue() + this.radius.getValuef() * Math.sin(Math.toRadians(this.phi.getValue()));
+        if (y < minY) {
+          this.phi.setValue(Math.toDegrees(Math.asin((minY - this.y.getValue()) / this.radius.getValue())));
+        } else if (y > maxY) {
+          this.phi.setValue(Math.toDegrees(Math.asin((maxY - this.y.getValue()) / this.radius.getValue())));
+        }
+      }
     }
 
     @Override
@@ -557,6 +620,8 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   private float width;
   private float height;
 
+  private final LXParameter.Collection parameters = new LXParameter.Collection();
+
   protected UI3dContext(UI ui, float x, float y, float w, float h) {
     setUI(ui);
     this.x = x;
@@ -565,6 +630,16 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     this.height = h;
     this.view = new View(ui.lx);
     setViewRect();
+
+    this.parameters.add("projection", this.projection);
+    this.parameters.add("perspective", this.perspective);
+    this.parameters.add("depth", this.depth);
+    this.parameters.add("animationTime", this.animationTime);
+    this.parameters.add("animationEase", this.animationEase);
+    this.parameters.add("animationEaseShape", this.animationEaseShape);
+    this.parameters.add("animationClampY", this.animationClampY);
+    this.parameters.add("animationMinY", this.animationMinY);
+    this.parameters.add("animationMaxY", this.animationMaxY);
 
     for (int i = 0; i < this.cue.length; ++i) {
       this.cue[i] = new Camera();
@@ -1192,22 +1267,15 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   }
 
   private static final String KEY_ANIMATION = "animation";
-  private static final String KEY_ANIMATION_TIME = "animationTime";
   private static final String KEY_CAMERA = "camera";
   private static final String KEY_AUTOPILOT = "autopilot";
   private static final String KEY_CUE = "cue";
   private static final String KEY_FOCUS = "focus";
-  private static final String KEY_PROJECTION = "projection";
-  private static final String KEY_PERSPECTIVE = "perspective";
-  private static final String KEY_DEPTH = "depth";
 
   @Override
   public void save(LX lx, JsonObject object) {
+    LXSerializable.Utils.saveParameters(object, this.parameters);
     object.addProperty(KEY_ANIMATION, this.animation.isOn());
-    object.addProperty(KEY_ANIMATION_TIME, this.animationTime.getValue());
-    object.addProperty(KEY_PROJECTION, this.projection.getValuei());
-    object.addProperty(KEY_PERSPECTIVE, this.perspective.getValue());
-    object.addProperty(KEY_DEPTH, this.depth.getValue());
     object.add(KEY_CAMERA, LXSerializable.Utils.toObject(lx, this.camera));
     object.add(KEY_CUE, LXSerializable.Utils.toArray(lx, this.cue));
     object.add(KEY_AUTOPILOT, LXSerializable.Utils.toObject(lx, this.autopilot));
@@ -1220,10 +1288,10 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     this.animating.stop();
     this.animation.setValue(false);
 
-    LXSerializable.Utils.loadDouble(this.animationTime, object, KEY_ANIMATION_TIME);
-    LXSerializable.Utils.loadInt(this.projection, object, KEY_PROJECTION);
-    LXSerializable.Utils.loadDouble(this.perspective, object, KEY_PERSPECTIVE);
-    LXSerializable.Utils.loadDouble(this.depth, object, KEY_DEPTH);
+    // Load parameters
+    LXSerializable.Utils.loadParameters(object, this.parameters);
+
+    // Camera
     if (object.has(KEY_CAMERA)) {
       LXSerializable.Utils.loadObject(lx, this.camera, object, KEY_CAMERA);
     } else {
