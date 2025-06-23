@@ -103,6 +103,7 @@ public class UILabel extends UI2dComponent {
       super(ui, x, y, w, h, label);
       setBorderColor(ui.theme.controlBorderColor);
       setBackgroundColor(ui.theme.controlBackgroundColor);
+      setPadding(0, 2);
     }
   }
 
