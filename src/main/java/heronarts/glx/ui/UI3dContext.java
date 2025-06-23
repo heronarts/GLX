@@ -247,6 +247,10 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       new BooleanParameter("Active", false)
       .setDescription("Whether this camera view is active");
 
+    public final BooleanParameter stale =
+      new BooleanParameter("Stale", false)
+      .setDescription("Whether this camera view is stale");
+
     public final BoundedParameter theta =
       new BoundedParameter("Theta", 0, 360)
       .setWrappable(true)
@@ -286,12 +290,30 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       this.parameters.add("z", this.z);
     }
 
+    public boolean matches(Camera that) {
+      return
+        (this.radius.getValue() == that.radius.getValue()) &&
+        (this.theta.getValue() == that.theta.getValue()) &&
+        (this.phi.getValue() == that.phi.getValue()) &&
+        (this.x.getValue() == that.x.getValue()) &&
+        (this.y.getValue() == that.y.getValue()) &&
+        (this.z.getValue() == that.z.getValue());
+    }
+
+    public boolean hasFocus() {
+      return focusCamera.getObject() == this;
+    }
+
     private void reset() {
       this.parameters.reset();
     }
 
     private void set(Camera that) {
       set(that, true);
+    }
+
+    public void update() {
+      set(camera, false);
     }
 
     private void set(Camera that, boolean active) {
@@ -301,6 +323,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       this.x.setValue(that.x.getValue());
       this.y.setValue(that.y.getValue());
       this.z.setValue(that.z.getValue());
+      this.stale.setValue(false);
       if (active) {
         this.active.setValue(true);
       }
@@ -560,9 +583,10 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
   public final Camera camera = new Camera();
 
-  private Camera prevCamera = null;
   private Camera cameraFrom = new Camera();
   private Camera cameraTo = new Camera();
+
+  private Camera animatingTo = null;
 
   private final LXPeriodicModulator animating = new Click(this.animationTime).setLooping(false);
 
@@ -647,18 +671,21 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
     this.focusCamera = new ObjectParameter<Camera>("Camera", this.cue);
     addListener(this.focusCamera, p -> {
-      Camera selectCamera = this.focusCamera.getObject();
+      final Camera selectCamera = this.focusCamera.getObject();
       if (!selectCamera.active.isOn()) {
         // Store state into the camera
         selectCamera.set(this.camera);
       } else {
-        if (this.animation.isOn() && (selectCamera != this.prevCamera)) {
+        final boolean animatingToCamera = this.animating.isRunning() && (selectCamera == this.animatingTo);
+        if (this.animation.isOn() && !selectCamera.matches(this.camera) && !animatingToCamera) {
           // Trigger animation from current camera to the next
+          this.animatingTo = selectCamera;
           this.cameraFrom.set(this.camera);
           this.cameraTo.set(selectCamera);
           this.animating.trigger();
         } else {
           // Immediately update all camera state
+          this.animatingTo = null;
           this.animating.stop();
           this.camera.set(selectCamera);
           this.thetaDamped.setValue(this.camera.theta.getValue());
@@ -670,7 +697,6 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
           computeCamera(true);
         }
       }
-      this.prevCamera = selectCamera;
     });
 
     addLoopTask(this.animating);
@@ -820,6 +846,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
    */
   public UI3dContext setCamera(int index) {
     this.autopilot.enabled.setValue(false);
+    this.focusCamera.getObject().stale.setValue(false);
     if (this.focusCamera.getValuei() != index) {
       this.focusCamera.setValue(index);
     } else {
@@ -1109,8 +1136,8 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     }
   }
 
-  private void updateFocusedCamera() {
-    this.focusCamera.getObject().set(this.camera, false);
+  private void onCameraPositionChange() {
+    this.focusCamera.getObject().stale.setValue(true);
     this.animating.stop();
   }
 
@@ -1162,7 +1189,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       if (interaction == MouseInteraction.ROTATE_VIEW) {
         this.camera.theta.incrementValue(rt);
         this.camera.phi.incrementValue(rp);
-        updateFocusedCamera();
+        onCameraPositionChange();
       } else {
         for (MovementListener listener : this.movementListeners) {
           listener.rotate(rt, rp);
@@ -1173,7 +1200,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     case ZOOM -> {
       this.autopilot.enabled.setValue(false);
       this.camera.radius.incrementValue(dy * 2.f / getHeight() * this.camera.radius.getValue());
-      updateFocusedCamera();
+      onCameraPositionChange();
     }
 
     case TRANSLATE_XY, TRANSLATE_Z -> {
@@ -1213,7 +1240,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
           this.camera.x.incrementValue(tx);
           this.camera.y.incrementValue(ty);
           this.camera.z.incrementValue(tz);
-          updateFocusedCamera();
+          onCameraPositionChange();
         }
         case OBJECT -> {
           for (MovementListener listener : this.movementListeners) {
@@ -1238,7 +1265,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     this.autopilot.enabled.setValue(false);
     float multiplier = mouseEvent.isShiftDown() ? 3 : 1;
     this.camera.radius.incrementValue(multiplier * -dy / getHeight() * this.camera.radius.getValue());
-    updateFocusedCamera();
+    onCameraPositionChange();
   }
 
   @Override
@@ -1250,19 +1277,19 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     if (keyCode == KeyEvent.VK_LEFT) {
       keyEvent.consume();
       this.camera.theta.incrementValue(degrees);
-      updateFocusedCamera();
+      onCameraPositionChange();
     } else if (keyCode == KeyEvent.VK_RIGHT) {
       keyEvent.consume();
       this.camera.theta.incrementValue(-degrees);
-      updateFocusedCamera();
+      onCameraPositionChange();
     } else if (keyCode == KeyEvent.VK_UP) {
       keyEvent.consume();
       this.camera.phi.incrementValue(-degrees);
-      updateFocusedCamera();
+      onCameraPositionChange();
     } else if (keyCode == KeyEvent.VK_DOWN) {
       keyEvent.consume();
       this.camera.phi.incrementValue(degrees);
-      updateFocusedCamera();
+      onCameraPositionChange();
     }
   }
 
