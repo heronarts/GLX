@@ -558,20 +558,38 @@ public interface UIItemList {
       this.isDeletable = isDeletable;
     }
 
+    private boolean matchesFilter(Item item, String[] filterTerms) {
+      if (filterTerms == null) {
+        return true;
+      }
+
+      final Section section = item.getSection();
+      final String lowerCase = item.getLabel().toLowerCase();
+      final String sectionLowerCase = (section != null) ? section.getLabel().toLowerCase() : null;
+
+      // Every term must be in either the section or item name
+      for (String term : filterTerms) {
+        if (!lowerCase.contains(term) && ((sectionLowerCase == null) || !sectionLowerCase.contains(term))) {
+          return false;
+        }
+      }
+      return true;
+    }
+
     private void setFilter(String filter) {
       if (filter != null) {
-        filter = filter.toLowerCase();
+        filter = filter.toLowerCase().trim();
       }
       if (this.filter != filter) {
         this.filter = filter;
+        final String[] filterTerms = (filter != null) ? filter.split(" ") : null;
+
         boolean changed = false;
         for (Item item : this.items) {
           if (!(item instanceof Section)) {
             boolean hidden = false;
-            if ((filter != null) && !item.getLabel().toLowerCase().contains(filter)) {
-              // No item match? Check section name for a match...
-              final Section section = item.getSection();
-              hidden = (section == null) ? true : !section.getLabel().toLowerCase().contains(filter);
+            if ((filter != null) && !matchesFilter(item, filterTerms)) {
+              hidden = true;
             }
             if (hidden != item.hidden) {
               item.hidden = hidden;
@@ -580,8 +598,7 @@ public interface UIItemList {
           }
         }
         for (Item item : this.items) {
-          if (item instanceof Section) {
-            Section section = (Section) item;
+          if (item instanceof Section section) {
             boolean sectionHidden = true;
             for (Item sectionItem : section.items) {
               if (!sectionItem.hidden) {
