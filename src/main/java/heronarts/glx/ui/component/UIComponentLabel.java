@@ -22,6 +22,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import heronarts.lx.LXComponent;
+import heronarts.lx.LXPath;
 import heronarts.lx.parameter.LXParameter;
 import heronarts.lx.parameter.LXParameterListener;
 import heronarts.lx.parameter.StringParameter;
@@ -33,6 +34,11 @@ public class UIComponentLabel extends UILabel implements LXParameterListener {
   private boolean canonical = true;
   private LXComponent root = null;
   private String placeholder = "";
+  private String separator = LXPath.DEFAULT_SEPARATOR;
+
+  public UIComponentLabel(float w, float h) {
+    this(0, 0, w, h);
+  }
 
   public UIComponentLabel(float x, float y, float w, float h) {
     super(x, y, w, h);
@@ -41,6 +47,14 @@ public class UIComponentLabel extends UILabel implements LXParameterListener {
   public UIComponentLabel setPrefix(String prefix) {
     if (this.prefix != prefix) {
       this.prefix = prefix;
+      updateLabel();
+    }
+    return this;
+  }
+
+  public UIComponentLabel setSeparator(String separator) {
+    if (this.separator != separator) {
+      this.separator = separator;
       updateLabel();
     }
     return this;
@@ -101,7 +115,7 @@ public class UIComponentLabel extends UILabel implements LXParameterListener {
     if (this.component == null) {
       setLabel(this.placeholder);
     } else {
-      setLabel((this.prefix != null ? this.prefix : "") + (this.canonical ? this.component.getCanonicalLabel(this.root) : this.component.getLabel()));
+      setLabel((this.prefix != null ? this.prefix : "") + (this.canonical ? this.component.getCanonicalLabel(this.root, this.separator) : this.component.getLabel()));
     }
   }
 
