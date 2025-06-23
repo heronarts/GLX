@@ -29,6 +29,7 @@ import heronarts.glx.ui.UIFocus;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.clipboard.LXClipboardItem;
 import heronarts.lx.clipboard.LXTextValue;
+import heronarts.lx.utils.LXUtils;
 
 /**
  * A simple text label object. Draws a string aligned top-left to its x-y
@@ -246,7 +247,10 @@ public class UILabel extends UI2dComponent {
       vg.textBox(tx + this.textOffsetX, ty + this.textOffsetY, this.width - this.leftPadding - this.rightPadding, this.label);
       vg.fill();
       if (this.autoHeight) {
-        setHeight(this.topPadding + this.bottomPadding + vg.textBoxHeight(this.label, this.width - this.leftPadding - this.rightPadding));
+        final float height = LXUtils.maxf(1, this.topPadding + this.bottomPadding + vg.textBoxHeight(this.label, this.width - this.leftPadding - this.rightPadding));
+        if (this.height != height) {
+          setHeight(height);
+        }
       }
     } else {
       String str = clipTextToWidth(vg, this.label, this.width - this.leftPadding - this.rightPadding);
