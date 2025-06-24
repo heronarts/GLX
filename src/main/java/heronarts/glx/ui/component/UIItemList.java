@@ -211,12 +211,20 @@ public interface UIItemList {
       return this.label;
     }
 
+    private void addItem(int index, Item item) {
+      this.items.add(index, item);
+    }
+
     private void addItem(Item item) {
       this.items.add(item);
     }
 
     private void removeItem(Item item) {
       this.items.remove(item);
+    }
+
+    public boolean isEmpty() {
+      return this.items.isEmpty();
     }
 
     private void toggle() {
@@ -414,9 +422,14 @@ public interface UIItemList {
      * @return this
      */
     private void addItem(int index, Item item) {
-      Section section = item.getSection();
+      final Section section = item.getSection();
       if (section != null) {
-        throw new IllegalArgumentException("Cannot specify index when adding item to section");
+        final int sectionIndex = this.items.indexOf(section);
+        final int sectionLength = section.items.size();
+        if (!LXUtils.inRange(index, sectionIndex+1, sectionIndex + sectionLength + 1)) {
+          throw new IllegalArgumentException("Invalid index (" + index + ") when adding item to section (start:" + sectionIndex + " len:" + sectionLength + ")");
+        }
+        section.addItem(index - sectionIndex - 1, item);
       }
       this.items.add(index, item);
       recomputeContentHeight();
