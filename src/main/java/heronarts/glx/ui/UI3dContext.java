@@ -304,8 +304,15 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       return focusCamera.getObject() == this;
     }
 
+    private void markStale() {
+      if (this.active.isOn()) {
+        this.stale.setValue(true);
+      }
+    }
+
     private void reset() {
       this.parameters.reset();
+      this.stale.setValue(false);
     }
 
     private void set(Camera that) {
@@ -646,6 +653,8 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
   private final LXParameter.Collection parameters = new LXParameter.Collection();
 
+  private boolean inLoad = false;
+
   protected UI3dContext(UI ui, float x, float y, float w, float h) {
     setUI(ui);
     this.x = x;
@@ -671,6 +680,10 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
     this.focusCamera = new ObjectParameter<Camera>("Camera", this.cue);
     addListener(this.focusCamera, p -> {
+      if (this.inLoad ) {
+        return;
+      }
+
       final Camera selectCamera = this.focusCamera.getObject();
       if (!selectCamera.active.isOn()) {
         // Store state into the camera
@@ -1137,7 +1150,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   }
 
   private void onCameraPositionChange() {
-    this.focusCamera.getObject().stale.setValue(true);
+    this.focusCamera.getObject().markStale();
     this.animating.stop();
   }
 
@@ -1311,21 +1324,30 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
 
   @Override
   public void load(LX lx, JsonObject object) {
+    this.inLoad = true;
+
     // Stop animation
     this.animating.stop();
     this.animation.setValue(false);
+
+    // Reset all camera views
+    this.focusCamera.setValue(0);
+    for (Camera camera : this.cue) {
+      camera.reset();
+    }
 
     // Load parameters
     LXSerializable.Utils.loadParameters(object, this.parameters);
 
     // Camera
+    LXSerializable.Utils.loadArray(lx, this.cue, object, KEY_CUE);
+    LXSerializable.Utils.loadInt(this.focusCamera, object, KEY_FOCUS);
+    this.focusCamera.getObject().markStale();
     if (object.has(KEY_CAMERA)) {
       LXSerializable.Utils.loadObject(lx, this.camera, object, KEY_CAMERA);
     } else {
       this.camera.reset();
     }
-    LXSerializable.Utils.loadArray(lx, this.cue, object, KEY_CUE);
-    LXSerializable.Utils.loadInt(this.focusCamera, object, KEY_FOCUS);
 
     // Updated damped values from loading
     this.radiusDamped.setValue(this.camera.radius.getValue());
@@ -1346,6 +1368,8 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     } else {
       this.autopilot.reset();
     }
+
+    this.inLoad = false;
   }
 
 }
