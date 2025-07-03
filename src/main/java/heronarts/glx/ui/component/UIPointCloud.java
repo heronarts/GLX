@@ -43,6 +43,7 @@ import heronarts.lx.LX;
 import heronarts.lx.LXComponent;
 import heronarts.lx.LXEngine;
 import heronarts.lx.LXSerializable;
+import heronarts.lx.color.LXColor;
 import heronarts.lx.model.LXModel;
 import heronarts.lx.model.LXPoint;
 import heronarts.lx.parameter.BooleanParameter;
@@ -344,6 +345,14 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     .setExponent(2)
     .setDescription("Boost contrast of UI simulation, 100% is normal, higher values artificially increase screen brightness");
 
+  public final DiscreteParameter gammaFloor =
+    new DiscreteParameter("Floor", 1, 1, 256)
+    .setDescription("Gamma table floor, amount of light output for the dimmest non-zero value (1-255)");
+
+  public final BoundedParameter gammaPow =
+    new BoundedParameter ("Gamma", 1, .25, 4)
+    .setDescription("Gamma table curve, shaping from dimmest to brightest (1 is linear)");
+
   public final DiscreteParameter alphaRef =
     new DiscreteParameter("Alpha Cutoff", 0, 256)
     .setDescription("At which alpha level to discard the point texture (0 shows everything)");
@@ -359,6 +368,8 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
   public final BooleanParameter useCustomParams =
     new BooleanParameter("Use Custom Params", false)
     .setDescription("Use custom parameter settings");
+
+  private volatile boolean gammaStale = false;
 
   public final UIPointCloud global;
   private UIPointCloud params;
@@ -384,6 +395,8 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
   private boolean auxiliary = false;
 
   private final LXParameter.Collection parameters = new LXParameter.Collection();
+
+  private final int[] gammaLut;
 
   public UIPointCloud(GLX lx) {
     this(lx, null);
@@ -416,12 +429,24 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     this.parameters.add("directionalShowNormals", this.directionalShowNormals);
     this.parameters.add("directionalShowNormalsLength", this.directionalShowNormalsLength);
     this.parameters.add("contrast", this.contrast);
+    this.parameters.add("gammaFloor", this.gammaFloor);
+    this.parameters.add("gammaPow", this.gammaPow);
     this.parameters.add("depthTest", this.depthTest);
     this.parameters.add("useCustomParams", this.useCustomParams);
 
     addListener(this.useCustomParams, p -> {
       this.params = this.useCustomParams.isOn() ? this : this.global;
     }, true);
+
+    // Global UIPointCloud is responsible for the gamma table
+    if (this.global == this) {
+      this.gammaLut = new int[256];
+      this.gammaStale = true;
+      addListener(this.gammaFloor, p -> this.gammaStale = true);
+      addListener(this.gammaPow, p -> this.gammaStale = true);
+    } else {
+      this.gammaLut = null;
+    }
   }
 
   public boolean isGlobal() {
@@ -539,12 +564,35 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       this.needsZSort = false;
     }
 
+    // Update the gamma table if needed
+    if (this.gammaStale) {
+      final int floor = this.gammaFloor.getValuei();
+      final int ceil = this.gammaLut.length - 1;
+      final double pow = this.gammaPow.getValue();
+      this.gammaLut[0] = 0;
+      for (int i = 1; i < this.gammaLut.length; ++i) {
+        double lerp = (i-1.) / (this.gammaLut.length-2.);
+        this.gammaLut[i] = (int) Math.round(LXUtils.lerp(floor, ceil, Math.pow(lerp, pow)));
+      }
+      this.gammaStale = false;
+    };
+
     // Update the color data every frame
     final ByteBuffer colorData = this.colorBuffer.getVertexData();
     colorData.rewind();
     for (int c : frame.getColors(this.auxiliary)) {
+      final int a = c & LXColor.ALPHA_MASK;
+      final int r = (c & LXColor.R_MASK) >> LXColor.R_SHIFT;
+      final int g = (c & LXColor.G_MASK) >> LXColor.G_SHIFT;
+      final int b = c & LXColor.B_MASK;
+      final int gammaCorrected =
+        a |
+        (this.global.gammaLut[r] << LXColor.R_SHIFT) |
+        (this.global.gammaLut[g] << LXColor.G_SHIFT) |
+        this.global.gammaLut[b];
+
       for (int i = 0; i < ModelBuffer.VERTICES_PER_POINT; ++i) {
-        colorData.putInt(c);
+        colorData.putInt(gammaCorrected);
       }
     }
     colorData.flip();
