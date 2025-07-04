@@ -969,7 +969,7 @@ public interface UIItemList {
           boolean isBound = (item == this.firstSelected) || (item == selected);
           if (!inRange && isBound) {
             inRange = true;
-            isBound = (this.firstSelected == selected);
+            isBound = (this.firstSelected == null) || (this.firstSelected == selected);
           }
           if (item.selected) {
             first = false;
