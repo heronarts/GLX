@@ -61,6 +61,8 @@ public interface UIItemList {
    */
   public static abstract class Item {
 
+    protected boolean selected = false;
+
     protected boolean hidden = false;
 
     private boolean isVisible() {
@@ -267,6 +269,8 @@ public interface UIItemList {
 
     private boolean isDeletable = false;
 
+    private boolean hasMultiSelection = false;
+
     private boolean showCheckboxes = false;
 
     private boolean renaming = false;
@@ -394,7 +398,7 @@ public interface UIItemList {
      *
      * @return Focused item, or null if none is focused
      */
-    private UIItemList.Item getFocusedItem() {
+    private Item getFocusedItem() {
       if (this.focusIndex >= 0 && this.focusIndex < this.items.size()) {
         return this.items.get(this.focusIndex);
       }
@@ -466,10 +470,12 @@ public interface UIItemList {
       if (section != null) {
         section.removeItem(item);
       }
-
       int itemIndex = this.items.indexOf(item);
       if (itemIndex < 0) {
         throw new IllegalArgumentException("Item is not in UIItemList: " + item);
+      }
+      if (this.firstSelected == item) {
+        this.firstSelected = null;
       }
       this.items.remove(itemIndex);
       if (this.focusIndex >= this.items.size()) {
@@ -500,6 +506,7 @@ public interface UIItemList {
      * @return this
      */
     private void setItems(List<? extends Item> items) {
+      this.firstSelected = null;
       cancelDragging();
       this.items.clear();
       for (Item item : items) {
@@ -569,6 +576,10 @@ public interface UIItemList {
 
     private void setDeletable(boolean isDeletable) {
       this.isDeletable = isDeletable;
+    }
+
+    private void setMultiSelection(boolean hasMultiSelection) {
+      this.hasMultiSelection = hasMultiSelection;
     }
 
     private boolean matchesFilter(Item item, String[] filterTerms) {
@@ -675,7 +686,24 @@ public interface UIItemList {
       }
     }
 
+    private final List<Item> getSelectedItems() {
+      final List<Item> selected = new ArrayList<>();
+      for (Item item : this.items) {
+        if (item.selected) {
+          selected.add(item);
+        }
+      }
+      return selected;
+    }
+
     private void delete() {
+      if (this.hasMultiSelection) {
+        final List<Item> selected = getSelectedItems();
+        if (selected.size() > 1) {
+          ((UIItemList) this.list).onDelete(selected);
+          return;
+        }
+      }
       if (this.focusIndex >= 0) {
         this.items.get(this.focusIndex).onDelete();
       }
@@ -810,7 +838,7 @@ public interface UIItemList {
           backgroundColor = item.getActiveColor(ui);
           textColor = ui.theme.listItemFocusedTextColor.get();
         } else {
-          backgroundColor = (index == this.focusIndex) ? ui.theme.listItemFocusedBackgroundColor.get() : ui.theme.listItemBackgroundColor.get();
+          backgroundColor = ((index == this.focusIndex) || item.selected) ? ui.theme.listItemFocusedBackgroundColor.get() : ui.theme.listItemBackgroundColor.get();
           textColor = isSection ? ui.theme.listSectionTextColor.get() : ((index == this.focusIndex) ? ui.theme.listItemFocusedTextColor.get() : ui.theme.controlTextColor.get());
         }
         vg.beginPath();
@@ -919,6 +947,63 @@ public interface UIItemList {
       return mouseIndex;
     }
 
+    private Item firstSelected = null;
+
+    private void setSelection(Item selected, Event event) {
+      if (!this.hasMultiSelection) {
+        return;
+      }
+
+      boolean first = true;
+      boolean changed = false;
+      if (event.isMultiSelect()) {
+        for (Item item : this.items) {
+          if (item.selected) {
+            first = false;
+            break;
+          }
+        }
+      } else if (event.isRangeSelect()) {
+        boolean inRange = false;
+        for (Item item : this.items) {
+          boolean isBound = (item == this.firstSelected) || (item == selected);
+          if (!inRange && isBound) {
+            inRange = true;
+            isBound = (this.firstSelected == selected);
+          }
+          if (item.selected) {
+            first = false;
+          }
+          if (item.selected != inRange) {
+            item.selected = inRange;
+            changed = true;
+          }
+          if (inRange && isBound) {
+            inRange = false;
+          }
+        }
+      } else {
+        // Clear all other selections
+        first = true;
+        for (Item item : this.items) {
+          if ((item != selected) && item.selected) {
+            item.selected = false;
+            changed = true;
+          }
+        }
+      }
+      if (first) {
+        this.firstSelected = selected;
+      }
+      if ((selected != null) && !selected.selected) {
+        selected.selected = true;
+        changed = true;
+      }
+      if (changed) {
+        this.list.redraw();
+      }
+    }
+
     private void onMousePressed(MouseEvent mouseEvent, float mx, float my) {
       this.mouseActivate = -1;
       this.mouseChevronPress = false;
@@ -931,6 +1016,7 @@ public interface UIItemList {
         int index = getMousePressIndex(my - getScrollY());
         if (index >= 0) {
           setFocusIndex(index);
+          setSelection(getFocusedItem(), mouseEvent);
           if (this.showCheckboxes && (mx < (5*PADDING + CHECKBOX_SIZE))) {
             if (mx >= 2*PADDING) {
               check();
@@ -1115,6 +1201,7 @@ public interface UIItemList {
           } else {
             if (this.focusIndex > 0) {
               focusNext(-1);
+              setSelection(getFocusedItem(), keyEvent);
               this.list.redraw();
             }
           }
@@ -1130,6 +1217,7 @@ public interface UIItemList {
             }
           } else {
             focusNext(1);
+            setSelection(getFocusedItem(), keyEvent);
             this.list.redraw();
           }
         } else if (keyEvent.isEnter()) {
@@ -1276,8 +1364,13 @@ public interface UIItemList {
     }
 
     @Override
-    public UIItemList.Item getFocusedItem() {
+    public Item getFocusedItem() {
       return this.impl.getFocusedItem();
+    }
+
+    @Override
+    public List<Item> getSelectedItems() {
+      return this.impl.getSelectedItems();
     }
 
     @Override
@@ -1375,6 +1468,12 @@ public interface UIItemList {
     @Override
     public UIItemList setDeletable(boolean deletable) {
       this.impl.setDeletable(deletable);
+      return this;
+    }
+
+    @Override
+    public UIItemList setMultiSelection(boolean hasMultiSelection) {
+      this.impl.setMultiSelection(hasMultiSelection);
       return this;
     }
 
@@ -1498,8 +1597,13 @@ public interface UIItemList {
     }
 
     @Override
-    public UIItemList.Item getFocusedItem() {
+    public Item getFocusedItem() {
       return this.impl.getFocusedItem();
+    }
+
+    @Override
+    public List<Item> getSelectedItems() {
+      return this.impl.getSelectedItems();
     }
 
     @Override
@@ -1597,6 +1701,12 @@ public interface UIItemList {
     @Override
     public UIItemList setDeletable(boolean deletable) {
       this.impl.setDeletable(deletable);
+      return this;
+    }
+
+    @Override
+    public UIItemList setMultiSelection(boolean hasMultiSelection) {
+      this.impl.setMultiSelection(hasMultiSelection);
       return this;
     }
 
@@ -1705,7 +1815,7 @@ public interface UIItemList {
    *
    * @return Focused item, or null if none is focused
    */
-  public UIItemList.Item getFocusedItem();
+  public Item getFocusedItem();
 
   /**
    * Sets the focused item. Checks the bounds
@@ -1715,6 +1825,15 @@ public interface UIItemList {
    * @return this
    */
   public UIItemList setFocusItem(Item item);
+
+  /**
+   * Return the list of selected items. Only supported
+   * on lists for which setMultiSelection(true) was
+   * called.
+   *
+   * @return List of selected items
+   */
+  public List<Item> getSelectedItems();
 
   /**
    * Adds an item to the list
@@ -1853,6 +1972,18 @@ public interface UIItemList {
    * @return this
    */
   public UIItemList setDeletable(boolean deletable);
+
+  /**
+   * Sets whether multiple items in the list may be selected at once for
+   *
+   * @param hasMultiSelection Whether multiple items can be selected at once
+   * @return this
+   */
+  public UIItemList setMultiSelection(boolean hasMultiSelection);
+
+  public default void onDelete(List<Item> items) {
+    throw new UnsupportedOperationException(getClass().getName() + " must implement onDelete(List<Item>)");
+  }
 
   /**
    * Filter the items in the list by a String, resulting list will only
