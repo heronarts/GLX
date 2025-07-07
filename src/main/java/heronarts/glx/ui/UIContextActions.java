@@ -21,6 +21,7 @@ package heronarts.glx.ui;
 import java.util.List;
 
 import heronarts.lx.command.LXCommand;
+import heronarts.lx.osc.LXOscEngine;
 import heronarts.lx.parameter.BooleanParameter;
 import heronarts.lx.parameter.LXParameter;
 
@@ -121,6 +122,10 @@ public interface UIContextActions {
 
     public static class CopyOscAddress extends Action {
       private final String oscAddress;
+
+      public CopyOscAddress(LXParameter parameter) {
+        this(LXOscEngine.getOscAddress(parameter));
+      }
 
       public CopyOscAddress(String oscAddress) {
         super("Copy OSC address");
