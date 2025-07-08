@@ -697,8 +697,8 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
     final boolean isVertical = this.contentTarget.layout.isVerticalList();
 
     final boolean invalid =
-      (isVertical && (mx < 0 || mx > this.contentTarget.getScrollWidth())) ||
-      (isHorizontal && (my < 0 || my > this.contentTarget.getScrollHeight()));
+      (isVertical && !LXUtils.inRange(mx, 0, this.contentTarget.getScrollWidth())) ||
+      (isHorizontal && !LXUtils.inRange(my, 0, this.contentTarget.getScrollHeight()));
     if (invalid) {
       dragCancel();
       return;
@@ -764,6 +764,14 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
     if (hoverIndex > dragIndex) {
       --hoverIndex;
     }
+
+    // Check for out of bounds condition
+    if ((isHorizontal && (mx > this.width)) ||
+        (isVertical && (my > this.height))) {
+      dragPos = -1;
+      hoverIndex = -1;
+    }
+
     if (!release && (hoverIndex != dragIndex)) {
       // Redraw if the drag indicator position has changed
       if (this.drawDragIndicator != dragPos) {

@@ -60,6 +60,39 @@ public abstract class UI2dComponent extends UIObject {
   }
 
   /**
+   * Marker interface for components that can receive a drag+dropped element
+   */
+  public interface UIDropTarget {
+
+    public enum DropAction {
+      /**
+       * Element was released onto the target
+       */
+      DROP,
+
+      /**
+       * Element is being dragged over the target
+       */
+      OVER,
+
+      /**
+       * Element is no longer dragging over the target
+       */
+      OUT;
+    }
+
+    /**
+     * Another element has been dropped onto this one
+     *
+     * @param action Drop action
+     * @param object UIObject dropped here
+     * @param mx x-coordinate of drop, in receiver's bounds
+     * @param my y-coordinate of drop, in receiver's bounds
+     */
+    public void onDrop(DropAction action, UIObject object, float mx, float my);
+  }
+
+  /**
    * Marker interface for components whose drawing should be scissored
    */
   public interface Scissored {}

@@ -23,6 +23,7 @@ import heronarts.glx.GLXWindow.MouseCursor;
 import heronarts.glx.event.Event;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
+import heronarts.glx.ui.UI2dComponent.UIDropTarget;
 import heronarts.glx.ui.component.UIContextMenu;
 import heronarts.lx.LXLoopTask;
 import heronarts.lx.clipboard.LXClipboardItem;
@@ -66,6 +67,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
 
   UIObject pressedChild = null;
   UIObject overChild = null;
+  UIDropTarget dropTarget = null;
 
   private MouseCursor mouseCursor = null;
 
@@ -694,8 +696,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       if (!mouseEvent.isDropMenuConsumed()) {
         onMousePressed(mouseEvent, mx, my);
       }
-      if (!mouseEvent.isConsumed() && mouseEvent.isButton(MouseEvent.BUTTON_LEFT) && (this instanceof UI2dComponent.UIDragReorder)) {
-        UI2dComponent.UIDragReorder drag = (UI2dComponent.UIDragReorder) this;
+      if (!mouseEvent.isConsumed() && mouseEvent.isButton(MouseEvent.BUTTON_LEFT) && (this instanceof UI2dComponent.UIDragReorder drag)) {
         if (drag.isValidDragPosition(mx, my)) {
           UI2dContainer container = ((UI2dComponent) this).getContainer();
           if ((container != null) && container.hasDragToReorder()) {
@@ -730,9 +731,76 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     }
 
     if (this.dragging != null) {
+      // Pre-compute this! Note that getX()/getY() may *change* if dragChild
+      // re-orders the container elements, so put the dropX/dropY in container
+      // space before-hand
+      final float dropX = mx + getX();
+      final float dropY = my + getY();
+
       this.dragging.dragChild(this, mx, my, true);
       this.dragging = null;
+
+      // Now drop back from container into element-space
+      mouseDropped(UIDropTarget.DropAction.DROP, dropX - getX(), dropY - getY());
     }
+  }
+
+  private void cancelDrop() {
+    if (this.dropTarget != null) {
+      this.dropTarget.onDrop(UIDropTarget.DropAction.OUT, this, -1, -1);
+      this.dropTarget = null;
+    }
+  }
+
+  private void mouseDropped(UIDropTarget.DropAction dropAction, float mx, float my) {
+    // Put coords into container-space
+    mx += getX();
+    my += getY();
+    if (contains(mx, my)) {
+      cancelDrop();
+      return;
+    }
+
+    UIObject skip = this;
+    UIObject candidate = getParent();
+    while (candidate != null) {
+      // Put coords into candidate's container-space
+      mx += candidate.getX();
+      my += candidate.getY();
+      if (candidate.contains(mx, my)) {
+        if (_mouseDropped(dropAction, candidate, skip, mx - candidate.getX(), my - candidate.getY())) {
+          return;
+        }
+      }
+      skip = candidate;
+      candidate = candidate.getParent();
+    }
+
+    // Found nothing
+    cancelDrop();
+  }
+
+  private boolean _mouseDropped(UIDropTarget.DropAction dropAction, UIObject candidate, UIObject skip, float mx, float my) {
+    for (UIObject child : candidate.children) {
+      if ((child != skip) && child.isVisible() && child.contains(mx, my)) {
+        if (_mouseDropped(dropAction, child, this, mx - child.getX(), my - child.getY())) {
+          return true;
+        }
+      }
+    }
+    if (candidate instanceof UIDropTarget dropTarget) {
+      if (this.dropTarget != dropTarget) {
+        cancelDrop();
+      }
+      dropTarget.onDrop(dropAction, this, mx, my);
+      if (dropAction == UIDropTarget.DropAction.OVER) {
+        this.dropTarget = dropTarget;
+      } else {
+        this.dropTarget = null;
+      }
+      return true;
+    }
+    return false;
   }
 
   void mouseDragged(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
@@ -754,6 +822,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     if (this.dragging != null) {
       mouseEvent.consume();
       this.dragging.dragChild(this, mx, my, false);
+      mouseDropped(UIDropTarget.DropAction.OVER, mx, my);
     }
   }
 
