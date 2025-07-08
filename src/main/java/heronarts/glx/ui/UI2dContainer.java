@@ -329,6 +329,9 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
         if (child.isVisible()) {
           UI2dComponent component = (UI2dComponent) child;
           y += component.marginTop;
+          if (y < 0) {
+            GLX.warning(getClass().getName() + " child " + child.getClass().getName() + " drawing out of bounds due to negative top margin");
+          }
           component.setY(y);
           y += component.getHeight() + component.marginBottom + this.childSpacingY;
         }
@@ -341,6 +344,9 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
         if (child.isVisible()) {
           UI2dComponent component = (UI2dComponent) child;
           x += component.marginLeft;
+          if (x < 0) {
+            GLX.warning(getClass().getName() + " child " + child.getClass().getName() + " drawing out of bounds due to negative left margin");
+          }
           component.setX(x);
           x += component.getWidth() + component.marginRight + this.childSpacingX;
         }
