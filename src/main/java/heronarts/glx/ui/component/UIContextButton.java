@@ -117,7 +117,7 @@ public class UIContextButton extends UI2dComponent implements UIFocus {
    * @param contextActions Set of context actions shown when button is clicked
    * @return this
    */
-  public UIContextButton setContextActions(UIContextActions.Action[] contextActions) {
+  public UIContextButton setContextActions(UIContextActions.Action ... contextActions) {
     if (!(this.contextMenu instanceof UIContextMenu)) {
       throw new IllegalStateException("May not set context actions on custom UIContextButton");
     }
