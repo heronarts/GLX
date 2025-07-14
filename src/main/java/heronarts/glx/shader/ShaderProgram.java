@@ -191,6 +191,7 @@ public class ShaderProgram implements BGFXEngine.Resource {
     bgfx_submit(view.getId(), this.handle, 0, BGFX_DISCARD_ALL);
   }
 
+  @Deprecated
   protected void setVertexBuffers(View view) {
     // Subclasses override to set additional vertex buffers
   }

@@ -75,13 +75,6 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     }
 
     @Override
-    public void setVertexBuffers(View view) {
-      modelBuffer.setVertexBuffer(0);
-      colorBuffer.setVertexBuffer(1);
-      indexBuffer.setIndexBuffer();
-    }
-
-    @Override
     public void dispose() {
       this.uniformTextureBase.dispose();
       this.uniformTextureSparkle.dispose();
@@ -598,17 +591,24 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     colorData.flip();
     this.colorBuffer.update();
 
-    // Submit our drawing program!
-    this.program.submit(
-      view,
-      BGFX_STATE_WRITE_RGB |
-      BGFX_STATE_WRITE_A |
+    final long bgfxState = 0
+      | BGFX_STATE_WRITE_RGB
+      | BGFX_STATE_WRITE_A
       // NOTE: very nearby pixels shouldn't clip each other, we draw UIPointCloud *last* from
       // back to front. Don't write the Z values so that "stacked" lights both render
       // BGFX_STATE_WRITE_Z |
-      BGFX_STATE_BLEND_ALPHA |
-      BGFX_STATE_ALPHA_REF(this.global.alphaRef.getValuei()) |
-      (this.depthTest.isOn() ? BGFX_STATE_DEPTH_TEST_LESS : 0)
+      | BGFX_STATE_BLEND_ALPHA
+      | BGFX_STATE_ALPHA_REF(this.global.alphaRef.getValuei())
+      | (this.depthTest.isOn() ? BGFX_STATE_DEPTH_TEST_LESS : 0)
+      ;
+
+    // Submit our drawing program!
+    this.program.submit(
+      view,
+      bgfxState,
+      this.modelBuffer,
+      this.colorBuffer,
+      this.indexBuffer
     );
 
     if ((this.directional.getEnum() == DirectionStyle.DIRECTED) && this.directionalShowNormals.isOn()) {
