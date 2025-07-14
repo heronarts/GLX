@@ -43,50 +43,22 @@ public class GLXUtils {
   public static class Image {
 
     private final int[] pixels;
-
     public final int width;
     public final int height;
-    public final int components;
 
     private Image(int[] argb, int width, int height) {
       this.pixels = argb;
       this.width = width;
       this.height = height;
-      this.components = -1;
     }
 
-    private Image(ByteBuffer imageBuffer) throws IOException {
-      try (MemoryStack stack = MemoryStack.stackPush()) {
-        IntBuffer width = stack.mallocInt(1);
-        IntBuffer height = stack.mallocInt(1);
-        IntBuffer components = stack.mallocInt(1);
-        ByteBuffer bytes = stbi_load_from_memory(imageBuffer, width, height, components, STBI_rgb_alpha);
-        MemoryUtil.memFree(imageBuffer);
-
-        if (bytes == null) {
-          throw new IOException("STBI failed to load image data");
-        }
-
-        this.width = width.get(0);
-        this.height = height.get(0);
-        this.components = components.get(0);
-        this.pixels = new int[this.width * this.height];
-
-        // Swizzle the bytes into order
-        for (int i = 0; i < this.width * this.height; ++i) {
-          int ii = i << 2;
-          byte r = bytes.get(ii);
-          byte g = bytes.get(ii + 1);
-          byte b = bytes.get(ii + 2);
-          byte a = bytes.get(ii + 3);
-          this.pixels[i] = ((a & 0xff) << 24) | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
-        }
-
-        stbi_image_free(bytes);
-      }
-
-    }
-
+    /**
+     * Get the ARGB color of pixel at coordinate x,y
+     *
+     * @param x Pixel x-coord
+     * @param y Pixel y-coord
+     * @return Color value in ARGB format
+     */
     public int get(int x, int y) {
       return this.pixels[y*this.width + x];
     }
@@ -103,13 +75,58 @@ public class GLXUtils {
     }
   }
 
+  public static Image loadBuffered(java.awt.image.BufferedImage image) {
+    final int width = image.getWidth();
+    final int height = image.getHeight();
+
+    // NOTE: we take a memory copy hit here for the sake of lookup efficiency,
+    // because BufferedImage.getRGB(x, y) does a load of function calls and color space
+    // checks. Let's just do it once upfront so the full raster is available as ints.
+    return new Image(image.getRGB(0, 0, width, height, null, 0, width), width, height);
+  }
+
+  @Deprecated
   public static Image loadRaster(int[] argb, int width, int height) {
     return new Image(argb, width, height);
   }
 
   public static Image loadImage(String path) throws IOException {
-    ByteBuffer buffer = loadFile(path);
-    return (buffer != null) ? new Image(buffer) : null;
+    final ByteBuffer imageBuffer = loadFile(path);
+    if (imageBuffer == null) {
+      return null;
+    }
+    try (MemoryStack stack = MemoryStack.stackPush()) {
+      final IntBuffer width = stack.mallocInt(1);
+      final IntBuffer height = stack.mallocInt(1);
+      final IntBuffer components = stack.mallocInt(1);
+      final ByteBuffer rgbaBytes = stbi_load_from_memory(imageBuffer, width, height, components, STBI_rgb_alpha);
+      if (rgbaBytes == null) {
+        throw new IOException("STBI failed to load image data");
+      }
+
+      final int w = width.get(0);
+      final int h = height.get(0);
+      final int[] pixels = new int[w * h];
+
+      // Swizzle the bytes into order
+      for (int i = 0; i < w*h; ++i) {
+        int ii = i << 2;
+        byte r = rgbaBytes.get(ii);
+        byte g = rgbaBytes.get(ii + 1);
+        byte b = rgbaBytes.get(ii + 2);
+        byte a = rgbaBytes.get(ii + 3);
+        pixels[i] = ((a & 0xff) << 24) | ((r & 0xff) << 16) | ((g & 0xff) << 8) | (b & 0xff);
+      }
+
+      // Free the image memory
+      stbi_image_free(rgbaBytes);
+
+      // Return wrapped buffer
+      return new Image(pixels, w, h);
+
+    } finally {
+      MemoryUtil.memFree(imageBuffer);
+    }
   }
 
   private static String rendererPath(int renderer) throws IOException {
