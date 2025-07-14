@@ -54,6 +54,16 @@ public class BGFXEngine {
     }
   }
 
+  public interface Buffer {
+
+    public interface Vertex extends Buffer {
+      public void setVertexBuffer(int stream);
+    }
+
+    public interface Index extends Buffer {
+      public void setIndexBuffer();
+    }
+  }
 
   private final GLX glx;
 

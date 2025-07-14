@@ -24,7 +24,7 @@ import java.nio.ByteBuffer;
 
 import org.lwjgl.system.MemoryUtil;
 
-public abstract class VertexBuffer implements BGFXEngine.Resource {
+public abstract class VertexBuffer implements BGFXEngine.Resource, BGFXEngine.Buffer.Vertex {
 
   private final GLX glx;
   private final VertexDeclaration vertexDeclaration;
@@ -171,6 +171,11 @@ public abstract class VertexBuffer implements BGFXEngine.Resource {
     this(glx, numVertices, VertexDeclaration.Attribute.POSITION, VertexDeclaration.Attribute.TEXCOORD0);
   }
 
+  @Deprecated
+  public VertexBuffer(GLX glx, int numVertices, int attributes) {
+    this(glx, numVertices, new VertexDeclaration(glx, attributes));
+  }
+
   public VertexBuffer(GLX glx, int numVertices, VertexDeclaration.Attribute ... attributes) {
     this(glx, numVertices, new VertexDeclaration(glx, attributes));
   }
@@ -243,6 +248,11 @@ public abstract class VertexBuffer implements BGFXEngine.Resource {
 
   public int getNumVertices() {
     return this.numVertices;
+  }
+
+  @Override
+  public void setVertexBuffer(int stream) {
+    bgfx_set_vertex_buffer(stream, this.vbh, 0, this.numVertices);
   }
 
   public void dispose() {

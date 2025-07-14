@@ -26,7 +26,7 @@ import org.lwjgl.system.MemoryUtil;
 /**
  * A bgfx index buffer with contents that can be updated dynamically between frames.
  */
-public class DynamicIndexBuffer implements BGFXEngine.Resource {
+public class DynamicIndexBuffer implements BGFXEngine.Resource, BGFXEngine.Buffer.Index {
 
   private final GLX glx;
   private final ByteBuffer indexData;
@@ -86,6 +86,11 @@ public class DynamicIndexBuffer implements BGFXEngine.Resource {
    */
   public ByteBuffer getIndexData() {
     return this.indexData;
+  }
+
+  @Override
+  public void setIndexBuffer() {
+    bgfx_set_dynamic_index_buffer(this.indexBufferHandle, 0, this.numIndices);
   }
 
   /**

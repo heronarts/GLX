@@ -76,9 +76,9 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
 
     @Override
     public void setVertexBuffers(View view) {
-      bgfx_set_vertex_buffer(0, modelBuffer.getHandle(), 0, modelBuffer.getNumVertices());
-      bgfx_set_dynamic_vertex_buffer(1, colorBuffer.getHandle(), 0, colorBuffer.getNumVertices());
-      bgfx_set_dynamic_index_buffer(indexBuffer.getHandle(), 0, indexBuffer.getNumIndices());
+      modelBuffer.setVertexBuffer(0);
+      colorBuffer.setVertexBuffer(1);
+      indexBuffer.setIndexBuffer();
     }
 
     @Override

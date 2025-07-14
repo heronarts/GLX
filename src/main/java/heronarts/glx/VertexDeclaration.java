@@ -20,9 +20,21 @@ package heronarts.glx;
 
 import static org.lwjgl.bgfx.BGFX.*;
 
+import java.util.ArrayList;
+import java.util.List;
+
 import org.lwjgl.bgfx.BGFXVertexLayout;
 
 public class VertexDeclaration implements BGFXEngine.Resource {
+
+  @Deprecated
+  public static int ATTRIB_POSITION = 1 << 0;
+
+  @Deprecated
+  public static int ATTRIB_COLOR0 = 1 << 1;
+
+  @Deprecated
+  public static int ATTRIB_TEXCOORD0 = 1 << 2;
 
   public enum Attribute {
     POSITION,
@@ -35,6 +47,24 @@ public class VertexDeclaration implements BGFXEngine.Resource {
   private final GLX glx;
   private final BGFXVertexLayout handle;
   private int stride = 0;
+
+  static Attribute[] attributeMaskToArray(int attributes) {
+    List<Attribute> list = new ArrayList<>();
+    if ((attributes & ATTRIB_POSITION) > 0) {
+      list.add(Attribute.POSITION);
+    }
+    if ((attributes & ATTRIB_COLOR0) > 0) {
+      list.add(Attribute.COLOR0);
+    }
+    if ((attributes & ATTRIB_TEXCOORD0) > 0) {
+      list.add(Attribute.TEXCOORD0);
+    }
+    return list.toArray(new Attribute[0]);
+  }
+
+  public VertexDeclaration(GLX glx, int attributes) {
+    this(glx, attributeMaskToArray(attributes));
+  }
 
   public VertexDeclaration(GLX glx, Attribute ... attributes) {
     glx.assertBgfxThreadAllocation(this);

@@ -24,7 +24,7 @@ import java.nio.ByteBuffer;
 
 import org.lwjgl.system.MemoryUtil;
 
-public class DynamicVertexBuffer implements BGFXEngine.Resource {
+public class DynamicVertexBuffer implements BGFXEngine.Resource, BGFXEngine.Buffer.Vertex {
 
   private final GLX glx;
   private final VertexDeclaration vertexDeclaration;
@@ -35,6 +35,11 @@ public class DynamicVertexBuffer implements BGFXEngine.Resource {
 
   public DynamicVertexBuffer(GLX glx, int numVertices) {
     this(glx, numVertices, VertexDeclaration.Attribute.POSITION, VertexDeclaration.Attribute.COLOR0);
+  }
+
+  @Deprecated
+  public DynamicVertexBuffer(GLX glx, int numVertices, int attributes) {
+    this(glx, numVertices, VertexDeclaration.attributeMaskToArray(attributes));
   }
 
   public DynamicVertexBuffer(GLX glx, int numVertices, VertexDeclaration.Attribute ... attributes) {
@@ -59,6 +64,11 @@ public class DynamicVertexBuffer implements BGFXEngine.Resource {
 
   public ByteBuffer getVertexData() {
     return this.vertexData;
+  }
+
+  @Override
+  public void setVertexBuffer(int stream) {
+    bgfx_set_dynamic_vertex_buffer(stream, this.vertexBufferHandle, 0, this.numVertices);
   }
 
   public void update() {

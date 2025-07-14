@@ -23,7 +23,7 @@ import static org.lwjgl.bgfx.BGFX.*;
 import java.nio.ByteBuffer;
 import org.lwjgl.system.MemoryUtil;
 
-public abstract class IndexBuffer implements BGFXEngine.Resource {
+public abstract class IndexBuffer implements BGFXEngine.Resource, BGFXEngine.Buffer.Index {
 
   private final GLX glx;
   private final ByteBuffer indexData;
@@ -55,6 +55,11 @@ public abstract class IndexBuffer implements BGFXEngine.Resource {
 
   public ByteBuffer getIndexData() {
     return this.indexData;
+  }
+
+  @Override
+  public void setIndexBuffer() {
+    bgfx_set_index_buffer(this.indexBufferHandle, 0, this.numIndices);
   }
 
   public void dispose() {

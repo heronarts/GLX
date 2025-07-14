@@ -163,21 +163,27 @@ public class ShaderProgram implements BGFXEngine.Resource {
   }
 
   public void submit(View view, long bgfxState) {
-    submit(view, bgfxState, (VertexBuffer[]) null);
+    submit(view, bgfxState, (BGFXEngine.Buffer[]) null);
   }
 
-  public void submit(View view, long bgfxState, VertexBuffer... vertexBuffers) {
+  public void submit(View view, long bgfxState, VertexBuffer ... vertexBuffers) {
+    submit(view, bgfxState, (BGFXEngine.Buffer[]) vertexBuffers);
+  }
+
+  public void submit(View view, long bgfxState, BGFXEngine.Buffer ... buffers) {
     bgfx_set_state(bgfxState, 0);
     setUniforms(view);
-    if (vertexBuffers != null) {
+    if (buffers != null) {
       int vertexStream = 0;
-      for (VertexBuffer vertexBuffer : vertexBuffers) {
-        if (vertexBuffer == null) {
-          GLX.error(new Exception(
-            "A null vertexBuffer was passed to ShaderProgram.submit"));
+      for (BGFXEngine.Buffer buffer : buffers) {
+        if (buffer == null) {
+          GLX.error(new Exception("A null vertexBuffer was passed to ShaderProgram.submit"));
         } else {
-          bgfx_set_vertex_buffer(vertexStream++, vertexBuffer.getHandle(), 0,
-            vertexBuffer.getNumVertices());
+          switch (buffer) {
+          case BGFXEngine.Buffer.Vertex vertexBuffer -> vertexBuffer.setVertexBuffer(vertexStream++);
+          case BGFXEngine.Buffer.Index indexBuffer -> indexBuffer.setIndexBuffer();
+          default -> throw new IllegalArgumentException("Invalid buffer type passed to ShaderProgram.submit(): " + buffer.getClass().getName());
+          }
         }
       }
     }
