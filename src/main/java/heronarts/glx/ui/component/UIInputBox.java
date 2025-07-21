@@ -27,14 +27,51 @@ import heronarts.glx.ui.UITimerTask;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.clipboard.LXTextValue;
 import heronarts.lx.command.LXCommand;
+import heronarts.lx.modulator.LXPeriodicModulator;
 import heronarts.lx.parameter.LXParameter;
 import heronarts.lx.utils.LXUtils;
 
 public abstract class UIInputBox extends UIParameterComponent implements UIFocus {
 
+  /**
+   * Interface that provides progress meter metadata to input boxes that can indicate
+   * progress of some operation.
+   */
   public interface ProgressIndicator {
+
+    /**
+     * Whether to render a progress indicator
+     * @return true if an indicator should be rendered
+     */
     public boolean hasProgress();
+
+    /**
+     * Amount of progress from 0-1
+     *
+     * @return Value in 0-1 representing progress
+     */
     public double getProgress();
+
+    /**
+     * Creates a standard indicator for a periodic modulator, displaying progress
+     * of the modulator basis when the modulator is running
+     *
+     * @param modulator Periodic modulator
+     * @return A progress indicator instance for this modulator
+     */
+    public static ProgressIndicator newModulatorIndicator(LXPeriodicModulator modulator) {
+      return new ProgressIndicator() {
+        @Override
+        public boolean hasProgress() {
+          return modulator.running.isOn();
+        }
+
+        @Override
+        public double getProgress() {
+          return modulator.getBasis();
+        }
+      };
+    }
   }
 
   private static final int TEXT_MARGIN = 2;
