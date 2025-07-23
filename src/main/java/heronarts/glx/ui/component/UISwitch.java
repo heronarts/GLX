@@ -221,7 +221,7 @@ public class UISwitch extends UIParameterControl implements UIFocus, UITriggerTa
   @Override
   protected void onMouseReleased(MouseEvent mouseEvent, float mx, float my) {
     super.onMouseReleased(mouseEvent, mx, my);
-    if (this.isMomentary && (this.parameter != null) && isOnSwitch(mx, my)) {
+    if (this.isMomentary && (this.parameter != null)) {
       getBooleanParameter().setValue(false);
     }
     if (this.momentaryPressEngaged) {
