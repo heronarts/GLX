@@ -396,6 +396,7 @@ public class GLX extends LX {
 
   public void showOpenProjectDialog() {
     if (this.dialogShowing) {
+      GLX.error("Cannot showOpenProjectDialog, dialog already showing");
       return;
     }
 
@@ -425,6 +426,7 @@ public class GLX extends LX {
 
   public void showAddScheduleEntryDialog() {
     if (this.dialogShowing) {
+      GLX.error("Cannot showAddScheduleEntryDialog, dialog already showing");
       return;
     }
     showOpenFileDialog(
@@ -438,6 +440,7 @@ public class GLX extends LX {
 
   public void showOpenScheduleDialog() {
     if (this.dialogShowing) {
+      GLX.error("Cannot showOpenScheduleDialog, dialog already showing");
       return;
     }
     showOpenFileDialog(
@@ -467,6 +470,7 @@ public class GLX extends LX {
    */
   public void showSaveFileDialog(String dialogTitle, String fileType, String[] extensions, String defaultPath, FileDialogCallback success) {
     if (this.dialogShowing) {
+      GLX.error("Cannot showSaveFileDialog, dialog already showing");
       return;
     }
     new Thread(() -> {
@@ -499,6 +503,8 @@ public class GLX extends LX {
         } else {
           pushError("Invalid file name or no file selected, the file was not saved.");
         }
+      } finally {
+        dialogShowing = false;
       }
     }, "Save File Dialog").start();
   }
@@ -514,6 +520,7 @@ public class GLX extends LX {
    */
   public void showOpenFileDialog(String dialogTitle, String fileType, String[] extensions, String defaultPath, FileDialogCallback success) {
     if (this.dialogShowing) {
+      GLX.error("Cannot showOpenFileDialog, dialog already showing");
       return;
     }
     new Thread(() -> {
@@ -537,6 +544,8 @@ public class GLX extends LX {
             success.fileDialogCallback(path);
           });
         }
+      } finally {
+        dialogShowing = false;
       }
     }, "Open File Dialog").start();
   }
