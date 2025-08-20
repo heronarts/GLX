@@ -78,7 +78,6 @@ public abstract class UIParameterComponent extends UI2dComponent implements UICo
   @Override
   protected void onMousePressed(MouseEvent mouseEvent, float mx, float my) {
     super.onMousePressed(mouseEvent, mx, my);
-    mouseEvent.consume();
     resetMouseEdit();
     final LXParameter parameter = getParameter();
     if (parameter instanceof LXNormalizedParameter normalizedParameter) {
