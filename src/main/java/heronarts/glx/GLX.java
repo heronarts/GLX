@@ -24,6 +24,7 @@ import java.io.File;
 import java.io.IOException;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
+import org.lwjgl.system.Platform;
 
 import heronarts.glx.shader.Phong;
 import heronarts.glx.shader.Tex2d;
@@ -93,6 +94,7 @@ public class GLX extends LX {
     public boolean windowResizable = true;
     public String windowTitle = "GLX";
     public boolean useOpenGL = false;
+    public boolean confirmChangesOnQuit = false;
   }
 
   public final Flags flags;
@@ -172,9 +174,11 @@ public class GLX extends LX {
     @Override
     public void onWindowClose(GLXWindow window) {
       if (!bgfx.hasFailed) {
-        window.setShouldClose(false);
-        // Confirm that we really want to do it
-        confirmChangesSaved("quit", () -> window.setShouldClose(true));
+        if (flags.confirmChangesOnQuit) {
+          window.setShouldClose(false);
+          // Confirm that we really want to do it
+          confirmChangesSaved("quit", () -> window.setShouldClose(true));
+        }
       }
     }
 
@@ -578,6 +582,19 @@ public class GLX extends LX {
   @Override
   public void setSystemClipboardString(String str) {
     this.window.setSystemClipboardString(str);
+  }
+
+  public static void openDesktop(String url) {
+    try {
+      String command = "open";
+      final Platform platform = Platform.get();
+      if (platform == Platform.WINDOWS) {
+        command = "start";
+      } else if (platform == Platform.LINUX) {
+        command = "xdg-open";
+      }
+      new ProcessBuilder(command, url).start();
+    } catch (Exception ignored) {}
   }
 
   private static final String GLX_PREFIX = "GLX";
