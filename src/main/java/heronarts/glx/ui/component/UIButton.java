@@ -110,6 +110,9 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   }
 
   public static class Action extends UIButton {
+
+    private final Runnable onClick;
+
     public Action(float w, float h) {
       this(0, 0, w, h);
     }
@@ -118,15 +121,44 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
       this(0, 0, w, h, label);
     }
 
+    public Action(float w, float h, VGraphics.Image icon) {
+      this(w, h, icon, (Runnable) null);
+    }
+
+    public Action(float w, float h, VGraphics.Image icon, Runnable onClick) {
+      this(0, 0, w, h, "", onClick);
+      setIcon(icon);
+    }
+
+    public Action(float w, float h, String label, Runnable onClick) {
+      this(0, 0, w, h, label, onClick);
+    }
+
     public Action(float x, float y, float w, float h) {
+      this(x, y, w, h, (Runnable) null);
+    }
+
+    public Action(float x, float y, float w, float h, Runnable onClick) {
       super(x, y, w, h);
+      this.onClick = onClick;
       setBorderRounding(8);
       setMomentary(true);
     }
 
     public Action(float x, float y, float w, float h, String label) {
-      this(x, y, w, h);
+      this(x, y, w, h, label, null);
+    }
+
+    public Action(float x, float y, float w, float h, String label, Runnable onClick) {
+      this(x, y, w, h, onClick);
       setLabel(label);
+    }
+
+    @Override
+    protected void onClick() {
+      if (this.onClick != null) {
+        this.onClick.run();
+      }
     }
   }
 
@@ -319,6 +351,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
 
   private boolean triggerable = false;
   protected boolean enabled = true;
+  protected boolean editable = true;
 
   protected boolean momentaryPressValid = false;
   private boolean momentaryPressEngaged = false;
@@ -450,6 +483,11 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
       this.enabled = enabled;
       redraw();
     }
+    return this;
+  }
+
+  public UIButton setEditable(boolean editable) {
+    this.editable = editable;
     return this;
   }
 
@@ -674,7 +712,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
 
   @Override
   protected void onMouseDragged(MouseEvent mouseEvent, float mx, float my, float dx, float dy) {
-    if (this.enabled && this.momentaryPressEngaged) {
+    if (this.enabled && this.editable && this.momentaryPressEngaged) {
       boolean mouseDownMomentary = contains(this.x + mx, this.y + my);
       if (mouseDownMomentary != this.momentaryPressValid) {
         this.momentaryPressValid = mouseDownMomentary;
@@ -685,7 +723,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
 
   @Override
   protected void onMousePressed(MouseEvent mouseEvent, float mx, float my) {
-    if (this.enabled) {
+    if (this.enabled && this.editable) {
       mouseEvent.consume();
       this.momentaryPressValid = this.isMomentary;
       this.momentaryPressEngaged = this.isMomentary;
@@ -696,7 +734,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
 
   @Override
   protected void onMouseReleased(MouseEvent mouseEvent, float mx, float my) {
-    if (this.enabled) {
+    if (this.enabled && this.editable) {
       if (this.isMomentary) {
         mouseEvent.consume();
         if (!this.momentaryPressHold) {
@@ -716,7 +754,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   @Override
   protected void onKeyPressed(KeyEvent keyEvent, char keyChar, int keyCode) {
     if ((keyCode == KeyEvent.VK_SPACE) || keyEvent.isEnter()) {
-      if (this.enabled) {
+      if (this.enabled && this.editable) {
         this.momentaryPressValid = this.isMomentary;
         this.momentaryPressEngaged = this.isMomentary;
         this.momentaryPressHold = isMomentaryPressHold(keyEvent);
@@ -729,7 +767,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
   @Override
   protected void onKeyReleased(KeyEvent keyEvent, char keyChar, int keyCode) {
     if ((keyCode == KeyEvent.VK_SPACE) || keyEvent.isEnter()) {
-      if (this.enabled && this.isMomentary) {
+      if (this.enabled && this.editable && this.isMomentary) {
         if (!this.momentaryPressHold) {
           setActive(false);
         }
