@@ -124,6 +124,12 @@ public class MouseEvent extends Event {
     this.consumeDropMenu = true;
   }
 
+  public MouseEvent consumeScrollPress() {
+    this.consumeScrollX = true;
+    this.consumeScrollY = true;
+    return this;
+  }
+
   public MouseEvent consumeScrollX() {
     this.consumeScrollX = true;
     if (this.consumeScrollY) {

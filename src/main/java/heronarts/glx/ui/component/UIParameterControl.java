@@ -420,7 +420,7 @@ public abstract class UIParameterControl extends UIInputBox implements UIControl
   @Override
   protected void onMousePressed(MouseEvent mouseEvent, float mx, float my) {
     super.onMousePressed(mouseEvent, mx, my);
-    mouseEvent.consume();
+    mouseEvent.consumeScrollPress();
     setShowValue(true);
   }
 
