@@ -27,8 +27,8 @@ import heronarts.glx.ui.UIFocus;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.color.LXColor;
 import heronarts.lx.modulation.LXCompoundModulation;
-import heronarts.lx.parameter.LXListenableNormalizedParameter;
 import heronarts.lx.parameter.LXParameter;
+import heronarts.lx.parameter.LXListenableNormalizedParameter;
 import heronarts.lx.utils.LXUtils;
 
 public class UISlider extends UICompoundParameterControl implements UIFocus {
@@ -40,9 +40,9 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
   private final Direction direction;
 
   private static final int HANDLE_SIZE = 6;
-  private static final int HANDLE_ROUNDING = 2;
   private static final int PADDING = 2;
-  private static final int GROOVE = 4;
+  private static final int GROOVE_MIN = 4;
+  private static final int GROOVE_MAX = 6;
 
   private float handleHeight;
 
@@ -82,7 +82,6 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
     this.handleHeight = h;
   }
 
-
   @Override
   protected void onResize() {
     this.handleHeight = this.height -
@@ -111,28 +110,38 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
   }
 
   @Override
-  @SuppressWarnings("fallthrough")
   protected void onDraw(UI ui, VGraphics vg) {
-    // value refers to the current, possibly-modulated value of the control's parameter.
+    // mod refers to the current, possibly-modulated value of the control's parameter.
     // base is the unmodulated, base value of that parameter.
     // If unmodulated, these will be equal
-    double value = getCompoundNormalized();
-    double base = getBaseNormalized();
-    boolean modulated = (base != value);
-    int baseHandleEdge;
-    float grooveDim;
-    switch (this.direction) {
-    case HORIZONTAL:
-      baseHandleEdge = (int) Math.round(PADDING + base * (this.width - 2*PADDING - HANDLE_SIZE));
-      grooveDim = this.width - 2*PADDING;
-      break;
-    default:
-    case VERTICAL:
-      baseHandleEdge = (int) Math.round(PADDING + (1 - base) * (this.handleHeight - 2*PADDING - HANDLE_SIZE));
-      grooveDim = this.handleHeight - 2*PADDING;
-      break;
+    final float base = (float) getBaseNormalized();
+    final float mod = (float) getCompoundNormalized();
+    final boolean isModulated = (base != mod);
+
+    final boolean isHorizontal = this.direction == Direction.HORIZONTAL;
+    final boolean isBipolar = this.polarity == LXParameter.Polarity.BIPOLAR;
+
+    final int IH_MAX = 11;
+
+    final float barX, barY, barLength, groove, iw;
+    final int ih;
+
+    if (isHorizontal) {
+      groove = LXUtils.constrainf(Math.round(this.handleHeight / 4), GROOVE_MIN, GROOVE_MAX);
+      barLength = this.width - 2*PADDING;
+      barX = barY = PADDING;
+      ih = (int) LXUtils.min(IH_MAX, this.handleHeight - barY - groove - PADDING);
+    } else {
+      groove = LXUtils.constrainf(Math.round(this.width / 2), GROOVE_MIN, GROOVE_MAX);
+      barX = (this.width > 24) ? .5f * (this.width - groove) : PADDING;
+      barY = PADDING;
+      barLength = this.handleHeight - 2*PADDING;
+      ih = (int) LXUtils.min(IH_MAX, this.width - PADDING - barX - groove);
     }
-    int baseHandleCenter = baseHandleEdge + 1 + HANDLE_SIZE/2;
+
+    iw = ih * .55f;
+    final float centerX = barX + barLength*.5f;
+    final float centerY = barY + barLength*.5f;
 
     // Modulations!
     if (this.parameter instanceof LXCompoundModulation.Target compound) {
@@ -140,7 +149,7 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
       // *while* we are rendering here. So explicitly get a UI thread copy
       final List<LXCompoundModulation> uiModulations = compound.getUIThreadModulations();
       for (int i = 0; i < uiModulations.size() && i < 3; ++i) {
-        LXCompoundModulation modulation = uiModulations.get(i);
+        final LXCompoundModulation modulation = uiModulations.get(i);
         int modColor = ui.theme.controlDisabledColor.get();
         int modColorInv = modColor;
         if (isEnabled() && modulation.enabled.isOn()) {
@@ -148,206 +157,190 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
           modColorInv = LXColor.hsb(LXColor.h(modColor), 50, 75);
         }
         vg.strokeWidth(2);
-        boolean drawn = false;
-        switch (this.direction) {
-        case HORIZONTAL:
-          float y = this.handleHeight/2 - GROOVE/2 - 2*(i+1);
-          if (y > 0) {
-            drawn = true;
-            float xw = grooveDim * modulation.range.getValuef();
-            float xf;
-            switch (modulation.getPolarity()) {
-            case BIPOLAR:
+
+        final float mw = barLength * modulation.range.getValuef();
+        if (isHorizontal) {
+          final float my = barY + groove + 1 + 2*i;
+          if (my >= this.handleHeight - 1) {
+            break;
+          }
+          final float baseValueX = barX + barLength * base;
+          vg.beginPath();
+          vg.strokeColor(modColor);
+          if (Math.abs(mw) < 1) {
+            // Ensure some minimal visible color
+            vg.line(baseValueX - 1, my, baseValueX + 1, my);
+            vg.stroke();
+          } else {
+            float xf = LXUtils.constrainf(baseValueX + mw, barX, barX + barLength);
+            vg.line(baseValueX, my, xf, my);
+            vg.stroke();
+            if (modulation.getPolarity() == LXParameter.Polarity.BIPOLAR) {
               vg.strokeColor(modColorInv);
-              xf = LXUtils.constrainf(baseHandleCenter - xw, PADDING, PADDING + grooveDim - 1);
+              xf = LXUtils.constrainf(baseValueX - mw, barX, barX + barLength);
               vg.beginPath();
-              vg.line(baseHandleCenter, y, xf, y);
+              vg.line(baseValueX, my, xf, my);
               vg.stroke();
-              // Pass-thru
-            case UNIPOLAR:
-              vg.strokeColor(modColor);
-              xf = LXUtils.constrainf(baseHandleCenter + xw, PADDING, PADDING + grooveDim - 1);
-              vg.beginPath();
-              vg.line(baseHandleCenter, y, xf, y);
-              vg.stroke();
-              break;
             }
           }
-          break;
-        case VERTICAL:
-          float x = this.width/2 + GROOVE/2 + 2*(i+1);
-          if (x < this.width-1) {
-            drawn = true;
-            float yw =  grooveDim * modulation.range.getValuef();
-            float yf;
-            switch (modulation.getPolarity()) {
-            case BIPOLAR:
+        } else {
+          final float mx = barX + groove + 1 + 2*i;
+          if (mx >= this.width) {
+            break;
+          }
+          final float baseValueY = barY + barLength * (1-base);
+          vg.strokeColor(modColor);
+          vg.beginPath();
+          if (Math.abs(mw) < 1) {
+            // Ensure some minimal visible color
+            vg.line(mx, baseValueY - 1, mx, baseValueY + 1);
+            vg.stroke();
+          } else {
+            float yf = LXUtils.constrainf(baseValueY - mw, PADDING, PADDING + barLength);
+            vg.line(mx, baseValueY, mx, yf);
+            vg.stroke();
+            if (modulation.getPolarity() == LXParameter.Polarity.BIPOLAR) {
               vg.strokeColor(modColorInv);
-              yf = LXUtils.constrainf(baseHandleCenter + yw, PADDING, PADDING + grooveDim - 1);
+              yf = LXUtils.constrainf(baseValueY + mw, PADDING, PADDING + barLength);
               vg.beginPath();
-              vg.line(x, baseHandleCenter, x, yf);
+              vg.line(mx, baseValueY, mx, yf);
               vg.stroke();
-              // Pass thru
-            case UNIPOLAR:
-              vg.strokeColor(modColor);
-              yf = LXUtils.constrainf(baseHandleCenter - yw, PADDING, PADDING + grooveDim - 1);
-              vg.beginPath();
-              vg.line(x, baseHandleCenter, x, yf);
-              vg.stroke();
-              break;
             }
           }
-          break;
         }
-        if (drawn) {
-          enableModulationRedraw(modulation);
-        }
+        enableModulationRedraw(modulation);
       }
+      vg.strokeWidth(1);
     }
 
     final boolean editable = isEnabled() && isEditable();
 
-    int baseColor;
-    int valueColor;
+    final int baseColor;
+    final int modColor;
     if (editable) {
       baseColor = this.hasFillColor ? this.fillColor.get() : ui.theme.primaryColor.get();
-      valueColor = getModulatedValueColor(baseColor);
+      modColor = getModulatedValueColor(baseColor);
     } else {
-      int disabled = ui.theme.controlDisabledValueColor.get();
-      baseColor = disabled;
-      valueColor = disabled;
+      baseColor = modColor = ui.theme.controlDisabledValueColor.get();
     }
 
     vg.strokeWidth(1);
+
+    // Dark background value groove
+    vg.beginPath();
     vg.fillColor(editable ? ui.theme.controlFillColor : ui.theme.controlDisabledFillColor);
-
-    switch (this.direction) {
-    case HORIZONTAL:
-      // Dark groove
-      vg.beginPath();
-      vg.rect(PADDING, this.handleHeight / 2 - GROOVE/2, this.width - 2*PADDING, GROOVE);
-      vg.fill();
-
-      int baseFillX, fillX, baseFillWidth, fillWidth;
-      switch (this.polarity) {
-      case BIPOLAR:
-        baseFillX = (int) (this.width / 2);
-        baseFillWidth = (int) ((base - 0.5) * (this.width - 2*PADDING));
-        fillX = baseFillX + baseFillWidth;
-        fillWidth = (int) ((value - base)* (this.width - 2*PADDING));
-        break;
-      default:
-      case UNIPOLAR:
-        baseFillX = PADDING;
-        baseFillWidth = (int) ((this.width - 2*PADDING) * base);
-        fillX = baseFillX + baseFillWidth;
-        fillWidth = (int) ((this.width - 2*PADDING) * (value - base));
-        break;
-      }
-
-      float topY = this.handleHeight / 2 - GROOVE/2;
-
-      // Groove value fill
-      if (baseFillWidth != 0) {
-        vg.fillColor(baseColor);
-        vg.beginPath();
-        vg.rect(baseFillX, topY, baseFillWidth, GROOVE);
-        vg.fill();
-      }
-
-      if (modulated){
-        if (fillWidth > 0.5f) {
-          vg.fillColor(valueColor);
-          vg.beginPath();
-          vg.rect(fillX, topY, fillWidth, GROOVE);
-          vg.fill();
-        } else if (fillWidth < -0.5f) {
-          vg.fillColor(valueColor);
-          vg.beginPath();
-          vg.rect(fillX + fillWidth, topY, -fillWidth, GROOVE);
-          vg.fill();
-        }
-      }
-
-      if (this.polarity == LXParameter.Polarity.BIPOLAR) {
-        // If we're modulating across the center, draw a small divider
-        if ((base > 0.5 && value < 0.5) || (base < 0.5 && value > 0.5)) {
-          float centerX = this.width / 2;
-          vg.strokeColor(ui.theme.controlFillColor);
-          vg.strokeWidth(1);
-          vg.beginPath();
-          vg.line(centerX, topY, centerX, topY + GROOVE);
-          vg.stroke();
-        }
-      }
-
-      // Handle
-      vg.fillColor(ui.theme.controlHandleColor);
-      vg.strokeColor(ui.theme.controlBorderColor);
-      vg.beginPath();
-      vg.rect(baseHandleEdge+.5f, PADDING+.5f, HANDLE_SIZE, this.handleHeight - 2*PADDING, HANDLE_ROUNDING);
-      vg.fill();
-      vg.stroke();
-      break;
-
-    case VERTICAL:
-      vg.beginPath();
-      vg.rect(this.width / 2 - GROOVE/2, PADDING, GROOVE, this.handleHeight - 2*PADDING);
-      vg.fill();
-      int baseFillY;
-      int fillY;
-      int baseFillSize;
-      int fillSize;
-      switch (this.polarity) {
-      case BIPOLAR:
-        baseFillY = (int) (this.handleHeight / 2);
-        fillY = baseFillY;
-        baseFillSize = (int) ((0.5 - base) * (this.handleHeight - 2*PADDING));
-        fillSize = (int) ((0.5 - value) * (this.handleHeight - 2*PADDING));
-        break;
-      default:
-      case UNIPOLAR:
-        baseFillSize = (int) (base * (this.handleHeight - 2*PADDING));
-        baseFillY = (int) (this.handleHeight - PADDING - baseFillSize);
-        fillSize = (int) ((value - base) * (this.handleHeight - 2*PADDING));
-        fillY = baseFillY - fillSize;
-        break;
-      }
-
-      if (baseFillSize > 0f) {
-        vg.fillColor(baseColor);
-        vg.beginPath();
-        vg.rect(this.width / 2 - GROOVE/2, baseFillY, GROOVE, baseFillSize);
-        vg.fill();
-      } else if (baseFillSize < 0f) {
-        vg.fillColor(baseColor);
-        vg.beginPath();
-        vg.rect(this.width / 2 - GROOVE/2, baseFillY + baseFillSize, GROOVE, -baseFillSize);
-        vg.fill();
-      }
-
-      if (modulated) {
-        if (fillSize > 0.5f) {
-          vg.fillColor(valueColor);
-          vg.beginPath();
-          vg.rect(this.width / 2 - GROOVE/2, fillY, GROOVE, fillSize);
-          vg.fill();
-        } else if (fillSize < -0.5f) {
-          vg.fillColor(valueColor);
-          vg.beginPath();
-          vg.rect(this.width / 2 - GROOVE/2, fillY + fillSize, GROOVE, -fillSize);
-          vg.fill();
-        }
-      }
-
-      vg.beginPath();
-      vg.fillColor(ui.theme.controlHandleColor);
-      vg.strokeColor(ui.theme.controlBorderColor);
-      vg.rect(PADDING+.5f, baseHandleEdge + .5f, this.width - 2*PADDING, HANDLE_SIZE, HANDLE_ROUNDING);
-      vg.fill();
-      vg.stroke();
-      break;
+    if (isHorizontal) {
+      vg.rect(barX, barY, barLength, groove);
+    } else {
+      vg.rect(barX, barY, groove, barLength);
     }
+    vg.fill();
+
+    // Base value fill
+    final float fillSize = barLength * (isBipolar ? Math.abs(.5f - base) : base);
+    if (fillSize > 0) {
+      vg.fillColor(baseColor);
+      vg.beginPath();
+      if (isHorizontal) {
+        if (isBipolar) {
+          vg.rect(barX + barLength * Math.min(.5f, base), barY, fillSize, groove);
+        } else {
+          vg.rect(barX, barY, barLength * base, groove);
+        }
+      } else {
+        if (isBipolar) {
+          vg.rect(barX, barY + barLength * (1 - Math.max(.5f, base)), groove, fillSize);
+        } else {
+          vg.rect(barX, barY + barLength * (1-base), groove, fillSize);
+        }
+      }
+      vg.fill();
+    }
+
+    // Modulated value fill
+    if (isModulated) {
+      vg.fillColor(modColor);
+      vg.beginPath();
+      if (isHorizontal) {
+        if (isBipolar) {
+          vg.rect(barX + barLength * Math.min(mod, base), barY, barLength * Math.abs(base - mod), groove);
+        } else {
+          vg.rect(barX + barLength * Math.min(base, mod), barY, barLength * Math.abs(base - mod), groove);
+        }
+      } else {
+        if (isBipolar) {
+          vg.rect(barX, barY + barLength * (1 - Math.max(base, mod)), groove, barLength * Math.abs(base-mod));
+        } else {
+          vg.rect(barX, barY + barLength * (1 - Math.max(base, mod)), groove, barLength * Math.abs(base-mod));
+        }
+      }
+      vg.fill();
+    }
+
+    // Center notch if bipolar
+    if (isBipolar) {
+      vg.strokeColor(ui.theme.controlDetentColor);
+      vg.beginPath();
+      if (isHorizontal) {
+        vg.line(centerX, barY, centerX, barY + groove);
+      } else {
+        vg.line(barX, centerY, barX + groove, centerY);
+      }
+      vg.stroke();
+    }
+
+    // Triangle Indicator
+    final float is = ih / iw;
+    vg.fillColor(ui.theme.controlHandleColor);
+    vg.strokeColor(ui.theme.controlHandleBorderColor);
+    vg.beginPath();
+    if (isHorizontal) {
+      final float indicatorX = barX + barLength * base;
+      final float yTop = barY + groove + 1;
+      final float yBottom = barY + groove + ih;
+      vg.moveTo(indicatorX, yTop);
+      final float ryint = yTop + (this.width - PADDING - indicatorX) * is;
+      if (ryint < yBottom) {
+        vg.lineTo(this.width-PADDING, ryint);
+        vg.lineTo(this.width-PADDING, yBottom);
+      } else {
+        vg.lineTo(indicatorX + iw, yBottom);
+      }
+      final float lyint = yTop + (indicatorX - PADDING) * is;
+      if (lyint < yBottom) {
+        vg.lineTo(PADDING, yBottom);
+        vg.lineTo(PADDING, lyint);
+      } else {
+        vg.lineTo(indicatorX - iw, yBottom);
+      }
+    } else {
+      final float indicatorY = barY + barLength * (1-base);
+      final float xLeft = barX + groove + 1;
+      final float xRight = barX + groove + ih;
+
+      vg.moveTo(xLeft, indicatorY);
+
+      final float txint = xLeft + (indicatorY - PADDING) * is;
+      if (txint < xRight) {
+        vg.lineTo(txint, PADDING);
+        vg.lineTo(xRight, PADDING);
+      } else {
+        vg.lineTo(xRight, indicatorY - iw);
+      }
+
+      final float bxint = xLeft + (this.handleHeight - PADDING - indicatorY) * is;
+      if (bxint < xRight) {
+        vg.lineTo(xRight, this.handleHeight-PADDING);
+        vg.lineTo(bxint, this.handleHeight-PADDING);
+
+      } else {
+        vg.lineTo(xRight, indicatorY + iw);
+      }
+
+    }
+    vg.closePath();
+    vg.fill();
+    vg.stroke();
 
     super.onDraw(ui, vg);
   }
