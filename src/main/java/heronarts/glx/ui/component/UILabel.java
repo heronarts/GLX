@@ -83,6 +83,10 @@ public class UILabel extends UI2dComponent {
 
   public static class Control extends UILabel {
 
+    public Control(UI ui, float w, String label) {
+      this(ui, w, DEFAULT_HEIGHT, label);
+    }
+
     public Control(UI ui, float w, float h, String label) {
       this(ui, 0, 0, w, h, label);
     }

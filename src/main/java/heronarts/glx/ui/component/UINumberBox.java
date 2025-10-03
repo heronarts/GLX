@@ -22,6 +22,7 @@ import java.util.List;
 
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
+import heronarts.glx.ui.UIColor;
 import heronarts.glx.ui.UIContextActions;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.color.DiscreteColorParameter;
@@ -59,6 +60,10 @@ public abstract class UINumberBox extends UIInputBox {
       redraw();
     }
     return this;
+  }
+
+  public UINumberBox setFillColor(UIColor fillColor) {
+    return setFillColor(fillColor.get());
   }
 
   public UINumberBox setFillColor(int fillColor) {
