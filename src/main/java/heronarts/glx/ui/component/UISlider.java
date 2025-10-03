@@ -320,19 +320,20 @@ public class UISlider extends UICompoundParameterControl implements UIFocus {
 
       vg.moveTo(xLeft, indicatorY);
 
-      final float txint = xLeft + (indicatorY - PADDING) * is;
+      final float CLIP = 1.5f;
+
+      final float txint = xLeft + (indicatorY - CLIP) * is;
       if (txint < xRight) {
-        vg.lineTo(txint, PADDING);
-        vg.lineTo(xRight, PADDING);
+        vg.lineTo(txint, CLIP);
+        vg.lineTo(xRight, CLIP);
       } else {
         vg.lineTo(xRight, indicatorY - iw);
       }
 
-      final float bxint = xLeft + (this.handleHeight - PADDING - indicatorY) * is;
+      final float bxint = xLeft + (this.handleHeight - CLIP - indicatorY) * is;
       if (bxint < xRight) {
-        vg.lineTo(xRight, this.handleHeight-PADDING);
-        vg.lineTo(bxint, this.handleHeight-PADDING);
-
+        vg.lineTo(xRight, this.handleHeight-CLIP);
+        vg.lineTo(bxint, this.handleHeight-CLIP);
       } else {
         vg.lineTo(xRight, indicatorY + iw);
       }
