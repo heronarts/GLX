@@ -504,8 +504,7 @@ public abstract class UI2dComponent extends UIObject {
     while (parent != null) {
       x += parent.getX();
       y += parent.getY();
-      if (parent instanceof UI2dScrollInterface) {
-        UI2dScrollInterface scrollInterface = (UI2dScrollInterface) parent;
+      if (parent instanceof UI2dScrollInterface scrollInterface) {
         x += scrollInterface.getScrollX();
         y += scrollInterface.getScrollY();
       }

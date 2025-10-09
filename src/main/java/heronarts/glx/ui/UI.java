@@ -41,6 +41,8 @@ import heronarts.lx.parameter.LXNormalizedParameter;
 import heronarts.lx.parameter.LXParameter;
 import heronarts.lx.parameter.MutableParameter;
 import heronarts.lx.parameter.StringParameter;
+import heronarts.lx.utils.LXUtils;
+
 import java.io.File;
 import java.io.IOException;
 import java.util.ArrayDeque;
@@ -980,6 +982,205 @@ public class UI {
   public UI showContextOverlay(UI2dComponent contextOverlay) {
     this.contextOverlay.setContent(contextOverlay);
     return this;
+  }
+
+  /**
+   * Specification of a relative position from one element to another
+   */
+  public static class Position {
+
+    /**
+     * Whether positioning is relative to the center or exterior corners of the source element
+     */
+    public enum Source {
+      CORNER,
+      CENTER;
+    }
+
+    /**
+     * Where the target element is placed relative to the source
+     */
+    public enum Target {
+      TOP_LEFT,
+      TOP_RIGHT,
+      BOTTOM_LEFT,
+      BOTTOM_RIGHT,
+      INSIDE_CORNER,
+      CENTER,
+    }
+
+    public static final Position TOP_LEFT = new Position(Source.CORNER, Target.TOP_LEFT);
+    public static final Position TOP_RIGHT = new Position(Source.CORNER, Target.TOP_RIGHT);
+    public static final Position BOTTOM_LEFT = new Position(Source.CORNER, Target.BOTTOM_LEFT);
+    public static final Position BOTTOM_RIGHT = new Position(Source.CORNER, Target.BOTTOM_RIGHT);
+    public static final Position INSIDE_CORNER = new Position(Source.CORNER, Target.INSIDE_CORNER);
+    public static final Position CENTER = new Position(Source.CENTER, Target.CENTER);
+    public static final Position ABSOLUTE_CENTER = new Position(Source.CORNER, Target.CENTER);
+
+    private final Source source;
+    private final Target target;
+    private float offsetX = 0, offsetY = 0, marginX = 0, marginY = 0, px = 0, py = 0;
+
+    public Position(Source source, Target target) {
+      this.source = source;
+      this.target = target;
+    }
+
+    /**
+     * Fixed absolute offset to computed position
+     *
+     * @param x X-offset
+     * @param y Y-offset
+     * @return this
+     */
+    public Position offset(float x, float y) {
+      final Position that = new Position(this.source, this.target);
+      that.offsetX = x;
+      that.offsetY = y;
+      return that;
+    }
+
+    /**
+     * Additional margin from the corners of the source element (may be negative)
+     *
+     * @param x Distance from corner
+     * @param y Distance from corner
+     * @return this
+     */
+    public Position margin(float x, float y) {
+      final Position that = new Position(this.source, this.target);
+      that.marginX = x;
+      that.marginY = y;
+      return that;
+    }
+
+    private void compute(UI ui, UIObject source, UI2dComponent target) {
+      float x = 0;
+      float y = 0;
+      UIObject offset = source;
+      while (offset != null) {
+        x += offset.getX();
+        y += offset.getY();
+        if (offset instanceof UI2dScrollInterface scrollInterface) {
+          x += scrollInterface.getScrollX();
+          y += scrollInterface.getScrollY();
+        }
+        offset = offset.getParent();
+      }
+      x += this.offsetX;
+      y += this.offsetY;
+
+      float cx = 0, cy = 0, ox = 0, oy = 0, mx = 0, my = 0;
+      switch (this.source) {
+        case CENTER -> {
+          cx = source.getWidth() * .5f;
+          cy = source.getHeight() * .5f;
+        }
+        case CORNER -> {
+          ox = source.getWidth();
+          oy = source.getHeight();
+          mx = this.marginX;
+          my = this.marginY;
+        }
+      }
+      Target targetMode = this.target;
+      if (this.target == Target.INSIDE_CORNER) {
+        if (x + cx < ui.getWidth() * .5f) {
+          targetMode = (y + cy < ui.getHeight() * .5f) ? Target.BOTTOM_RIGHT : Target.TOP_RIGHT;
+        } else {
+          targetMode = (y + cy < ui.getHeight() * .5f) ? Target.BOTTOM_LEFT : Target.TOP_LEFT;
+        }
+      }
+      switch (targetMode) {
+        case TOP_LEFT -> {
+          x += cx - target.getWidth() - mx;
+          y += cy - target.getHeight() - my;
+        }
+        case TOP_RIGHT -> {
+          x += cx + ox + mx;
+          y += cy - target.getHeight() - my;
+        }
+        case BOTTOM_LEFT -> {
+          x += cx - target.getWidth() - mx;
+          y += cy + oy + my;
+        }
+        case BOTTOM_RIGHT -> {
+          x += cx + ox + mx;
+          y += cy + oy + my;
+        }
+        case CENTER -> {
+          x += cx - target.getWidth() * .5f;
+          y += cy - target.getHeight() * .5f;
+        }
+        case INSIDE_CORNER -> {
+          throw new IllegalStateException("Impossible case for targetMode to be INSIDE_CORNER");
+        }
+      }
+      this.px = x;
+      this.py = y;
+    }
+
+    private boolean isValid(UI ui, UIObject target) {
+      return
+        LXUtils.inRange(this.px, 0, ui.getWidth() - target.getWidth()) &&
+        LXUtils.inRange(this.py, 0, ui.getHeight() - target.getHeight());
+    }
+
+    private void apply(UI ui, UI2dComponent target, boolean clamp) {
+      if (clamp) {
+        target.setPosition(
+          LXUtils.clampf(this.px, 0, ui.getWidth() - target.getWidth()),
+          LXUtils.clampf(this.py, 0, ui.getHeight() - target.getHeight())
+        );
+      } else {
+        target.setPosition(this.px, this.py);
+      }
+    }
+  }
+
+  /**
+   * Position the target element relative to the target
+   *
+   * @param target Target element (to be positioned)
+   * @param source Source element (relative base)
+   * @param positions Position specifications
+   * @return this
+   */
+  public UI setPositionRelative(UI2dComponent target, UIObject source, Position ... positions) {
+    return setPositionRelative(target, source, true, positions);
+  }
+
+  /**
+   * Position the target element relative to the target
+   *
+   * @param target Target element (to be positioned)
+   * @param source Source element (relative base)
+   * @param clamp Whether to perform validity checks and clamp target placement in the UI window
+   * @param positions Position specifications
+   * @return this
+   */
+  public UI setPositionRelative(UI2dComponent target, UIObject source, boolean clamp, Position ... positions) {
+    Position applyPosition = null;
+    for (Position position : positions) {
+      applyPosition = position;
+      position.compute(this, source, target);
+      if (!clamp || position.isValid(this, target)) {
+        break;
+      }
+    }
+    if (applyPosition != null) {
+      applyPosition.apply(this, target, clamp);
+    }
+    return this;
+  }
+
+  public UI showContextOverlay(UI2dComponent contextOverlay, UIObject source, Position ... positions) {
+    return showContextOverlay(contextOverlay, true, source, positions);
+  }
+
+  public UI showContextOverlay(UI2dComponent contextOverlay, boolean clamp, UIObject source, Position ... positions) {
+    setPositionRelative(contextOverlay, source, clamp, positions);
+    return showContextOverlay(contextOverlay);
   }
 
   public UI resizeContextOverlay(UI2dComponent contextOverlay) {
