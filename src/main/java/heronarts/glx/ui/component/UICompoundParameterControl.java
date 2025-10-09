@@ -165,13 +165,11 @@ public class UICompoundParameterControl extends UIParameterControl {
           }
         }
       }
-      if (modulations.size() > 0) {
-        actions.add(UIContextActions.createAction("Edit Modulations", ui -> {
-          final UIModulationEditor editor = new UIModulationEditor(ui, target);
-          ui.showContextOverlay(editor, control, UI.Position.TOP_RIGHT.margin(-10, -10), UI.Position.TOP_LEFT.margin(-10, -10));
-          editor.focus(Event.NONE);
-        }));
-      }
+      actions.add(UIContextActions.createAction("Edit Modulations", ui -> {
+        final UIModulationEditor editor = new UIModulationEditor(ui, target);
+        ui.showContextOverlay(editor, control, UI.Position.TOP_RIGHT.margin(-10, -10), UI.Position.TOP_LEFT.margin(-10, -10));
+        editor.focus(Event.NONE);
+      }));
     }
   }
 
