@@ -27,9 +27,12 @@ import heronarts.lx.parameter.LXParameterListener;
 import heronarts.lx.LX;
 import heronarts.lx.command.LXCommand;
 import heronarts.lx.modulation.LXCompoundModulation;
+import heronarts.glx.event.Event;
 import heronarts.glx.ui.UI;
+import heronarts.glx.ui.UI2dComponent;
 import heronarts.glx.ui.UIContextActions;
 import heronarts.glx.ui.UITimerTask;
+import heronarts.glx.ui.modulation.UIModulationEditor;
 
 public class UICompoundParameterControl extends UIParameterControl {
   private double lastParameterValue = 0;
@@ -146,27 +149,28 @@ public class UICompoundParameterControl extends UIParameterControl {
     }
   }
 
-  public static void addModulationContextActions(LX lx, List<UIContextActions.Action> actions, LXCompoundModulation.Target target) {
+  public static void addModulationContextActions(LX lx, UI2dComponent control, List<UIContextActions.Action> actions, LXCompoundModulation.Target target) {
     final List<? extends LXCompoundModulation> modulations = target.getModulations();
     if (!modulations.isEmpty()) {
-      actions.add(new UIContextActions.Action("Remove Modulation") {
-        @Override
-        public void onContextAction(UI ui) {
-          ui.lx.command.perform(new LXCommand.Modulation.RemoveModulations(target));
-        }
-      });
+      actions.add(UIContextActions.createAction("Remove Modulation", ui -> {
+        ui.lx.command.perform(new LXCommand.Modulation.RemoveModulations(target));
+      }));
       if (!lx.engine.performanceMode.isOn()) {
         for (LXCompoundModulation modulation : modulations) {
           if (modulation.scope == lx.engine.modulation) {
-            actions.add(new UIContextActions.Action("Show Modulation") {
-              @Override
-              public void onContextAction(UI ui) {
-                ui.setHighlightModulationTarget(target);
-              }
-            });
+            actions.add(UIContextActions.createAction("Show Modulation", ui -> {
+              ui.setHighlightModulationTarget(target);
+            }));
             break;
           }
         }
+      }
+      if (modulations.size() > 0) {
+        actions.add(UIContextActions.createAction("Edit Modulations", ui -> {
+          final UIModulationEditor editor = new UIModulationEditor(ui, target);
+          ui.showContextOverlay(editor, control, UI.Position.TOP_RIGHT.margin(-10, -10), UI.Position.TOP_LEFT.margin(-10, -10));
+          editor.focus(Event.NONE);
+        }));
       }
     }
   }
@@ -174,16 +178,16 @@ public class UICompoundParameterControl extends UIParameterControl {
   @Override
   public List<UIContextActions.Action> getContextActions() {
     List<UIContextActions.Action> actions = super.getContextActions();
-    if (this.parameter instanceof LXCompoundModulation.Target) {
-      addModulationContextActions(getLX(), actions, (LXCompoundModulation.Target) this.parameter);
+    if (this.parameter instanceof LXCompoundModulation.Target modulationTarget) {
+      addModulationContextActions(getLX(), this, actions, modulationTarget);
     }
     return actions;
   }
 
   @Override
   public void dispose() {
-    if (this.parameter instanceof LXCompoundModulation.Target) {
-      ((LXCompoundModulation.Target) this.parameter).removeModulationListener(this.modulationListener);
+    if (this.parameter instanceof LXCompoundModulation.Target modulationTarget) {
+      modulationTarget.removeModulationListener(this.modulationListener);
     }
     clearModulationRedrawListeners();
     super.dispose();

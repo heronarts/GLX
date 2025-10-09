@@ -172,7 +172,7 @@ public abstract class UINumberBox extends UIInputBox {
   public List<UIContextActions.Action> getContextActions() {
     final List<UIContextActions.Action> actions = super.getContextActions();
     if ((actions != null) && (this.modulationTarget != null)) {
-      UICompoundParameterControl.addModulationContextActions(getLX(), actions, this.modulationTarget);
+      UICompoundParameterControl.addModulationContextActions(getLX(), this, actions, this.modulationTarget);
     }
     return actions;
   }
