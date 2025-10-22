@@ -97,6 +97,7 @@ public class UITheme {
       "editText", "ffffff",
 
       "primary", "669966",
+      "primaryDisabled", "334c33",
       "secondary", "666699",
       "focus", "669966",
       "attention", "ee0000",
@@ -203,6 +204,7 @@ public class UITheme {
       "editText", "000000",
 
       "primary", "8cd867",
+      "primaryDisabled", "466c34",
       "secondary", "7ddbf3",
       "focus", "c9c9c9",
       "attention", "cc0000",
@@ -337,6 +339,7 @@ public class UITheme {
   public final Color editTextColor = new Color("editText");
 
   public final Color primaryColor = new Color("primary");
+  public final Color primaryDisabledColor = new Color("primaryDisabled");
   public final Color secondaryColor = new Color("secondary");
   public final Color focusColor = new Color("focus");
   public final Color attentionColor = new Color("attention");
