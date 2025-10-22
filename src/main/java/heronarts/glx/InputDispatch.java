@@ -154,15 +154,21 @@ public class InputDispatch implements LXEngine.Dispatch {
     queueEvent(mouseEvent);
   }
 
+  private static final float WINDOWS_SCROLL_MULTIPLIER = 20;
+
   void glfwScrollCallback(long window, double dx, double dy) {
+    // GLFW doesn't seem to be able to tell the diff
+    dx *= this.glx.flags.scrollMultiplier;
+    dy *= this.glx.flags.scrollMultiplier;
+
     switch (Platform.get()) {
       case MACOSX:
         dx *= this.window.getSystemContentScaleX();
         dy *= this.window.getSystemContentScaleY();
         break;
       case WINDOWS:
-        dx *= 20;
-        dy *= 20;
+        dx *= WINDOWS_SCROLL_MULTIPLIER;
+        dy *= WINDOWS_SCROLL_MULTIPLIER;
         break;
       default:
         break;
