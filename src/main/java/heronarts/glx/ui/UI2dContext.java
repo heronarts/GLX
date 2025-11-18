@@ -31,15 +31,16 @@ public class UI2dContext extends UI2dContainer implements UILayer {
    * Constructs a new UI2dContext
    *
    * @param ui the UI to place it in
+   * @param vg the VGraphics context to use for rendering
    * @param x x-position
    * @param y y-position
    * @param w width
    * @param h height
    */
-  public UI2dContext(UI ui, float x, float y, float w, float h) {
+  public UI2dContext(UI ui, VGraphics vg, float x, float y, float w, float h) {
     super(x, y, w, h);
     setUI(ui);
-    this.framebuffer = ui.vg.createFramebuffer(this, w, h, 0);
+    this.framebuffer = vg.createFramebuffer(this, w, h, 0);
   }
 
   public UI2dContext setOffscreen(boolean isOffscreen) {

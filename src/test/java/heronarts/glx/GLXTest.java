@@ -25,8 +25,8 @@ import heronarts.glx.ui.UI2dContext;
 import heronarts.glx.ui.component.UILabel;
 
 public class GLXTest extends GLX {
-  protected GLXTest(WindowEngine window) throws IOException {
-    super(window);
+  protected GLXTest(WindowEngine windowEngine) throws IOException {
+    super(windowEngine);
   }
 
   @Override
@@ -34,13 +34,13 @@ public class GLXTest extends GLX {
     UI ui = super.buildUI();
 
     UI2dContext red = (UI2dContext)
-      new UI2dContext(ui, 0, 0, 100, 100)
+      new UI2dContext(ui, ui.lx.vg, 0, 0, 100, 100)
       .setBackgroundColor(0xffff0000);
     new UILabel(0, 0, 100, 14).setLabel("Red").addToContainer(red);
     ui.addLayer(red);
 
     UI2dContext green = (UI2dContext)
-      new UI2dContext(ui, 200, 200, 100, 100)
+      new UI2dContext(ui, ui.lx.vg, 200, 200, 100, 100)
       .setBackgroundColor(0xff00ff00);
     new UILabel(0, 0, 100, 14).setLabel("Green").addToContainer(green);
     ui.addLayer(green);
@@ -49,16 +49,16 @@ public class GLXTest extends GLX {
   }
 
   public static void main(String[] args) {
-    final WindowEngine window = new WindowEngine(new Flags());
+    final WindowEngine windowEngine = new WindowEngine(new Flags());
     new Thread(() -> {
       try {
-        new GLXTest(window).run();
+        new GLXTest(windowEngine).run();
       } catch (Exception x) {
         GLX.error(x);
       }
     }).start();
 
     // Run GLFW main loop
-    window.main();
+    windowEngine.main();
   }
 }

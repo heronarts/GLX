@@ -196,14 +196,16 @@ public class KeyEvent extends Event {
     }
   }
 
+  public final long window;
   public final Action action;
   public final int keyCode;
   public final int scanCode;
   private char keyChar;
   private boolean blurConsumed = false;
 
-  public KeyEvent(int keyCode, int scanCode, int action, int modifiers) {
+  public KeyEvent(long window, int keyCode, int scanCode, int action, int modifiers) {
     super(modifiers);
+    this.window = window;
     this.keyCode = keyCode;
     this.scanCode = scanCode;
     this.action = glfwAction(action);

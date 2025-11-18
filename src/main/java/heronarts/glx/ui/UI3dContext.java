@@ -661,7 +661,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
     this.y = y;
     this.width = w;
     this.height = h;
-    this.view = new View(ui.lx);
+    this.view = new View(ui.lx, ui.lx.windowEngine.mainWindow);
     setViewRect();
 
     this.parameters.add("projection", this.projection);

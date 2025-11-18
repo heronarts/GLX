@@ -30,6 +30,7 @@ import heronarts.glx.ui.UI2dContext;
 public class View {
 
   protected final GLX glx;
+  protected final WindowEngine.Window window;
 
   protected short viewId;
 
@@ -49,8 +50,8 @@ public class View {
    *
    * @param glx GLX instance
    */
-  public View(GLX glx) {
-    this(glx, 0, 0, glx.window.getFrameBufferWidth(), glx.window.getFrameBufferHeight());
+  public View(GLX glx, WindowEngine.Window window) {
+    this(glx, window, 0, 0, window.getFrameBufferWidth(), window.getFrameBufferHeight());
   }
 
   /**
@@ -63,9 +64,10 @@ public class View {
    * @param w Width in framebuffer coordinates
    * @param h Height in framebuffer coordinates
    */
-  public View(GLX glx, int x, int y, int w, int h) {
+  public View(GLX glx, WindowEngine.Window window, int x, int y, int w, int h) {
     this.glx = glx;
-    this.viewId = 0;
+    this.window = window;
+    this.viewId = window.viewId;
 
     this.x = x;
     this.y = 0;
@@ -101,7 +103,7 @@ public class View {
     // bgfx_reset_view(this.viewId);
     bgfx_set_view_scissor(this.viewId, 0, 0, 0, 0);
     bgfx_set_view_mode(this.viewId, BGFX_VIEW_MODE_DEFAULT);
-    bgfx_set_view_frame_buffer(this.viewId, BGFX_INVALID_HANDLE);
+    bgfx_set_view_frame_buffer(this.viewId, this.window.getViewFrameBuffer());
 
     // This is the actual code we want, actually GLX specific
     bgfx_set_view_rect(this.viewId, this.x, this.y, this.width, this.height);
@@ -218,13 +220,13 @@ public class View {
     if (this.glx.bgfx.isOpenGL()) {
       // NOTE: buncha hacks here. OpenGL/Mac seems to have already taken framebuffer scaling into
       // acccount, so we just correct for UI zooming and the fact that Y is up on OpenGL framebuffers
-      final float uiZoom = this.glx.window.getUIZoom();
+      final float uiZoom = this.glx.windowEngine.getUIZoom();
 
       this.glx.program.tex2d.submit(
         this,
         bgfx_get_texture(context.getTexture(), 0),
         context.getX() * uiZoom,
-        getHeight() / this.glx.window.getSystemContentScaleY() - context.getY() * uiZoom,
+        getHeight() / this.window.getSystemContentScaleY() - context.getY() * uiZoom,
         context.getWidth() * uiZoom,
         -context.getHeight() * uiZoom
       );
@@ -232,8 +234,8 @@ public class View {
       // NOTE: context coordinates are in UI coordinate space. But the tex2d program
       // is in framebuffer coordinate space. We need to scale the bounds by the content
       // scale factor here to move from context's UI-space to framebuffer-space
-      final float contentScaleX = this.glx.window.getUIContentScaleX();
-      final float contentScaleY = this.glx.window.getUIContentScaleY();
+      final float contentScaleX = this.window.getUIContentScaleX();
+      final float contentScaleY = this.window.getUIContentScaleY();
       this.glx.program.tex2d.submit(
         this,
         bgfx_get_texture(context.getTexture(), 0),

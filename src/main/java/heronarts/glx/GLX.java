@@ -102,7 +102,7 @@ public class GLX extends LX {
   /**
    * The window that runs this application
    */
-  public final WindowEngine window;
+  public final WindowEngine windowEngine;
 
   /**
    * BGFX rendering engine
@@ -113,6 +113,7 @@ public class GLX extends LX {
    * The Vector Graphics implementation
    */
   public final VGraphics vg;
+  public final VGraphics vg2;
 
   /**
    * Publicly accessible, globally reusable shader programs.
@@ -133,28 +134,29 @@ public class GLX extends LX {
 
   boolean flagUIDebug = false;
 
-  protected GLX(WindowEngine window) throws IOException {
-    this(window, window.flags);
+  protected GLX(WindowEngine windowEngine) throws IOException {
+    this(windowEngine, windowEngine.flags);
   }
 
-  protected GLX(WindowEngine window, Flags flags) throws IOException {
-    this(window, flags, null);
+  protected GLX(WindowEngine windowEngine, Flags flags) throws IOException {
+    this(windowEngine, flags, null);
   }
 
-  protected GLX(WindowEngine window, Flags flags, LXModel model) throws IOException {
-    super(window.preferences, flags, model);
-    this.window = window;
+  protected GLX(WindowEngine windowEngine, Flags flags, LXModel model) throws IOException {
+    super(windowEngine.preferences, flags, model);
+    this.windowEngine = windowEngine;
     this.flags = flags;
 
     // Register ourselves as delegate for window events
-    this.window.setDelegate(new WindowDelegate());
-    this.window.inputDispatch.setGLX(this);
+    this.windowEngine.setDelegate(new WindowDelegate());
+    this.windowEngine.inputDispatch.setGLX(this);
 
     // Construct the BGFX instance
-    this.bgfx = new BGFXEngine(this);
+    this.bgfx = new BGFXEngine(this, this.windowEngine);
     this.program = new Programs();
     this.vertexBuffer = new VertexBuffers();
-    this.vg = new VGraphics(this);
+    this.vg = new VGraphics(this, this.windowEngine.mainWindow);
+    this.vg2 = new VGraphics(this, this.windowEngine.arrangementWindow);
 
     // Build the application UI
     this.ui = buildUI();
@@ -167,39 +169,55 @@ public class GLX extends LX {
   private class WindowDelegate implements WindowEngine.Delegate {
 
     @Override
-    public void setClipboardText(WindowEngine window, String clipboardText) {
+    public void setClipboardText(WindowEngine windowEngine, String clipboardText) {
       clipboard.setItem(new LXTextValue(clipboardText), false);
     }
 
     @Override
-    public void onWindowClose(WindowEngine window) {
+    public void onWindowClose(WindowEngine windowEngine, WindowEngine.Window window) {
       if (!bgfx.hasFailed) {
-        if (flags.confirmChangesOnQuit) {
-          window.setShouldClose(false);
-          // Confirm that we really want to do it
-          confirmChangesSaved("quit", () -> window.setShouldClose(true));
+        if (window == windowEngine.mainWindow) {
+          if (flags.confirmChangesOnQuit) {
+            windowEngine.setShouldClose(false);
+            // Confirm that we really want to do it
+            confirmChangesSaved("quit", () -> windowEngine.setShouldClose(true));
+          }
+        } else if (window == windowEngine.arrangementWindow && engine != null) {
+          engine.addTask(() -> {
+            preferences.showArrangementWindow.setValue(false);
+          });
         }
       }
     }
 
     @Override
-    public void onZoomChanged(WindowEngine window, float uiZoom) {
+    public void onZoomChanged(WindowEngine windowEngine, float uiZoom) {
       vg.notifyContentScaleChanged();
+      vg2.notifyContentScaleChanged();
       bgfx.resizeUI.set(true);
+      bgfx.resizeUI2.set(true);
     }
 
     @Override
-    public void onContentScaleChanged(WindowEngine window, float contentScaleX, float contentScaleY) {
-      bgfx.resizeUI.set(true);
+    public void onContentScaleChanged(WindowEngine windowEngine, WindowEngine.Window window, float contentScaleX, float contentScaleY) {
+      if (window == windowEngine.mainWindow) {
+        bgfx.resizeUI.set(true);
+      } else {
+        bgfx.resizeUI2.set(true);
+      }
     }
 
     @Override
-    public void onFramebufferSizeChanged(WindowEngine window, float framebufferWidth, float framebufferHeight) {
-      bgfx.resizeFramebuffer.set(true);
+    public void onFramebufferSizeChanged(WindowEngine windowEngine, WindowEngine.Window window, float framebufferWidth, float framebufferHeight) {
+      if (window == windowEngine.mainWindow) {
+        bgfx.resizeFramebuffer.set(true);
+      } else {
+        bgfx.resizeFramebuffer2.set(true);
+      }
     }
 
     @Override
-    public void onDropFile(WindowEngine window, String fileName) {
+    public void onDropFile(WindowEngine windowEngine, String fileName) {
       try {
         final File file = new File(fileName);
         if (file.exists() && file.isFile()) {
@@ -219,7 +237,7 @@ public class GLX extends LX {
     }
 
     @Override
-    public void onShutdown(WindowEngine window) {
+    public void onShutdown(WindowEngine windowEngine) {
       if (Thread.currentThread() == bgfx.thread) {
         throw new IllegalThreadStateException("BGFX thread may not shutdown itself, shutdown should come from WindowEngine");
       }
@@ -283,11 +301,11 @@ public class GLX extends LX {
 
     // Start the LX engine thread
     log("Starting LX Engine...");
-    this.engine.setInputDispatch(this.window.inputDispatch);
+    this.engine.setInputDispatch(this.windowEngine.inputDispatch);
     this.engine.start();
 
     // Start the GLFW window main event polling loop
-    this.window.start();
+    this.windowEngine.start();
 
     // Enter the core event loop
     log("Running main BGFX loop...");
@@ -303,6 +321,7 @@ public class GLX extends LX {
     log("GLX disposed.");
 
     // Dispose of BGFX graphics assets
+    this.vg2.dispose();
     this.vg.dispose();
     this.program.dispose();
     this.vertexBuffer.dispose();
@@ -581,7 +600,7 @@ public class GLX extends LX {
 
   @Override
   public void setSystemClipboardString(String str) {
-    this.window.setSystemClipboardString(str);
+    this.windowEngine.setSystemClipboardString(str);
   }
 
   public static void openDesktop(String url) {
