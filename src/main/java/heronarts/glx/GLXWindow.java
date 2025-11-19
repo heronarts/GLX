@@ -312,8 +312,6 @@ public class GLXWindow {
       if (this.windowPosX >= 0 && this.windowPosY >= 0) {
         this.windowPosX = LXUtils.constrain(this.windowPosX, this.displayX, this.displayX + this.displayWidth - this.windowWidth);
         this.windowPosY = LXUtils.constrain(this.windowPosY, this.displayY, this.displayY + this.displayHeight - this.windowHeight);
-        this.windowPosY = 44;
-        // this.windowPosY = 0;
         GLX.log("GLXWindow setWindowPos: " + this.windowPosX + "," + this.windowPosY);
         glfwSetWindowPos(this.handle, this.windowPosX, this.windowPosY);
 
