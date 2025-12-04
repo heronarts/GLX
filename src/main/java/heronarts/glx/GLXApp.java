@@ -34,7 +34,7 @@ public abstract class GLXApp {
 
   protected void dispose() {}
 
-  protected abstract GLX buildLXInstance(GLXWindow window, GLX.Flags flags) throws IOException;
+  protected abstract GLX buildLXInstance(WindowEngine window, GLX.Flags flags) throws IOException;
 
   private void main(GLX.Flags flags) {
     try {
@@ -53,7 +53,7 @@ public abstract class GLXApp {
       }
 
       // Run the full windowed application
-      final GLXWindow window = new GLXWindow(flags);
+      final WindowEngine window = new WindowEngine(flags);
 
       // Start the GLX application on another thread
       new Thread(() -> {
@@ -74,7 +74,7 @@ public abstract class GLXApp {
     }
   }
 
-  private void applicationThread(GLXWindow window, GLX.Flags flags) throws IOException {
+  private void applicationThread(WindowEngine window, GLX.Flags flags) throws IOException {
     buildLXInstance(window, flags).run();
   }
 

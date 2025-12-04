@@ -102,7 +102,7 @@ public class GLX extends LX {
   /**
    * The window that runs this application
    */
-  public final GLXWindow window;
+  public final WindowEngine window;
 
   /**
    * BGFX rendering engine
@@ -133,15 +133,15 @@ public class GLX extends LX {
 
   boolean flagUIDebug = false;
 
-  protected GLX(GLXWindow window) throws IOException {
+  protected GLX(WindowEngine window) throws IOException {
     this(window, window.flags);
   }
 
-  protected GLX(GLXWindow window, Flags flags) throws IOException {
+  protected GLX(WindowEngine window, Flags flags) throws IOException {
     this(window, flags, null);
   }
 
-  protected GLX(GLXWindow window, Flags flags, LXModel model) throws IOException {
+  protected GLX(WindowEngine window, Flags flags, LXModel model) throws IOException {
     super(window.preferences, flags, model);
     this.window = window;
     this.flags = flags;
@@ -164,15 +164,15 @@ public class GLX extends LX {
     this.engine.getFrameNonThreadSafe(this.uiFrame);
   }
 
-  private class WindowDelegate implements GLXWindow.Delegate {
+  private class WindowDelegate implements WindowEngine.Delegate {
 
     @Override
-    public void setClipboardText(GLXWindow window, String clipboardText) {
+    public void setClipboardText(WindowEngine window, String clipboardText) {
       clipboard.setItem(new LXTextValue(clipboardText), false);
     }
 
     @Override
-    public void onWindowClose(GLXWindow window) {
+    public void onWindowClose(WindowEngine window) {
       if (!bgfx.hasFailed) {
         if (flags.confirmChangesOnQuit) {
           window.setShouldClose(false);
@@ -183,23 +183,23 @@ public class GLX extends LX {
     }
 
     @Override
-    public void onZoomChanged(GLXWindow window, float uiZoom) {
+    public void onZoomChanged(WindowEngine window, float uiZoom) {
       vg.notifyContentScaleChanged();
       bgfx.resizeUI.set(true);
     }
 
     @Override
-    public void onContentScaleChanged(GLXWindow window, float contentScaleX, float contentScaleY) {
+    public void onContentScaleChanged(WindowEngine window, float contentScaleX, float contentScaleY) {
       bgfx.resizeUI.set(true);
     }
 
     @Override
-    public void onFramebufferSizeChanged(GLXWindow window, float framebufferWidth, float framebufferHeight) {
+    public void onFramebufferSizeChanged(WindowEngine window, float framebufferWidth, float framebufferHeight) {
       bgfx.resizeFramebuffer.set(true);
     }
 
     @Override
-    public void onDropFile(GLXWindow window, String fileName) {
+    public void onDropFile(WindowEngine window, String fileName) {
       try {
         final File file = new File(fileName);
         if (file.exists() && file.isFile()) {
@@ -219,9 +219,9 @@ public class GLX extends LX {
     }
 
     @Override
-    public void onShutdown(GLXWindow window) {
+    public void onShutdown(WindowEngine window) {
       if (Thread.currentThread() == bgfx.thread) {
-        throw new IllegalThreadStateException("BGFX thread may not shutdown itself, shutdown should come from GLXWindow");
+        throw new IllegalThreadStateException("BGFX thread may not shutdown itself, shutdown should come from WindowEngine");
       }
 
       // Signal to the BGFX thread that it should shutdown

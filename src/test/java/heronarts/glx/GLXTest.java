@@ -25,7 +25,7 @@ import heronarts.glx.ui.UI2dContext;
 import heronarts.glx.ui.component.UILabel;
 
 public class GLXTest extends GLX {
-  protected GLXTest(GLXWindow window) throws IOException {
+  protected GLXTest(WindowEngine window) throws IOException {
     super(window);
   }
 
@@ -49,7 +49,7 @@ public class GLXTest extends GLX {
   }
 
   public static void main(String[] args) {
-    final GLXWindow window = new GLXWindow(new Flags());
+    final WindowEngine window = new WindowEngine(new Flags());
     new Thread(() -> {
       try {
         new GLXTest(window).run();

@@ -44,7 +44,7 @@ public class InputDispatch implements LXEngine.Dispatch {
   private static final int NUM_GAMEPAD_BUTTONS = GLFW_GAMEPAD_BUTTON_LAST + 1;
   private static final float GAMEPAD_AXIS_CHANGE_THRESHOLD = 0.001f;
 
-  private final GLXWindow window;
+  private final WindowEngine window;
   private GLX glx;
 
   private int modifiers = 0;
@@ -62,7 +62,7 @@ public class InputDispatch implements LXEngine.Dispatch {
   private final List<Event> lxThreadEventQueue = new ArrayList<Event>();
   private final List<Event> glfwThreadEventQueue = Collections.synchronizedList(new ArrayList<Event>());
 
-  InputDispatch(GLXWindow window) {
+  InputDispatch(WindowEngine window) {
     this.window = window;
   }
 
@@ -180,7 +180,7 @@ public class InputDispatch implements LXEngine.Dispatch {
 
   void poll() {
     // Wait with a timeout so that we don't block other operations like
-    // clipboard checks from the main GLXWindow loop, even if there's no
+    // clipboard checks from the main WindowEngine loop, even if there's no
     // user input
     glfwWaitEventsTimeout(POLL_TIMEOUT);
     pollGamepad();

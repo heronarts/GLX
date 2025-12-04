@@ -44,23 +44,23 @@ import heronarts.lx.LXPreferences;
 import heronarts.lx.utils.LXUtils;
 
 /**
- * The GLXWindow class takes care of running a windowed application using GLFW.
+ * The WindowEngine class takes care of running a windowed application using GLFW.
  * This *must* to be run on the main thread (on Mac the JVM will have to be started
  * with -XstartOnFirstThread to ensure this).
  *
  * This class therefore *owns* the main thread, and its main() method is in charge
  * of the overall program lifecycle.
  */
-public class GLXWindow {
+public class WindowEngine {
 
   public interface Delegate {
-    public void setClipboardText(GLXWindow window, String clipboardText);
-    public void onWindowClose(GLXWindow window);
-    public void onZoomChanged(GLXWindow window, float uiZoom);
-    public void onContentScaleChanged(GLXWindow window, float contentScaleX, float contentScaleY);
-    public void onFramebufferSizeChanged(GLXWindow window, float framebufferWidth, float framebufferHeight);
-    public void onDropFile(GLXWindow window, String fileName);
-    public void onShutdown(GLXWindow window);
+    public void setClipboardText(WindowEngine window, String clipboardText);
+    public void onWindowClose(WindowEngine window);
+    public void onZoomChanged(WindowEngine window, float uiZoom);
+    public void onContentScaleChanged(WindowEngine window, float contentScaleX, float contentScaleY);
+    public void onFramebufferSizeChanged(WindowEngine window, float framebufferWidth, float framebufferHeight);
+    public void onDropFile(WindowEngine window, String fileName);
+    public void onShutdown(WindowEngine window);
   }
 
   public enum MouseCursor {
@@ -184,7 +184,7 @@ public class GLXWindow {
   public final GLX.Flags flags;
   public final LXPreferences preferences;
 
-  public GLXWindow(GLX.Flags flags) {
+  public WindowEngine(GLX.Flags flags) {
     this.thread = Thread.currentThread();
     this.flags = flags;
     this.preferences = new LXPreferences(flags);
@@ -264,7 +264,7 @@ public class GLXWindow {
         this.displayWidth = xSize.get();
         this.displayHeight = ySize.get();
       }
-      GLX.log("GLXWindow monitorWorkarea: size(" + this.displayWidth + "x" + this.displayHeight + "), pos(x:" + this.displayX + ",y:" + this.displayY + ")");
+      GLX.log("WindowEngine monitorWorkarea: size(" + this.displayWidth + "x" + this.displayHeight + "), pos(x:" + this.displayX + ",y:" + this.displayY + ")");
     }
 
     // Ensure initial window bounds do not exceed the available display
@@ -272,7 +272,7 @@ public class GLXWindow {
     this.windowHeight = LXUtils.min(this.windowHeight, this.displayHeight);
 
     // Create GLFW window
-    GLX.log("GLXWindow createWindow: " + this.windowWidth + "x" + this.windowHeight);
+    GLX.log("WindowEngine createWindow: " + this.windowWidth + "x" + this.windowHeight);
     this.handle = glfwCreateWindow(
       this.windowWidth,
       this.windowHeight,
@@ -297,7 +297,7 @@ public class GLXWindow {
       glfwGetWindowContentScale(this.handle, xScale, yScale);
       this.systemContentScaleX = xScale.get(0);
       this.systemContentScaleY = yScale.get(0);
-      GLX.log("GLXWindow systemContentScale: " + this.systemContentScaleX + "x" + this.systemContentScaleY);
+      GLX.log("WindowEngine systemContentScale: " + this.systemContentScaleX + "x" + this.systemContentScaleY);
 
       // The window size is in terms of "OS window size" - best thought of
       // as an abstract setting which may or may not exactly correspond to
@@ -312,7 +312,7 @@ public class GLXWindow {
       if (this.windowPosX >= 0 && this.windowPosY >= 0) {
         this.windowPosX = LXUtils.constrain(this.windowPosX, this.displayX, this.displayX + this.displayWidth - this.windowWidth);
         this.windowPosY = LXUtils.constrain(this.windowPosY, this.displayY, this.displayY + this.displayHeight - this.windowHeight);
-        GLX.log("GLXWindow setWindowPos: " + this.windowPosX + "," + this.windowPosY);
+        GLX.log("WindowEngine setWindowPos: " + this.windowPosX + "," + this.windowPosY);
         glfwSetWindowPos(this.handle, this.windowPosX, this.windowPosY);
 
         // NOTE: apparently been observed in the wild that the window may end up too big to fit,
@@ -322,14 +322,14 @@ public class GLXWindow {
         this.windowWidth = xSize.get(0);
         this.windowHeight = ySize.get(0);
       }
-      GLX.log("GLXWindow windowSize: " + this.windowWidth + "x" + this.windowHeight);
+      GLX.log("WindowEngine windowSize: " + this.windowWidth + "x" + this.windowHeight);
 
       // See what is in the framebuffer. A retina Mac probably supplies
       // 2x the dimensions on framebuffer relative to window.
       glfwGetFramebufferSize(this.handle, xSize, ySize);
       this.frameBufferWidth = xSize.get(0);
       this.frameBufferHeight = ySize.get(0);
-      GLX.log("GLXWindow framebufferSize: " + this.frameBufferWidth + "x" + this.frameBufferHeight);
+      GLX.log("WindowEngine framebufferSize: " + this.frameBufferWidth + "x" + this.frameBufferHeight);
 
       // Okay, let's figure out how many "virtual pixels" the GLX UI should
       // be. Note that on a Mac with 2x retina display, contentScale will be
@@ -340,14 +340,14 @@ public class GLXWindow {
       // into a larger framebuffer.
       this.uiWidth = this.frameBufferWidth / this.systemContentScaleX / this.uiZoom;
       this.uiHeight = this.frameBufferHeight / this.systemContentScaleY / this.uiZoom;
-      GLX.log("GLXWindow uiSize: " + this.uiWidth + "x" + this.uiHeight);
+      GLX.log("WindowEngine uiSize: " + this.uiWidth + "x" + this.uiHeight);
 
       // To make things even trickier... keep in mind that the OS specifies cursor
       // movement relative to its window size. We need to scale those onto our
       // virtual UI window size.
       this.cursorScaleX = this.uiWidth / this.windowWidth;
       this.cursorScaleY = this.uiHeight / this.windowHeight;
-      GLX.log("GLXWindow cursorScale: " + this.cursorScaleX + "x" + this.cursorScaleY);
+      GLX.log("WindowEngine cursorScale: " + this.cursorScaleX + "x" + this.cursorScaleY);
 
       // Set UI Zoom bounds based upon content scaling
       _updateUIZoomRange();
@@ -449,7 +449,7 @@ public class GLXWindow {
 
   private void assertMainThread() {
     if (Thread.currentThread() != this.thread) {
-      throw new IllegalThreadStateException("GLXWindow method may only be called from main thread");
+      throw new IllegalThreadStateException("WindowEngine method may only be called from main thread");
     }
   }
 
@@ -471,10 +471,10 @@ public class GLXWindow {
 
   void setDelegate(Delegate delegate) {
     if (delegate == null) {
-      throw new IllegalArgumentException("GLXWindow.setDelegate() may not be passed null");
+      throw new IllegalArgumentException("WindowEngine.setDelegate() may not be passed null");
     }
     if (this.delegate != null) {
-      throw new IllegalStateException("GLXWindow.setDelegate() may only be called once");
+      throw new IllegalStateException("WindowEngine.setDelegate() may only be called once");
     }
     this.delegate = delegate;
   }
@@ -547,7 +547,7 @@ public class GLXWindow {
   }
 
   public void main() {
-    GLX.log("GLXWindow.main() awaiting GLX boostrap...");
+    GLX.log("WindowEngine.main() awaiting GLX boostrap...");
     try {
       while (true) {
         // NB: this poll call seems to be *necessary* to kick GLFW and get bgfx_init() to return! (on MacOS at least)
@@ -557,17 +557,17 @@ public class GLXWindow {
         }
       }
     } catch (InterruptedException ix) {
-      GLX.error(ix, "GLXWindow.main() interrupted awaiting BGFX initialization");
+      GLX.error(ix, "WindowEngine.main() interrupted awaiting BGFX initialization");
     }
 
     if (this.delegate == null) {
-      throw new IllegalStateException("GLXWindow cannot continue past bootstrapping with no GLX delegate set");
+      throw new IllegalStateException("WindowEngine cannot continue past bootstrapping with no GLX delegate set");
     }
 
-    GLX.log("GLX boostrap complete, GLXWindow running event loop...");
+    GLX.log("GLX boostrap complete, WindowEngine running event loop...");
     eventLoop();
 
-    GLX.log("GLXWindow closed, shutting down...");
+    GLX.log("WindowEngine closed, shutting down...");
     shutdown();
   }
 
