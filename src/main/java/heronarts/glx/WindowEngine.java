@@ -146,8 +146,8 @@ public class WindowEngine {
   private static final int MIN_WINDOW_WIDTH_MAIN = 820;
   private static final int MIN_WINDOW_HEIGHT_MAIN = 480;
 
-  private static final int MIN_WINDOW_WIDTH_ARRANGEMENT = 200;
-  private static final int MIN_WINDOW_HEIGHT_ARRANGEMENT = 200;
+  private static final int MIN_WINDOW_WIDTH_ALT = 200;
+  private static final int MIN_WINDOW_HEIGHT_ALT = 200;
 
   private static final int DEFAULT_WINDOW_WIDTH = 1280;
   private static final int DEFAULT_WINDOW_HEIGHT = 720;
@@ -161,10 +161,10 @@ public class WindowEngine {
 
   // Current windows
   public final MainWindow mainWindow;
-  public final ArrangementWindow arrangementWindow;
+  public final AltWindow altWindow;
 
-  private volatile boolean showArrangementWindow;
-  private final AtomicBoolean needsArrangementVisibilityUpdate = new AtomicBoolean(true);
+  private volatile boolean showAltWindow;
+  private final AtomicBoolean needsAltVisibilityUpdate = new AtomicBoolean(true);
 
   private volatile MouseCursor mouseCursor = null;
   private final AtomicBoolean needsCursorUpdate = new AtomicBoolean(false);
@@ -239,11 +239,11 @@ public class WindowEngine {
 
     // Create windows
     this.mainWindow = new MainWindow();
-    this.arrangementWindow = new ArrangementWindow();
+    this.altWindow = new AltWindow();
 
     // Listen to visibility parameter
-    this.showArrangementWindow = this.preferences.showArrangementWindow.isOn();
-    this.preferences.showArrangementWindow.addListener(this.showArrangementWindowListener);
+    this.showAltWindow = this.preferences.showAltWindow.isOn();
+    this.preferences.showAltWindow.addListener(this.showAltWindowListener);
 
     // Set UI Zoom bounds based upon content scaling
     _updateUIZoomRange();
@@ -297,7 +297,7 @@ public class WindowEngine {
   private void _updateUIZoom(float uiScale) {
     this.uiZoom = uiScale;
     this.mainWindow.updateUIZoom(uiScale);
-    this.arrangementWindow.updateUIZoom(uiScale);
+    this.altWindow.updateUIZoom(uiScale);
     this.setWindowSizeLimits.set(true);
     if (this.delegate != null) {
       this.delegate.onZoomChanged(this, uiScale);
@@ -322,13 +322,13 @@ public class WindowEngine {
     return this.uiZoom;
   }
 
-  private final LXParameterListener showArrangementWindowListener = (p) -> {
-    updateArrangementWindowVisibility();
+  private final LXParameterListener showAltWindowListener = (p) -> {
+    updateAltWindowVisibility();
   };
 
-  private void updateArrangementWindowVisibility() {
-    this.showArrangementWindow = preferences.showArrangementWindow.isOn();
-    this.needsArrangementVisibilityUpdate.set(true);
+  private void updateAltWindowVisibility() {
+    this.showAltWindow = preferences.showAltWindow.isOn();
+    this.needsAltVisibilityUpdate.set(true);
   }
 
   protected void setShouldClose(boolean shouldClose) {
@@ -387,18 +387,18 @@ public class WindowEngine {
     // Okay now we're into the real polling loop!
     while (!glfwWindowShouldClose(this.mainWindow.handle)) {
       // Update window visibility
-      if (this.needsArrangementVisibilityUpdate.compareAndSet(true, false)) {
-        if (this.showArrangementWindow) {
-          this.arrangementWindow.show();
+      if (this.needsAltVisibilityUpdate.compareAndSet(true, false)) {
+        if (this.showAltWindow) {
+          this.altWindow.show();
         } else {
-          this.arrangementWindow.hide();
+          this.altWindow.hide();
         }
       }
 
       // Update window size limits
       if (this.setWindowSizeLimits.compareAndSet(true, false)) {
         this.mainWindow.setSizeLimits();
-        this.arrangementWindow.setSizeLimits();
+        this.altWindow.setSizeLimits();
       }
 
       // Poll for input events
@@ -431,7 +431,7 @@ public class WindowEngine {
   }
 
   private void shutdown() {
-    this.preferences.showArrangementWindow.removeListener(this.showArrangementWindowListener);
+    this.preferences.showAltWindow.removeListener(this.showAltWindowListener);
 
     // Blocks until the LX and BGFX threads are finished...
     this.delegate.onShutdown(this);
@@ -443,7 +443,7 @@ public class WindowEngine {
 
     // Free the window callbacks and destroy the windows
     GLX.log("Destroying main thread GLFW windows...");
-    this.arrangementWindow.destroy();
+    this.altWindow.destroy();
     this.mainWindow.destroy();
 
     // Terminate GLFW and free the error callback
@@ -855,7 +855,7 @@ public class WindowEngine {
 
   // Base viewIds for each window
   private static final short VIEWID_MAIN = (short) 0;
-  private static final short VIEWID_ARRANGEMENT = (short) 100;
+  private static final short VIEWID_ALT = (short) 100;
 
   public class MainWindow extends Window {
 
@@ -880,22 +880,22 @@ public class WindowEngine {
 
   }
 
-  public class ArrangementWindow extends Window {
+  public class AltWindow extends Window {
 
-    private ArrangementWindow() {
-      super(LXPreferences.KEY_WINDOW_ARRANGEMENT, VIEWID_ARRANGEMENT, flags.windowTitle + " Arrangement");
+    private AltWindow() {
+      super(LXPreferences.KEY_WINDOW_ALT, VIEWID_ALT, flags.windowTitle + " Arrangement");
       // Hide until we are loaded and confirmed visible
       hide();
     }
 
     @Override
     protected int getMinWidth() {
-      return MIN_WINDOW_WIDTH_ARRANGEMENT;
+      return MIN_WINDOW_WIDTH_ALT;
     }
 
     @Override
     protected int getMinHeight() {
-      return MIN_WINDOW_HEIGHT_ARRANGEMENT;
+      return MIN_WINDOW_HEIGHT_ALT;
     }
 
     private void show() {
@@ -915,7 +915,7 @@ public class WindowEngine {
     // BGFX frame buffer for secondary window
     private final AtomicReference<Short> viewFrameBuffer = new AtomicReference<>(BGFX_INVALID_HANDLE);
 
-    public ArrangementWindow setViewFrameBuffer(short viewFrameBuffer) {
+    public AltWindow setViewFrameBuffer(short viewFrameBuffer) {
       this.viewFrameBuffer.set(viewFrameBuffer);
       return this;
     }

@@ -113,7 +113,7 @@ public class GLX extends LX {
    * The Vector Graphics implementation
    */
   public final VGraphics vg;
-  public final VGraphics vg2;
+  public final VGraphics vgAlt;
 
   /**
    * Publicly accessible, globally reusable shader programs.
@@ -156,7 +156,7 @@ public class GLX extends LX {
     this.program = new Programs();
     this.vertexBuffer = new VertexBuffers();
     this.vg = new VGraphics(this, this.windowEngine.mainWindow);
-    this.vg2 = new VGraphics(this, this.windowEngine.arrangementWindow);
+    this.vgAlt = new VGraphics(this, this.windowEngine.altWindow);
 
     // Build the application UI
     this.ui = buildUI();
@@ -182,9 +182,9 @@ public class GLX extends LX {
             // Confirm that we really want to do it
             confirmChangesSaved("quit", () -> windowEngine.setShouldClose(true));
           }
-        } else if (window == windowEngine.arrangementWindow && engine != null) {
+        } else if (window == windowEngine.altWindow && engine != null) {
           engine.addTask(() -> {
-            preferences.showArrangementWindow.setValue(false);
+            preferences.showAltWindow.setValue(false);
           });
         }
       }
@@ -193,9 +193,9 @@ public class GLX extends LX {
     @Override
     public void onZoomChanged(WindowEngine windowEngine, float uiZoom) {
       vg.notifyContentScaleChanged();
-      vg2.notifyContentScaleChanged();
+      vgAlt.notifyContentScaleChanged();
       bgfx.resizeUI.set(true);
-      bgfx.resizeUI2.set(true);
+      bgfx.resizeUIAlt.set(true);
     }
 
     @Override
@@ -203,7 +203,7 @@ public class GLX extends LX {
       if (window == windowEngine.mainWindow) {
         bgfx.resizeUI.set(true);
       } else {
-        bgfx.resizeUI2.set(true);
+        bgfx.resizeUIAlt.set(true);
       }
     }
 
@@ -212,7 +212,7 @@ public class GLX extends LX {
       if (window == windowEngine.mainWindow) {
         bgfx.resizeFramebuffer.set(true);
       } else {
-        bgfx.resizeFramebuffer2.set(true);
+        bgfx.resizeFramebufferAlt.set(true);
       }
     }
 
@@ -321,7 +321,7 @@ public class GLX extends LX {
     log("GLX disposed.");
 
     // Dispose of BGFX graphics assets
-    this.vg2.dispose();
+    this.vgAlt.dispose();
     this.vg.dispose();
     this.program.dispose();
     this.vertexBuffer.dispose();

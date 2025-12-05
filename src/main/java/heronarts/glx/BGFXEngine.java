@@ -68,15 +68,15 @@ public class BGFXEngine {
   private final GLX glx;
   private final WindowEngine windowEngine;
 
-  // BGFX frame buffer for arrangement window
-  private short frameBufferArrangement = BGFX_INVALID_HANDLE;
+  // BGFX frame buffer for alt window
+  private short frameBufferAlt = BGFX_INVALID_HANDLE;
 
   final Thread thread;
 
   final AtomicBoolean resizeFramebuffer = new AtomicBoolean(false);
-  final AtomicBoolean resizeFramebuffer2 = new AtomicBoolean(false);
+  final AtomicBoolean resizeFramebufferAlt = new AtomicBoolean(false);
   final AtomicBoolean resizeUI = new AtomicBoolean(false);
-  final AtomicBoolean resizeUI2 = new AtomicBoolean(false);
+  final AtomicBoolean resizeUIAlt = new AtomicBoolean(false);
 
   volatile boolean hasFailed = false;
   volatile boolean shutdown = false;
@@ -135,8 +135,8 @@ public class BGFXEngine {
       }
       this.format = init.resolution().format();
 
-      // Create a framebuffer for the Arrangement window
-      createFrameBufferArrangement();
+      // Create a framebuffer for the Alt window
+      createFrameBufferAlt();
     }
 
     this.renderer = bgfx_get_renderer_type();
@@ -149,13 +149,13 @@ public class BGFXEngine {
     this.zZeroToOne = !bgfx_get_caps().homogeneousDepth();
   }
 
-  private void createFrameBufferArrangement() {
-    final short oldFrameBuffer = this.frameBufferArrangement;
+  private void createFrameBufferAlt() {
+    final short oldFrameBuffer = this.frameBufferAlt;
 
-    this.frameBufferArrangement = createFrameBufferForWindow(this.glx.windowEngine.arrangementWindow);
-    this.windowEngine.arrangementWindow.setViewFrameBuffer(this.frameBufferArrangement);
+    this.frameBufferAlt = createFrameBufferForWindow(this.glx.windowEngine.altWindow);
+    this.windowEngine.altWindow.setViewFrameBuffer(this.frameBufferAlt);
 
-    if (oldFrameBuffer != BGFX_INVALID_HANDLE && oldFrameBuffer != this.frameBufferArrangement) {
+    if (oldFrameBuffer != BGFX_INVALID_HANDLE && oldFrameBuffer != this.frameBufferAlt) {
       bgfx_destroy_frame_buffer(oldFrameBuffer);
     }
   }
@@ -232,11 +232,11 @@ public class BGFXEngine {
         this.glx.ui.redraw();
       }
 
-      // Arrangement window size changed, dispose and re-create backing framebuffer
-      if (this.resizeFramebuffer2.getAndSet(false)) {
-        createFrameBufferArrangement();
-        this.glx.ui.resize2();
-        this.glx.ui.redraw2();
+      // Alt window size changed, dispose and re-create backing framebuffer
+      if (this.resizeFramebufferAlt.getAndSet(false)) {
+        createFrameBufferAlt();
+        this.glx.ui.resizeAlt();
+        this.glx.ui.redrawAlt();
       }
 
       // Resize the UI if it changed (Main window)
@@ -245,10 +245,10 @@ public class BGFXEngine {
         this.glx.ui.redraw();
       }
 
-      // Resize the UI if it changed (Arrangement window)
-      if (this.resizeUI2.getAndSet(false)) {
-        this.glx.ui.resize2();
-        this.glx.ui.redraw2();
+      // Resize the UI if it changed (Alt window)
+      if (this.resizeUIAlt.getAndSet(false)) {
+        this.glx.ui.resizeAlt();
+        this.glx.ui.redrawAlt();
       }
 
       long drawStart = System.nanoTime();
@@ -303,9 +303,9 @@ public class BGFXEngine {
 
   void dispose() {
     GLX.log("Disposing BGFXEngine...");
-    // Dispose framebuffer for Arrangement window
-    if (this.frameBufferArrangement != BGFX_INVALID_HANDLE) {
-      bgfx_destroy_frame_buffer(this.frameBufferArrangement);
+    // Dispose framebuffer for Alt window
+    if (this.frameBufferAlt != BGFX_INVALID_HANDLE) {
+      bgfx_destroy_frame_buffer(this.frameBufferAlt);
     }
     _disposeQueue();
     bgfx_shutdown();

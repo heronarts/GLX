@@ -71,7 +71,7 @@ public class UI {
 
     private final WindowEngine.Window window;
     private final VGraphics vg;
-    // Starting view ID for this root (to avoid collision between main and arrangement windows)
+    // Starting view ID for this root (to avoid collision between main and alt windows)
     private final short baseViewId;
 
     private final View viewClear;
@@ -400,10 +400,10 @@ public class UI {
 
   public final GLX lx;
   protected final VGraphics vg;
-  protected final VGraphics vg2;
+  protected final VGraphics vgAlt;
 
   protected final UIRoot root;
-  protected final UIRoot root2;
+  protected final UIRoot rootAlt;
 
   public final StringParameter contextualHelpText =
     new StringParameter("Contextual Help")
@@ -599,13 +599,13 @@ public class UI {
 
     this.lx = lx;
     this.vg = lx.vg;
-    this.vg2 = lx.vg2;
+    this.vgAlt = lx.vgAlt;
 
     this.root = new UIRoot(lx.windowEngine.mainWindow, this.vg);
-    this.root2 = new UIRoot(lx.windowEngine.arrangementWindow, this.vg2);
+    this.rootAlt = new UIRoot(lx.windowEngine.altWindow, this.vgAlt);
     this.contextOverlay = new UIContextOverlay(this.root, this.vg);
     this.dropMenuOverlay = new UIContextOverlay(this.root, this.vg);
-    // TODO: Add contextOverlay & dropMenuOverlay for 2nd window (make common object containing UIRoot, vg, overlays?)
+    // TODO: Add contextOverlay & dropMenuOverlay for alt window (make common object containing UIRoot, vg, overlays?)
     LX.initProfiler.log("GLX: UI: Root");
 
     this.theme = new UITheme(this.vg);
@@ -675,7 +675,7 @@ public class UI {
       }
 
       this.root.redraw();
-      this.root2.redraw();
+      this.rootAlt.redraw();
     });
 
     lx.engine.midi.addMappingListener(new LXMidiEngine.MappingListener() {
@@ -725,7 +725,7 @@ public class UI {
       if (theme != null) {
         this.theme.setTheme(theme);
         redraw();
-        redraw2();
+        redrawAlt();
       }
     }, true);
   }
@@ -776,8 +776,8 @@ public class UI {
     this.root.redraw();
   }
 
-  public void redraw2() {
-    this.root2.redraw();
+  public void redrawAlt() {
+    this.rootAlt.redraw();
   }
 
   public static UI get() {
@@ -949,8 +949,8 @@ public class UI {
    * @param layer UI layer
    * @return this
    */
-  public UI addLayer2ndWindow(UI2dContext layer) {
-    layer.addToContainer(this.root2);
+  public UI addLayerAlt(UI2dContext layer) {
+    layer.addToContainer(this.rootAlt);
     return this;
   }
 
@@ -1240,7 +1240,7 @@ public class UI {
     component.redrawFlag.set(true);
     // TODO: redraw only the root for this component, not both roots
     this.root.redrawFlag.set(true);
-    this.root2.redrawFlag.set(true);
+    this.rootAlt.redrawFlag.set(true);
   }
 
   public float getContentScaleX() {
@@ -1264,8 +1264,8 @@ public class UI {
     onResize();
   }
 
-  public void resize2() {
-    this.root2.resize();
+  public void resizeAlt() {
+    this.rootAlt.resize();
     onResize();
   }
 
@@ -1288,11 +1288,11 @@ public class UI {
 
     // Run loop tasks through the UI tree
     this.root.loop(deltaMs);
-    this.root2.loop(deltaMs);
+    this.rootAlt.loop(deltaMs);
 
     // Draw UIRoot object
     this.root.draw();
-    this.root2.draw();
+    this.rootAlt.draw();
 
     endDraw();
 
@@ -1314,8 +1314,8 @@ public class UI {
   private UIRoot getRoot(long window) {
     if (window == lx.windowEngine.mainWindow.getHandle()) {
       return this.root;
-    } else if (window == lx.windowEngine.arrangementWindow.getHandle()) {
-      return this.root2;
+    } else if (window == lx.windowEngine.altWindow.getHandle()) {
+      return this.rootAlt;
     }
     throw new IllegalArgumentException("Unknown window handle: " + window);
   }
@@ -1403,7 +1403,7 @@ public class UI {
     this.contextOverlay.dispose();
     this.dropMenuOverlay.dispose();
     this.root.dispose();
-    this.root2.dispose();
+    this.rootAlt.dispose();
     this.theme.dispose();
   }
 }
