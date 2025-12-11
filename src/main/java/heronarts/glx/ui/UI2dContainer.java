@@ -554,6 +554,7 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
     dragCancel();
     contentTarget.mutableChildren.clear();
     for (UIObject child : removed) {
+      childRemoved((UI2dComponent) child);
       ((UI2dComponent) child).parent = null;
       if (dispose) {
         child.dispose();
@@ -580,6 +581,10 @@ public class UI2dContainer extends UI2dComponent implements UIContainer, Iterabl
   public UI2dComponent getChild(int i) {
     return (UI2dComponent) this.contentTarget.mutableChildren.get(i);
   }
+
+  protected void childAdded(UI2dComponent child) {}
+
+  protected void childRemoved(UI2dComponent child) {}
 
   private boolean hasSameKeyFocus(UIObject object) {
     return
