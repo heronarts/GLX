@@ -23,7 +23,6 @@ import java.util.List;
 import java.util.Objects;
 
 import heronarts.glx.event.MouseEvent;
-import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.utils.LXUtils;
 
 public class UI2dScrollContext extends UI2dContext implements UI2dScrollInterface {
@@ -42,8 +41,8 @@ public class UI2dScrollContext extends UI2dContext implements UI2dScrollInterfac
   private boolean horizontalScrollingEnabled = false;
   private boolean verticalScrollingEnabled = true;
 
-  public UI2dScrollContext(UI ui, VGraphics vg, float x, float y, float w, float h) {
-    super(ui, vg, x, y, w, h);
+  public UI2dScrollContext(UI ui, float x, float y, float w, float h) {
+    super(ui, x, y, w, h);
     this.scrollWidth = w;
     this.scrollHeight = h;
   }

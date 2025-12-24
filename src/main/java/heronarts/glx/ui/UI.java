@@ -70,8 +70,7 @@ public class UI {
   public class UIRoot extends UIObject implements UIContainer {
 
     private final WindowEngine.Window window;
-    private final VGraphics vg;
-    // Starting view ID for this root (to avoid collision between main and alt windows)
+    // Starting view ID for this root (to avoid collision between main and alt windows) TODO: needed?
     private final short baseViewId;
 
     private final View viewClear;
@@ -80,10 +79,9 @@ public class UI {
     // Redraw may be called from any thread
     private final AtomicBoolean redrawFlag = new AtomicBoolean(true);
 
-    private UIRoot(WindowEngine.Window window, VGraphics vg) {
+    private UIRoot(WindowEngine.Window window) {
       this.ui = UI.this;
       this.window = window;
-      this.vg = vg;
       this.baseViewId = this.window.viewId;
 
       this.viewClear = new View(this.ui.lx, this.window);
@@ -400,7 +398,6 @@ public class UI {
 
   public final GLX lx;
   protected final VGraphics vg;
-  protected final VGraphics vgAlt;
 
   protected final UIRoot root;
   protected final UIRoot rootAlt;
@@ -430,8 +427,8 @@ public class UI {
 
     private UIContextMenu contextMenu = null;
 
-    public UIContextOverlay(UIRoot root, VGraphics vg) {
-      super(UI.this, vg, 0, 0, 0, 0);
+    public UIContextOverlay(UIRoot root) {
+      super(UI.this, 0, 0, 0, 0);
       this.parent = root;
       setUI(UI.this);
       setBackgroundColor(0);
@@ -599,13 +596,12 @@ public class UI {
 
     this.lx = lx;
     this.vg = lx.vg;
-    this.vgAlt = lx.vgAlt;
 
-    this.root = new UIRoot(lx.windowEngine.mainWindow, this.vg);
-    this.rootAlt = new UIRoot(lx.windowEngine.altWindow, this.vgAlt);
-    this.contextOverlay = new UIContextOverlay(this.root, this.vg);
-    this.dropMenuOverlay = new UIContextOverlay(this.root, this.vg);
-    // TODO: Add contextOverlay & dropMenuOverlay for alt window (make common object containing UIRoot, vg, overlays?)
+    this.root = new UIRoot(lx.windowEngine.mainWindow);
+    this.rootAlt = new UIRoot(lx.windowEngine.altWindow);
+    this.contextOverlay = new UIContextOverlay(this.root);
+    this.dropMenuOverlay = new UIContextOverlay(this.root);
+    // TODO: Add contextOverlay & dropMenuOverlay for alt window
     LX.initProfiler.log("GLX: UI: Root");
 
     this.theme = new UITheme(this.vg);

@@ -113,7 +113,6 @@ public class GLX extends LX {
    * The Vector Graphics implementation
    */
   public final VGraphics vg;
-  public final VGraphics vgAlt;
 
   /**
    * Publicly accessible, globally reusable shader programs.
@@ -156,7 +155,6 @@ public class GLX extends LX {
     this.program = new Programs();
     this.vertexBuffer = new VertexBuffers();
     this.vg = new VGraphics(this, this.windowEngine.mainWindow);
-    this.vgAlt = new VGraphics(this, this.windowEngine.altWindow);
 
     // Build the application UI
     this.ui = buildUI();
@@ -193,7 +191,6 @@ public class GLX extends LX {
     @Override
     public void onZoomChanged(WindowEngine windowEngine, float uiZoom) {
       vg.notifyContentScaleChanged();
-      vgAlt.notifyContentScaleChanged();
       bgfx.resizeUI.set(true);
       bgfx.resizeUIAlt.set(true);
     }
@@ -321,7 +318,6 @@ public class GLX extends LX {
     log("GLX disposed.");
 
     // Dispose of BGFX graphics assets
-    this.vgAlt.dispose();
     this.vg.dispose();
     this.program.dispose();
     this.vertexBuffer.dispose();

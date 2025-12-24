@@ -37,10 +37,10 @@ public class UI2dContext extends UI2dContainer implements UILayer {
    * @param w width
    * @param h height
    */
-  public UI2dContext(UI ui, VGraphics vg, float x, float y, float w, float h) {
+  public UI2dContext(UI ui, float x, float y, float w, float h) {
     super(x, y, w, h);
     setUI(ui);
-    this.framebuffer = vg.createFramebuffer(this, w, h, 0);
+    this.framebuffer = ui.vg.createFramebuffer(this, w, h, 0);
   }
 
   public UI2dContext setOffscreen(boolean isOffscreen) {
