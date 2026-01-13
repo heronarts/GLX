@@ -1159,8 +1159,7 @@ public abstract class UI2dComponent extends UIObject {
     if (this.parent.overChild == this) {
       this.parent.overChild = null;
     }
-    if (this.parent instanceof UI2dContainer) {
-      UI2dContainer container = (UI2dContainer) this.parent;
+    if (this.parent instanceof UI2dContainer container) {
       container.childRemoved(this);
 
       if (redraw) {
