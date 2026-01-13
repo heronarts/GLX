@@ -1161,6 +1161,7 @@ public abstract class UI2dComponent extends UIObject {
     }
     if (this.parent instanceof UI2dContainer) {
       UI2dContainer container = (UI2dContainer) this.parent;
+      container.childRemoved(this);
 
       if (redraw) {
         container.reflow();
@@ -1408,6 +1409,9 @@ public abstract class UI2dComponent extends UIObject {
     }
     this.parent = contentTarget;
     setUI(contentTarget.ui);
+    if (container2d != null) {
+      container2d.childAdded(this);
+    }
     if (redraw) {
       if (container2d != null) {
         container2d.reflow();
