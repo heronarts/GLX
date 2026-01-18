@@ -660,10 +660,10 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
 
     if (icon != null) {
       final UIColor iconColor = _getIconColor(ui);
-      final float iconX = this.width/2 - icon.width/2 + this.iconOffsetX;
+      final float iconX = this.width/2 - icon.width/2f + this.iconOffsetX;
       icon.setTint(iconColor);
       vg.beginPath();
-      vg.image(icon, iconX, this.height/2 - icon.height/2 + this.iconOffsetY);
+      vg.image(icon, iconX, this.height/2 - icon.height/2f + this.iconOffsetY);
       vg.fill();
       icon.noTint();
 

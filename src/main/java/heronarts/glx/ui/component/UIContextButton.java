@@ -169,8 +169,8 @@ public class UIContextButton extends UI2dComponent implements UIFocus {
       vg.beginPath();
       vg.image(
         this.icon,
-        this.iconOffsetX + this.width/2 - this.icon.width/2,
-        this.iconOffsetY + this.height/2 - this.icon.height/2
+        this.iconOffsetX + this.width/2 - this.icon.width/2f,
+        this.iconOffsetY + this.height/2 - this.icon.height/2f
       );
       vg.fill();
       this.icon.noTint();
