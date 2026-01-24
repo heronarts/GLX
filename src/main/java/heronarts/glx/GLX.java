@@ -22,6 +22,9 @@ import static org.lwjgl.util.tinyfd.TinyFileDialogs.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
+
+import heronarts.lx.clip.Timeline;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.Platform;
@@ -219,6 +222,8 @@ public class GLX extends LX {
       }
     }
 
+    public static final List<String> AUDIO_EXTENSIONS = List.of("wav", "aiff", "aif", "au");
+
     @Override
     public void onDropFile(WindowEngine windowEngine, String fileName) {
       try {
@@ -232,6 +237,13 @@ public class GLX extends LX {
             engine.addTask(() -> {
               importContentJar(file, true);
             });
+          } else {
+            final String extension = file.getName().substring(file.getName().lastIndexOf('.') + 1).toLowerCase();
+            if (AUDIO_EXTENSIONS.contains(extension)) {
+              engine.addTask(() -> {
+                importAudioFile(file);
+              });
+            }
           }
         }
       } catch (Exception x) {
@@ -399,6 +411,13 @@ public class GLX extends LX {
         this.ui.showContextDialogMessage(message);
       });
     };
+  }
+
+  protected void importAudioFile(File file) {
+    Timeline timeline = this.engine.timeline.getTimeline();
+    if (timeline != null) {
+      timeline.addAudioLane(file);
+    }
   }
 
   public void reloadContent() {

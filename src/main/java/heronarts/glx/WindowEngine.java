@@ -411,7 +411,7 @@ public class WindowEngine {
       // Update mouse cursor if needed
       if (this.needsCursorUpdate.compareAndSet(true, false)) {
         final MouseCursor mc = this.mouseCursor;
-        glfwSetCursor(this.mainWindow.handle, (mc != null) ? mc.handle : 0);
+        glfwSetCursor(this.altWindow.handle, (mc != null) ? mc.handle : 0);
       }
 
       // Copy something to the clipboard

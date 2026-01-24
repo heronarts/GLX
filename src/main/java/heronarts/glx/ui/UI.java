@@ -799,7 +799,7 @@ public class UI {
   }
 
   public MouseCursor getMouseCursor() {
-    return this.root._getMouseCursor();
+    return this.rootAlt._getMouseCursor();
   }
 
   /**
