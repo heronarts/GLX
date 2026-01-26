@@ -883,7 +883,7 @@ public class WindowEngine {
   public class AltWindow extends Window {
 
     private AltWindow() {
-      super(LXPreferences.KEY_WINDOW_ALT, VIEWID_ALT, flags.windowTitle + " Arrangement");
+      super(LXPreferences.KEY_WINDOW_ALT, VIEWID_ALT, flags.windowTitle + " Timeline");
       // Hide until we are loaded and confirmed visible
       hide();
     }

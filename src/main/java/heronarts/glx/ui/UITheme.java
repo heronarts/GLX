@@ -444,7 +444,7 @@ public class UITheme {
   public final VGraphics.Image iconNext;
   public final VGraphics.Image iconPrev;
   public final VGraphics.Image iconReset;
-  public final VGraphics.Image iconArrangement;
+  public final VGraphics.Image iconTimeline;
 
   UITheme(VGraphics vg) throws IOException {
     this.controlFont = loadFont(vg, "Inter-SemiBold", "Inter-SemiBold.otf");
@@ -499,7 +499,7 @@ public class UITheme {
     this.iconNext = loadIcon(vg, "icon-next@2x.png");
     this.iconPrev = loadIcon(vg, "icon-prev@2x.png");
     this.iconReset = loadIcon(vg, "icon-reset@2x.png");
-    this.iconArrangement = loadIcon(vg, "icon-arrangement@2x.png");
+    this.iconTimeline = loadIcon(vg, "icon-timeline@2x.png");
     LX.initProfiler.log("GLX: UI: Theme: Icons");
   }
 
