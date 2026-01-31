@@ -24,7 +24,7 @@ import java.io.File;
 import java.io.IOException;
 import java.util.List;
 
-import heronarts.lx.clip.Timeline;
+import heronarts.lx.clip.Composition;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.Platform;
@@ -222,7 +222,7 @@ public class GLX extends LX {
       }
     }
 
-    public static final List<String> AUDIO_EXTENSIONS = List.of("wav", "aiff", "aif", "au");
+    private static final List<String> AUDIO_EXTENSIONS = List.of("wav", "aiff", "aif", "au");
 
     @Override
     public void onDropFile(WindowEngine windowEngine, String fileName) {
@@ -414,9 +414,9 @@ public class GLX extends LX {
   }
 
   protected void importAudioFile(File file) {
-    Timeline timeline = this.engine.timeline.getTimeline();
-    if (timeline != null) {
-      timeline.addAudioLane(file);
+    Composition composition = this.engine.composition.getComposition();
+    if (composition != null) {
+      composition.addAudioLane(file);
     }
   }
 
