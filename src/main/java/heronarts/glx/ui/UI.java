@@ -19,7 +19,8 @@
 package heronarts.glx.ui;
 
 import heronarts.glx.GLX;
-import heronarts.glx.GLXWindow.MouseCursor;
+import heronarts.glx.WindowEngine;
+import heronarts.glx.WindowEngine.MouseCursor;
 import heronarts.glx.View;
 import heronarts.glx.event.Event;
 import heronarts.glx.event.GamepadEvent;
@@ -66,19 +67,28 @@ public class UI {
 
   private static UI instance = null;
 
-  private class UIRoot extends UIObject implements UIContainer {
+  public class UIRoot extends UIObject implements UIContainer {
+
+    private final WindowEngine.Window window;
+    // Starting view ID for this root (to avoid collision between main and alt windows) TODO: needed?
+    private final short baseViewId;
 
     private final View viewClear;
     private final View view2d;
 
-    private UIRoot() {
-      this.ui = UI.this;
+    // Redraw may be called from any thread
+    private final AtomicBoolean redrawFlag = new AtomicBoolean(true);
 
-      this.viewClear = new View(this.ui.lx);
+    private UIRoot(WindowEngine.Window window) {
+      this.ui = UI.this;
+      this.window = window;
+      this.baseViewId = this.window.viewId;
+
+      this.viewClear = new View(this.ui.lx, this.window);
       this.viewClear.setClearColor(0x000000ff);
       this.viewClear.setScreenOrtho();
 
-      this.view2d = new View(this.ui.lx);
+      this.view2d = new View(this.ui.lx, this.window);
       this.view2d.setClearFlags(BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL);
       this.view2d.setClearColor(0);
       this.view2d.setScreenOrtho();
@@ -88,16 +98,16 @@ public class UI {
       this.viewClear.setRect(
         0,
         0,
-        lx.window.getFrameBufferWidth(),
-        lx.window.getFrameBufferHeight()
+        this.window.getFrameBufferWidth(),
+        this.window.getFrameBufferHeight()
       );
       this.viewClear.setScreenOrtho();
 
       this.view2d.setRect(
         0,
         0,
-        lx.window.getFrameBufferWidth(),
-        lx.window.getFrameBufferHeight()
+        this.window.getFrameBufferWidth(),
+        this.window.getFrameBufferHeight()
       );
       this.view2d.setScreenOrtho();
 
@@ -110,7 +120,7 @@ public class UI {
      */
     @Override
     public float getWidth() {
-      return this.ui.lx.window.getUIWidth();
+      return this.window.getUIWidth();
     }
 
     /**
@@ -120,7 +130,7 @@ public class UI {
      */
     @Override
     public float getHeight() {
-      return this.ui.lx.window.getUIHeight();
+      return this.window.getUIHeight();
     }
 
     @Override
@@ -327,14 +337,14 @@ public class UI {
       this.glfwThreadChildren.clear();
       this.glfwThreadChildren.addAll(this.children);
 
-      short viewId = 1;
+      short viewId = this.baseViewId;
 
       // Clear the whole window background to avoid edge-flicker
       this.viewClear.bind(viewId++).touch();
 
       // If the redraw flag is set, we need to walk all 2d hierarchies and
       // see which contexts need to be redrawn with the vg layer
-      if (redrawFlag.compareAndSet(true, false)) {
+      if (this.redrawFlag.compareAndSet(true, false)) {
         // Pre-pass over all 2d objects, set redraw flags on the UI2dComponent
         // objects and append to the list of 2d contexts that need rendering
         for (UIObject child : this.glfwThreadChildren) {
@@ -350,7 +360,7 @@ public class UI {
         UI2dContext context;
         while ((context = this.renderQueue.poll()) != null) {
           context.render(vg, viewId++);
-          if (viewId > MAX_NVG_VIEWS_PER_PASS) {
+          if ((viewId - this.baseViewId) > MAX_NVG_VIEWS_PER_PASS) {
             // We're going to have to get to the rest on the next pass..
             break;
           }
@@ -380,11 +390,6 @@ public class UI {
     }
   }
 
-  /**
-   * Redraw may be called from any thread
-   */
-  private final AtomicBoolean redrawFlag = new AtomicBoolean(true);
-
   public class Profiler {
     public long drawNanos = 0;
   }
@@ -392,9 +397,10 @@ public class UI {
   public final Profiler profiler = new Profiler();
 
   public final GLX lx;
-  public final VGraphics vg;
+  protected final VGraphics vg;
 
-  private UIRoot root;
+  protected final UIRoot root;
+  protected final UIRoot rootAlt;
 
   public final StringParameter contextualHelpText =
     new StringParameter("Contextual Help")
@@ -421,7 +427,7 @@ public class UI {
 
     private UIContextMenu contextMenu = null;
 
-    public UIContextOverlay() {
+    public UIContextOverlay(UIRoot root) {
       super(UI.this, 0, 0, 0, 0);
       this.parent = root;
       setUI(UI.this);
@@ -591,13 +597,15 @@ public class UI {
     this.lx = lx;
     this.vg = lx.vg;
 
+    this.root = new UIRoot(lx.windowEngine.mainWindow);
+    this.rootAlt = new UIRoot(lx.windowEngine.altWindow);
+    this.contextOverlay = new UIContextOverlay(this.root);
+    this.dropMenuOverlay = new UIContextOverlay(this.root);
+    // TODO: Add contextOverlay & dropMenuOverlay for alt window
+    LX.initProfiler.log("GLX: UI: Root");
+
     this.theme = new UITheme(this.vg);
     LX.initProfiler.log("GLX: UI: Theme");
-
-    this.root = new UIRoot();
-    this.contextOverlay = new UIContextOverlay();
-    this.dropMenuOverlay = new UIContextOverlay();
-    LX.initProfiler.log("GLX: UI: Root");
 
     lx.addProjectListener(new LX.ProjectListener() {
       @Override
@@ -663,6 +671,7 @@ public class UI {
       }
 
       this.root.redraw();
+      this.rootAlt.redraw();
     });
 
     lx.engine.midi.addMappingListener(new LXMidiEngine.MappingListener() {
@@ -712,6 +721,7 @@ public class UI {
       if (theme != null) {
         this.theme.setTheme(theme);
         redraw();
+        redrawAlt();
       }
     }, true);
   }
@@ -760,6 +770,10 @@ public class UI {
 
   public void redraw() {
     this.root.redraw();
+  }
+
+  public void redrawAlt() {
+    this.rootAlt.redraw();
   }
 
   public static UI get() {
@@ -922,6 +936,17 @@ public class UI {
    */
   public UI addLayer(UI2dContext layer) {
     layer.addToContainer(this.root);
+    return this;
+  }
+
+  /**
+   * Add a 2d context to the second window
+   *
+   * @param layer UI layer
+   * @return this
+   */
+  public UI addLayerAlt(UI2dContext layer) {
+    layer.addToContainer(this.rootAlt);
     return this;
   }
 
@@ -1209,27 +1234,34 @@ public class UI {
     // UI rendering thread to see that the 2d hierarchy needs to be checked
     // for items that need redraw
     component.redrawFlag.set(true);
-    this.redrawFlag.set(true);
+    // TODO: redraw only the root for this component, not both roots
+    this.root.redrawFlag.set(true);
+    this.rootAlt.redrawFlag.set(true);
   }
 
   public float getContentScaleX() {
-    return this.lx.window.getUIContentScaleX();
+    return this.lx.windowEngine.mainWindow.getUIContentScaleX();
   }
 
   public float getContentScaleY() {
-    return this.lx.window.getUIContentScaleY();
+    return this.lx.windowEngine.mainWindow.getUIContentScaleY();
   }
 
   public float getWidth() {
-    return this.lx.window.getUIWidth();
+    return this.lx.windowEngine.mainWindow.getUIWidth();
   }
 
   public float getHeight() {
-    return this.lx.window.getUIHeight();
+    return this.lx.windowEngine.mainWindow.getUIHeight();
   }
 
   public void resize() {
     this.root.resize();
+    onResize();
+  }
+
+  public void resizeAlt() {
+    this.rootAlt.resize();
     onResize();
   }
 
@@ -1252,9 +1284,11 @@ public class UI {
 
     // Run loop tasks through the UI tree
     this.root.loop(deltaMs);
+    this.rootAlt.loop(deltaMs);
 
     // Draw UIRoot object
     this.root.draw();
+    this.rootAlt.draw();
 
     endDraw();
 
@@ -1273,22 +1307,32 @@ public class UI {
     // Subclasses may override
   }
 
+  private UIRoot getRoot(long window) {
+    if (window == lx.windowEngine.mainWindow.getHandle()) {
+      return this.root;
+    } else if (window == lx.windowEngine.altWindow.getHandle()) {
+      return this.rootAlt;
+    }
+    throw new IllegalArgumentException("Unknown window handle: " + window);
+  }
+
   public void mouseEvent(MouseEvent mouseEvent) {
+    UIRoot root = getRoot(mouseEvent.window);
     switch (mouseEvent.getAction()) {
     case SCROLL:
-      this.root.mouseScroll(mouseEvent, mouseEvent.x, mouseEvent.y, mouseEvent.dx, mouseEvent.dy);
+      root.mouseScroll(mouseEvent, mouseEvent.x, mouseEvent.y, mouseEvent.dx, mouseEvent.dy);
       return;
     case PRESS:
-      this.root.mousePressed(mouseEvent, mouseEvent.x, mouseEvent.y);
+      root.mousePressed(mouseEvent, mouseEvent.x, mouseEvent.y);
       break;
     case RELEASE:
-      this.root.mouseReleased(mouseEvent, mouseEvent.x, mouseEvent.y);
+      root.mouseReleased(mouseEvent, mouseEvent.x, mouseEvent.y);
       break;
     case DRAG:
-      this.root.mouseDragged(mouseEvent, mouseEvent.x, mouseEvent.y, mouseEvent.dx, mouseEvent.dy);
+      root.mouseDragged(mouseEvent, mouseEvent.x, mouseEvent.y, mouseEvent.dx, mouseEvent.dy);
       break;
     case MOVE:
-      this.root.mouseMoved(mouseEvent, mouseEvent.x, mouseEvent.y);
+      root.mouseMoved(mouseEvent, mouseEvent.x, mouseEvent.y);
       break;
     }
   }
@@ -1296,15 +1340,16 @@ public class UI {
   public void keyEvent(KeyEvent keyEvent) {
     _engineThreadDefaultKeyEvent(keyEvent);
 
+    UIRoot root = getRoot(keyEvent.window);
     char keyChar = keyEvent.getKeyChar();
     int keyCode = keyEvent.getKeyCode();
     switch (keyEvent.getAction()) {
     case RELEASE:
-      this.root.keyReleased(keyEvent, keyChar, keyCode);
+      root.keyReleased(keyEvent, keyChar, keyCode);
       break;
     case PRESS:
     case REPEAT:
-      this.root.keyPressed(keyEvent, keyChar, keyCode);
+      root.keyPressed(keyEvent, keyChar, keyCode);
       break;
     default:
       throw new RuntimeException("Invalid keyEvent type: " + keyEvent.getAction());
@@ -1354,6 +1399,7 @@ public class UI {
     this.contextOverlay.dispose();
     this.dropMenuOverlay.dispose();
     this.root.dispose();
+    this.rootAlt.dispose();
     this.theme.dispose();
   }
 }

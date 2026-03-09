@@ -36,6 +36,7 @@ import heronarts.glx.BGFXEngine;
 import heronarts.glx.GLX;
 import heronarts.glx.GLXUtils;
 import heronarts.glx.View;
+import heronarts.glx.WindowEngine;
 import heronarts.glx.ui.UI2dContext;
 import heronarts.glx.ui.UIColor;
 import heronarts.lx.color.LXColor;
@@ -256,12 +257,12 @@ public class VGraphics implements BGFXEngine.Resource {
     private final int imageFlags;
     private volatile boolean isStale = true;
 
-    public Framebuffer(UI2dContext context, float w, float h, int imageFlags) {
+    public Framebuffer(UI2dContext context, float w, float h, int imageFlags, short viewId) {
       this.context = context;
       this.width = w;
       this.height = h;
       this.imageFlags = imageFlags;
-      this.viewId = 0;
+      this.viewId = viewId;
       allocatedBuffers.add(this);
     }
 
@@ -335,8 +336,8 @@ public class VGraphics implements BGFXEngine.Resource {
       // extra sub-pixel is okay, see the nvgBeginFrame() call where
       // the actual frame size is passed as a float.
       this.buffer = nvgluCreateFramebuffer(vg,
-        (int) Math.ceil(this.width * glx.window.getUIContentScaleX()),
-        (int) Math.ceil(this.height * glx.window.getUIContentScaleY()),
+        (int) Math.ceil(this.width * window.getUIContentScaleX()),
+        (int) Math.ceil(this.height * window.getUIContentScaleY()),
         this.imageFlags
       );
 
@@ -369,6 +370,7 @@ public class VGraphics implements BGFXEngine.Resource {
   }
 
   private final GLX glx;
+  private final WindowEngine.Window window;
   private final View view;
   private final long vg;
   private final NVGPaint paintLinearGradient = NVGPaint.create();
@@ -380,11 +382,15 @@ public class VGraphics implements BGFXEngine.Resource {
   private final List<Framebuffer> allocatedBuffers = new ArrayList<Framebuffer>();
   private final List<Image> allocatedImages = new ArrayList<Image>();
 
-  public VGraphics(GLX glx) {
+  private final short viewId;
+
+  public VGraphics(GLX glx, WindowEngine.Window window) {
     glx.assertBgfxThreadAllocation(this);
     this.glx = glx;
-    this.vg = nvgCreate(true, 0, NULL);
-    this.view = new View(glx);
+    this.window = window;
+    this.viewId = window.viewId;
+    this.vg = nvgCreate(true, this.viewId, NULL);
+    this.view = new View(glx, window);
     this.view.setClearFlags(BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL);
   }
 
@@ -393,7 +399,7 @@ public class VGraphics implements BGFXEngine.Resource {
   }
 
   public Framebuffer createFramebuffer(UI2dContext context, float w, float h, int imageFlags) {
-    return new Framebuffer(context, w, h, imageFlags);
+    return new Framebuffer(context, w, h, imageFlags, this.viewId);
   }
 
   public void bindFramebuffer(Framebuffer framebuffer) {
@@ -507,9 +513,9 @@ public class VGraphics implements BGFXEngine.Resource {
     // best if X/Y scaling are unequal on some weird system...
     nvgBeginFrame(
       this.vg,
-      width, // * this.glx.getUIContentScaleX(),
-      height, // * this.glx.getUIContentScaleY(),
-      this.glx.window.getUIContentScaleX()
+      width, // * this.window.getUIContentScaleX(),
+      height, // * this.window.getUIContentScaleY(),
+      this.window.getUIContentScaleX()
     );
     return this;
   }

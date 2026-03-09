@@ -34,7 +34,7 @@ public abstract class GLXApp {
 
   protected void dispose() {}
 
-  protected abstract GLX buildLXInstance(GLXWindow window, GLX.Flags flags) throws IOException;
+  protected abstract GLX buildLXInstance(WindowEngine windowEngine, GLX.Flags flags) throws IOException;
 
   private void main(GLX.Flags flags) {
     try {
@@ -53,19 +53,19 @@ public abstract class GLXApp {
       }
 
       // Run the full windowed application
-      final GLXWindow window = new GLXWindow(flags);
+      final WindowEngine windowEngine = new WindowEngine(flags);
 
       // Start the GLX application on another thread
       new Thread(() -> {
         try {
-          applicationThread(window, flags);
+          applicationThread(windowEngine, flags);
         } catch (Throwable x) {
           GLX.error(x, "Unhandled exception in GLXApp application thread: " + x.getLocalizedMessage());
         }
       }).start();
 
       // Run the main event loop
-      window.main();
+      windowEngine.main();
 
     } catch (Throwable x) {
       GLX.error(x, "Unhandled exception in GLXApp.main: " + x.getLocalizedMessage());
@@ -74,8 +74,8 @@ public abstract class GLXApp {
     }
   }
 
-  private void applicationThread(GLXWindow window, GLX.Flags flags) throws IOException {
-    buildLXInstance(window, flags).run();
+  private void applicationThread(WindowEngine windowEngine, GLX.Flags flags) throws IOException {
+    buildLXInstance(windowEngine, flags).run();
   }
 
 }

@@ -31,6 +31,7 @@ public class UI2dContext extends UI2dContainer implements UILayer {
    * Constructs a new UI2dContext
    *
    * @param ui the UI to place it in
+   * @param vg the VGraphics context to use for rendering
    * @param x x-position
    * @param y y-position
    * @param w width
