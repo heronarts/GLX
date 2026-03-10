@@ -19,6 +19,7 @@
 package heronarts.glx.ui;
 
 import heronarts.glx.View;
+import heronarts.glx.WindowEngine.Window;
 import heronarts.glx.ui.vg.VGraphics;
 
 public class UI2dContext extends UI2dContainer implements UILayer {
@@ -64,14 +65,11 @@ public class UI2dContext extends UI2dContainer implements UILayer {
    *
    * @param vg VGraphics instance
    */
-  protected final void render(VGraphics vg, short viewId) {
-    this.framebuffer.setView(viewId);
-
+  protected final void render(VGraphics vg, Window window, short viewId) {
     this.scissor.reset(this);
 
     // Bind the framebuffer, which rebuilds if necessary
-    vg.bindFramebuffer(this.framebuffer);
-    vg.beginFrame(this.width, this.height);
+    vg.beginFrame(this.framebuffer, window, viewId, this.width, this.height);
     vg.scissor(0, 0, this.width, this.height);
     super.draw(this.ui, vg);
     vg.endFrame();
@@ -102,7 +100,7 @@ public class UI2dContext extends UI2dContainer implements UILayer {
     // NOTE: this shouldn't be necessary, but catches an edge case where
     // there are so many buffers that need redrawing that this buffer
     // didn't get serviced
-    this.framebuffer.initialize();
+    this.framebuffer.initialize(view.getWindow());
 
     // NOTE: no rendering happens inside this method. The previous render() pass
     // will have ensured that our texture was rendered properly if it

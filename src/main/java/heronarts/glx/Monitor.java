@@ -1,7 +1,26 @@
+/**
+ * Copyright 2019- Justin K. Belcher, Heron Arts LLC
+ *
+ * This file is part of the LX Studio software library. By using
+ * LX, you agree to the terms of the LX Studio Software License
+ * and Distribution Agreement, available at: http://lx.studio/license
+ *
+ * Please note that the LX license is not open-source. The license
+ * allows for free, non-commercial use.
+ *
+ * HERON ARTS MAKES NO WARRANTY, EXPRESS, IMPLIED, STATUTORY, OR
+ * OTHERWISE, AND SPECIFICALLY DISCLAIMS ANY WARRANTY OF
+ * MERCHANTABILITY, NON-INFRINGEMENT, OR FITNESS FOR A PARTICULAR
+ * PURPOSE, WITH RESPECT TO THE SOFTWARE.
+ *
+ * @author Justin K. Belcher <justin@jkb.studio>
+ */
+
 package heronarts.glx;
 
-import heronarts.lx.DisplaySettings;
 import org.lwjgl.system.MemoryStack;
+
+import heronarts.lx.LXPreferences;
 
 import java.nio.IntBuffer;
 
@@ -11,7 +30,7 @@ import static org.lwjgl.system.MemoryUtil.NULL;
 /**
  * Represents a physical monitor
  */
-public class Monitor extends DisplaySettings {
+public class Monitor extends LXPreferences.WindowSettings {
 
   final long handle;
   final boolean isPrimary;
@@ -47,21 +66,7 @@ public class Monitor extends DisplaySettings {
     }
   }
 
-  public Monitor(boolean isPrimary, int x, int y, int width, int height) {
-    this.handle = NULL;
-    this.label = "";
-    this.isPrimary = isPrimary;
-    setPosition(x, y);
-    setSize(width, height);
-  }
-
   public boolean hasError() {
     return this.hasError;
   }
-
-  public boolean equals(Monitor that) {
-    return super.equals(that) &&
-      this.isPrimary == that.isPrimary;
-  }
-
 }

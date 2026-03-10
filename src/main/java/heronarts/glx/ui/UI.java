@@ -70,8 +70,6 @@ public class UI {
   public class UIRoot extends UIObject implements UIContainer {
 
     private final WindowEngine.Window window;
-    // Starting view ID for this root (to avoid collision between main and alt windows) TODO: needed?
-    private final short baseViewId;
 
     private final View viewClear;
     private final View view2d;
@@ -82,7 +80,6 @@ public class UI {
     private UIRoot(WindowEngine.Window window) {
       this.ui = UI.this;
       this.window = window;
-      this.baseViewId = this.window.viewId;
 
       this.viewClear = new View(this.ui.lx, this.window);
       this.viewClear.setClearColor(0x000000ff);
@@ -337,10 +334,11 @@ public class UI {
       this.glfwThreadChildren.clear();
       this.glfwThreadChildren.addAll(this.children);
 
-      short viewId = this.baseViewId;
+      // Make sure view IDs for different window root objects to not conflict/collide
+      short viewId = this.window.baseViewId;
 
       // Clear the whole window background to avoid edge-flicker
-      this.viewClear.bind(viewId++).touch();
+      this.viewClear.bind(this.window, viewId++).touch();
 
       // If the redraw flag is set, we need to walk all 2d hierarchies and
       // see which contexts need to be redrawn with the vg layer
@@ -348,8 +346,8 @@ public class UI {
         // Pre-pass over all 2d objects, set redraw flags on the UI2dComponent
         // objects and append to the list of 2d contexts that need rendering
         for (UIObject child : this.glfwThreadChildren) {
-          if (child instanceof UI2dComponent) {
-            ((UI2dComponent) child).predraw(this.renderQueue, false);
+          if (child instanceof UI2dComponent child2d) {
+            child2d.predraw(this.renderQueue, false);
           }
         }
 
@@ -359,8 +357,8 @@ public class UI {
         // texture framebuffer owned by the UI2dContext
         UI2dContext context;
         while ((context = this.renderQueue.poll()) != null) {
-          context.render(vg, viewId++);
-          if ((viewId - this.baseViewId) > MAX_NVG_VIEWS_PER_PASS) {
+          context.render(vg, this.window, viewId++);
+          if ((viewId - this.window.baseViewId) > MAX_NVG_VIEWS_PER_PASS) {
             // We're going to have to get to the rest on the next pass..
             break;
           }
@@ -374,15 +372,14 @@ public class UI {
       // re-binding views as needed
       boolean bind2d = true;
       for (UIObject child : this.glfwThreadChildren) {
-        if (child instanceof UI2dContext) {
+        if (child instanceof UI2dContext child2d) {
           if (bind2d) {
-            this.view2d.bind(viewId++);
+            this.view2d.bind(this.window, viewId++);
             bind2d = false;
           }
-          ((UI2dContext) child).draw(this.ui, this.view2d);
-        } else if (child instanceof UI3dContext) {
-          UI3dContext context3d = (UI3dContext) child;
-          context3d.view.setId(viewId++);
+          child2d.draw(this.ui, this.view2d);
+        } else if (child instanceof UI3dContext context3d) {
+          context3d.view.setId(this.window, viewId++);
           context3d.draw(this.ui, context3d.view);
           bind2d = true;
         }

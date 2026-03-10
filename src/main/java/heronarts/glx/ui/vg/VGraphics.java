@@ -36,7 +36,7 @@ import heronarts.glx.BGFXEngine;
 import heronarts.glx.GLX;
 import heronarts.glx.GLXUtils;
 import heronarts.glx.View;
-import heronarts.glx.WindowEngine;
+import heronarts.glx.WindowEngine.Window;
 import heronarts.glx.ui.UI2dContext;
 import heronarts.glx.ui.UIColor;
 import heronarts.lx.color.LXColor;
@@ -253,16 +253,18 @@ public class VGraphics implements BGFXEngine.Resource {
     private float width;
     private float height;
 
+    private Window window;
     private short viewId;
     private final int imageFlags;
     private volatile boolean isStale = true;
 
-    public Framebuffer(UI2dContext context, float w, float h, int imageFlags, short viewId) {
+    public Framebuffer(UI2dContext context, float w, float h, int imageFlags) {
       this.context = context;
       this.width = w;
       this.height = h;
       this.imageFlags = imageFlags;
-      this.viewId = viewId;
+      this.window = null;
+      this.viewId = BGFX_INVALID_HANDLE;
       allocatedBuffers.add(this);
     }
 
@@ -292,24 +294,22 @@ public class VGraphics implements BGFXEngine.Resource {
       return this.buffer.handle();
     }
 
-    public Framebuffer setView(short viewId) {
-      this.viewId = viewId;
-      return this;
-    }
-
-    public Framebuffer initialize() {
+    public Framebuffer initialize(Window window) {
       if (this.isStale) {
+        this.window = window;
         rebuffer();
       }
       return this;
     }
 
-    private Framebuffer bind() {
+    private Framebuffer bind(Window window, short viewId) {
       glx.assertBgfxThread("VGraphics.Framebuffer.bind() must be on BGFX thread");
+      this.window = window;
+      this.viewId = viewId;
       if (this.isStale) {
         rebuffer();
       }
-      view.bind(this.viewId);
+      view.bind(this.window, this.viewId);
       nvgluSetViewFramebuffer(this.viewId, this.buffer);
       nvgluBindFramebuffer(this.buffer);
       return this;
@@ -336,8 +336,8 @@ public class VGraphics implements BGFXEngine.Resource {
       // extra sub-pixel is okay, see the nvgBeginFrame() call where
       // the actual frame size is passed as a float.
       this.buffer = nvgluCreateFramebuffer(vg,
-        (int) Math.ceil(this.width * window.getUIContentScaleX()),
-        (int) Math.ceil(this.height * window.getUIContentScaleY()),
+        (int) Math.ceil(this.width * this.window.getUIContentScaleX()),
+        (int) Math.ceil(this.height * this.window.getUIContentScaleY()),
         this.imageFlags
       );
 
@@ -370,7 +370,6 @@ public class VGraphics implements BGFXEngine.Resource {
   }
 
   private final GLX glx;
-  private final WindowEngine.Window window;
   private final View view;
   private final long vg;
   private final NVGPaint paintLinearGradient = NVGPaint.create();
@@ -382,15 +381,11 @@ public class VGraphics implements BGFXEngine.Resource {
   private final List<Framebuffer> allocatedBuffers = new ArrayList<Framebuffer>();
   private final List<Image> allocatedImages = new ArrayList<Image>();
 
-  private final short viewId;
-
-  public VGraphics(GLX glx, WindowEngine.Window window) {
+  public VGraphics(GLX glx) {
     glx.assertBgfxThreadAllocation(this);
     this.glx = glx;
-    this.window = window;
-    this.viewId = window.viewId;
-    this.vg = nvgCreate(true, this.viewId, NULL);
-    this.view = new View(glx, window);
+    this.vg = nvgCreate(true, 0, NULL);
+    this.view = new View(glx);
     this.view.setClearFlags(BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL);
   }
 
@@ -399,11 +394,7 @@ public class VGraphics implements BGFXEngine.Resource {
   }
 
   public Framebuffer createFramebuffer(UI2dContext context, float w, float h, int imageFlags) {
-    return new Framebuffer(context, w, h, imageFlags, this.viewId);
-  }
-
-  public void bindFramebuffer(Framebuffer framebuffer) {
-    framebuffer.bind();
+    return new Framebuffer(context, w, h, imageFlags);
   }
 
   public void notifyContentScaleChanged() {
@@ -505,7 +496,9 @@ public class VGraphics implements BGFXEngine.Resource {
     return this;
   }
 
-  public VGraphics beginFrame(float width, float height) {
+  public VGraphics beginFrame(Framebuffer framebuffer, Window window, short viewId, float width, float height) {
+    framebuffer.bind(window, viewId);
+
     // NOTE: The nvgBeginFrame call wants width and height in
     // post-scaled framebuffer space, and it also needs
     // to know what the content scaling factor is. It only
@@ -513,9 +506,9 @@ public class VGraphics implements BGFXEngine.Resource {
     // best if X/Y scaling are unequal on some weird system...
     nvgBeginFrame(
       this.vg,
-      width, // * this.window.getUIContentScaleX(),
-      height, // * this.window.getUIContentScaleY(),
-      this.window.getUIContentScaleX()
+      width, // * framebuffer.window.getUIContentScaleX(),
+      height, // * framebuffer.window.getUIContentScaleY(),
+      framebuffer.window.getUIContentScaleX()
     );
     return this;
   }

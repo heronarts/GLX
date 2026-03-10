@@ -107,8 +107,9 @@ public class InputDispatch implements LXEngine.Dispatch {
 
   void glfwCursorPosCallback(long window, double x, double y) {
     // Apply cursor position scaling, to go from window-space into ui-space
-    x *= this.windowEngine.mainWindow.getCursorScaleX();
-    y *= this.windowEngine.mainWindow.getCursorScaleY();
+    final WindowEngine.Window w = this.windowEngine.getWindow(window);
+    x *= w.getCursorScaleX();
+    y *= w.getCursorScaleY();
     double dx = x - this.cursorX;
     double dy = y - this.cursorY;
     MouseEvent.Action action = this.mouseDragging ? MouseEvent.Action.DRAG : MouseEvent.Action.MOVE;
@@ -163,16 +164,16 @@ public class InputDispatch implements LXEngine.Dispatch {
     dy *= this.glx.flags.scrollMultiplier;
 
     switch (Platform.get()) {
-      case MACOSX:
-        dx *= this.windowEngine.mainWindow.getSystemContentScaleX();
-        dy *= this.windowEngine.mainWindow.getSystemContentScaleY();
-        break;
-      case WINDOWS:
+      case MACOSX -> {
+        final WindowEngine.Window w = this.windowEngine.getWindow(window);
+        dx *= w.getSystemContentScaleX();
+        dy *= w.getSystemContentScaleY();
+      }
+      case WINDOWS -> {
         dx *= WINDOWS_SCROLL_MULTIPLIER;
         dy *= WINDOWS_SCROLL_MULTIPLIER;
-        break;
-      default:
-        break;
+      }
+      default -> {}
     }
     queueEvent(new MouseEvent(window, MouseEvent.Action.SCROLL, (float) this.cursorX, (float) this.cursorY, (float) dx, (float) dy, this.modifiers));
   }
@@ -214,15 +215,11 @@ public class InputDispatch implements LXEngine.Dispatch {
   }
 
   private Event coalesceEvents(Event thisEvent, Event prevEvent) {
-    if ((thisEvent instanceof MouseEvent) && (prevEvent instanceof MouseEvent)) {
-      MouseEvent mouseEvent = (MouseEvent) thisEvent;
-      MouseEvent prevMouseEvent = (MouseEvent) prevEvent;
-      if (mouseEvent.action == prevMouseEvent.action && mouseEvent.window == prevMouseEvent.window) {
-        switch (mouseEvent.action) {
-        case SCROLL:
-        case MOVE:
-        case DRAG:
-          return new MouseEvent(
+    if ((thisEvent instanceof MouseEvent mouseEvent) && (prevEvent instanceof MouseEvent prevMouseEvent)) {
+      if ((mouseEvent.action == prevMouseEvent.action) && (mouseEvent.window == prevMouseEvent.window)) {
+        return switch (mouseEvent.action) {
+        case SCROLL, MOVE, DRAG ->
+          new MouseEvent(
             mouseEvent,
             mouseEvent.window,
             mouseEvent.action,
@@ -232,9 +229,8 @@ public class InputDispatch implements LXEngine.Dispatch {
             mouseEvent.dy + prevMouseEvent.dy,
             mouseEvent.modifiers
           );
-        default:
-          return null;
-        }
+        default -> null;
+        };
       }
     }
     return null;

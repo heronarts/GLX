@@ -39,6 +39,7 @@ import heronarts.lx.LXClassLoader;
 import heronarts.lx.LXEngine;
 import heronarts.lx.clipboard.LXTextValue;
 import heronarts.lx.model.LXModel;
+import heronarts.lx.parameter.LXParameterListener;
 
 public class GLX extends LX {
 
@@ -133,6 +134,8 @@ public class GLX extends LX {
 
   boolean flagUIDebug = false;
 
+  private final LXParameterListener timelineWindowListener;
+
   protected GLX(WindowEngine windowEngine) throws IOException {
     this(windowEngine, windowEngine.flags);
   }
@@ -154,7 +157,7 @@ public class GLX extends LX {
     this.bgfx = new BGFXEngine(this, this.windowEngine);
     this.program = new Programs();
     this.vertexBuffer = new VertexBuffers();
-    this.vg = new VGraphics(this, this.windowEngine.mainWindow);
+    this.vg = new VGraphics(this);
 
     // Build the application UI
     this.ui = buildUI();
@@ -162,6 +165,11 @@ public class GLX extends LX {
     // Initialize LED frame buffer for the UI
     this.uiFrame = new LXEngine.Frame(this);
     this.engine.getFrameNonThreadSafe(this.uiFrame);
+
+    // Toggle visibility of timeline window
+    this.engine.showTimelineWindow.addListener(this.timelineWindowListener = p -> {
+      windowEngine.showAltWindow(this.engine.showTimelineWindow.isOn());
+    });
   }
 
   private class WindowDelegate implements WindowEngine.Delegate {
@@ -174,16 +182,14 @@ public class GLX extends LX {
     @Override
     public void onWindowClose(WindowEngine windowEngine, WindowEngine.Window window) {
       if (!bgfx.hasFailed) {
-        if (window == windowEngine.mainWindow) {
+        if (window.isMain()) {
           if (flags.confirmChangesOnQuit) {
             windowEngine.setShouldClose(false);
             // Confirm that we really want to do it
             confirmChangesSaved("quit", () -> windowEngine.setShouldClose(true));
           }
-        } else if (window == windowEngine.altWindow && engine != null) {
-          engine.addTask(() -> {
-            preferences.showAltWindow.setValue(false);
-          });
+        } else if (window.isAlt()) {
+          engine.addTask(() -> engine.showTimelineWindow.setValue(false));
         }
       }
     }
@@ -197,18 +203,18 @@ public class GLX extends LX {
 
     @Override
     public void onContentScaleChanged(WindowEngine windowEngine, WindowEngine.Window window, float contentScaleX, float contentScaleY) {
-      if (window == windowEngine.mainWindow) {
+      if (window.isMain()) {
         bgfx.resizeUI.set(true);
-      } else {
+      } else if (window.isAlt()) {
         bgfx.resizeUIAlt.set(true);
       }
     }
 
     @Override
     public void onFramebufferSizeChanged(WindowEngine windowEngine, WindowEngine.Window window, float framebufferWidth, float framebufferHeight) {
-      if (window == windowEngine.mainWindow) {
+      if (window.isMain()) {
         bgfx.resizeFramebuffer.set(true);
-      } else {
+      } else if (window.isAlt()) {
         bgfx.resizeFramebufferAlt.set(true);
       }
     }
@@ -327,6 +333,8 @@ public class GLX extends LX {
 
   @Override
   public void dispose() {
+    this.engine.showTimelineWindow.removeListener(this.timelineWindowListener);
+
     // NOTE: destroy the whole UI first, rip down all the listeners
     // before disposing of the engine itself. Done on the BGFX thread
     // to properly dispose of BGFX resources.

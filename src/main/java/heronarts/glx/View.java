@@ -25,13 +25,14 @@ import org.joml.Matrix4f;
 import org.joml.Vector3f;
 import org.lwjgl.system.MemoryUtil;
 
+import heronarts.glx.WindowEngine.Window;
 import heronarts.glx.ui.UI2dContext;
 
 public class View {
 
   protected final GLX glx;
-  protected final WindowEngine.Window window;
 
+  protected Window window;
   protected short viewId;
 
   protected int x = 0, y = 0, width = 0, height = 0;
@@ -45,12 +46,23 @@ public class View {
   protected final Matrix4f projectionMatrix = new Matrix4f();
   protected final FloatBuffer projectionMatrixBuf;
 
+  private static final int FULL_SIZE = -1;
+
   /**
-   * Constructs a default view of the entire framebuffer
+   * Constructs a default view of the main window framebuffer
    *
    * @param glx GLX instance
    */
-  public View(GLX glx, WindowEngine.Window window) {
+  public View(GLX glx) {
+    this(glx, null, 0, 0, FULL_SIZE, FULL_SIZE);
+  }
+
+  /**
+   * Constructs a default view of the entire window framebuffer
+   *
+   * @param glx GLX instance
+   */
+  public View(GLX glx, Window window) {
     this(glx, window, 0, 0, window.getFrameBufferWidth(), window.getFrameBufferHeight());
   }
 
@@ -64,13 +76,13 @@ public class View {
    * @param w Width in framebuffer coordinates
    * @param h Height in framebuffer coordinates
    */
-  public View(GLX glx, WindowEngine.Window window, int x, int y, int w, int h) {
+  private View(GLX glx, Window window, int x, int y, int w, int h) {
     this.glx = glx;
     this.window = window;
-    this.viewId = window.viewId;
+    this.viewId = BGFX_INVALID_HANDLE;
 
     this.x = x;
-    this.y = 0;
+    this.y = y;
     this.width = w;
     this.height = h;
 
@@ -85,17 +97,28 @@ public class View {
     return this.viewId;
   }
 
-  public View setId(short viewId) {
+  public Window getWindow() {
+    return this.window;
+  }
+
+  public View setId(Window window, short viewId) {
+    this.window = window;
     this.viewId = viewId;
     return this;
   }
 
-  public View bind(short viewId) {
-    setId(viewId);
+  public View bind(Window window, short viewId) {
+    setId(window, viewId);
     return bind();
   }
 
   public View bind() {
+    if ((this.viewId == BGFX_INVALID_HANDLE) || (this.window == null)) {
+      throw new IllegalStateException("Cannot View.bind() before view Window and Id have been set");
+    }
+
+    final int viewWidth = (this.width == FULL_SIZE) ? this.window.getFrameBufferWidth() : this.width;
+    final int viewHeight = (this.height == FULL_SIZE) ? this.window.getFrameBufferHeight() : this.height;
 
     // NOTE(mcslee): HACK! bgfx_reset_view disappeared from the C API, working on getting it back
     // but in the meantime we need these calls - figured out what it was doing from here:
@@ -103,10 +126,10 @@ public class View {
     // bgfx_reset_view(this.viewId);
     bgfx_set_view_scissor(this.viewId, 0, 0, 0, 0);
     bgfx_set_view_mode(this.viewId, BGFX_VIEW_MODE_DEFAULT);
-    bgfx_set_view_frame_buffer(this.viewId, this.window.getViewFrameBuffer());
+    bgfx_set_view_frame_buffer(this.viewId, this.window.getFrameBuffer());
 
     // This is the actual code we want, actually GLX specific
-    bgfx_set_view_rect(this.viewId, this.x, this.y, this.width, this.height);
+    bgfx_set_view_rect(this.viewId, this.x, this.y, viewWidth, viewHeight);
     bgfx_set_view_clear(this.viewId, this.clearFlags, this.clearColor, this.clearDepth, 0);
     bgfx_set_view_transform(this.viewId, this.viewMatrixBuf, this.projectionMatrixBuf);
 

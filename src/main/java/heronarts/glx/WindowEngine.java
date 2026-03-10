@@ -33,21 +33,23 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicReference;
-
-import heronarts.lx.DisplaySettings;
-import heronarts.lx.parameter.LXParameterListener;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWDropCallback;
 import org.lwjgl.glfw.GLFWErrorCallback;
 import org.lwjgl.glfw.GLFWImage;
+import org.lwjgl.glfw.GLFWNativeCocoa;
+import org.lwjgl.glfw.GLFWNativeWayland;
+import org.lwjgl.glfw.GLFWNativeWin32;
+import org.lwjgl.glfw.GLFWNativeX11;
 import org.lwjgl.stb.STBImage;
 import org.lwjgl.system.APIUtil;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
+import org.lwjgl.system.Platform;
 
 import heronarts.lx.LXPreferences;
+import heronarts.lx.LXPreferences.WindowSettings;
 import heronarts.lx.utils.LXUtils;
 
 /**
@@ -139,7 +141,6 @@ public class WindowEngine {
       if (this.stbiBuffer != null) {
         STBImage.stbi_image_free(this.stbiBuffer);
       }
-
     }
   };
 
@@ -241,10 +242,6 @@ public class WindowEngine {
     this.mainWindow = new MainWindow();
     this.altWindow = new AltWindow();
 
-    // Listen to visibility parameter
-    this.showAltWindow = this.preferences.showAltWindow.isOn();
-    this.preferences.showAltWindow.addListener(this.showAltWindowListener);
-
     // Set UI Zoom bounds based upon content scaling
     _updateUIZoomRange();
 
@@ -252,6 +249,17 @@ public class WindowEngine {
     for (MouseCursor cursor : MouseCursor.values()) {
       cursor.initialize();
     }
+  }
+
+  public Window getWindow(long handle) {
+    if (handle == this.altWindow.handle) {
+      return this.altWindow;
+    }
+    if (handle == this.mainWindow.handle) {
+      return this.mainWindow;
+    }
+    GLX.error("No GLX Window exists for handle: " + handle);
+    return null;
   }
 
   private void refreshMonitors() {
@@ -322,12 +330,8 @@ public class WindowEngine {
     return this.uiZoom;
   }
 
-  private final LXParameterListener showAltWindowListener = (p) -> {
-    updateAltWindowVisibility();
-  };
-
-  private void updateAltWindowVisibility() {
-    this.showAltWindow = preferences.showAltWindow.isOn();
+  public void showAltWindow(boolean visible) {
+    this.showAltWindow = visible;
     this.needsAltVisibilityUpdate.set(true);
   }
 
@@ -431,8 +435,6 @@ public class WindowEngine {
   }
 
   private void shutdown() {
-    this.preferences.showAltWindow.removeListener(this.showAltWindowListener);
-
     // Blocks until the LX and BGFX threads are finished...
     this.delegate.onShutdown(this);
 
@@ -457,16 +459,16 @@ public class WindowEngine {
   /**
    * Represents a single window in the application
    */
-  public abstract class Window extends DisplaySettings {
+  public abstract class Window extends LXPreferences.WindowSettings {
 
     // GLFW handle
     final long handle;
 
     // Preferences key for saving
-    private final String key;
+    private final LXPreferences.Window key;
 
-    // BGFX view id
-    public final short viewId;
+    // BGFX base view id
+    public final short baseViewId;
 
     // Specs for a monitor previously used with this window
     // JKB note: Not yet implemented
@@ -491,11 +493,12 @@ public class WindowEngine {
     float uiWidth = 0;
     float uiHeight = 0;
 
-    private Window(String key, short viewId, String title) {
-      super(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
+    private Window(LXPreferences.Window key, short baseViewId, String title) {
+      super(key);
+      setSize(DEFAULT_WINDOW_WIDTH, DEFAULT_WINDOW_HEIGHT);
 
       this.key = key;
-      this.viewId = viewId;
+      this.baseViewId = baseViewId;
       GLX.log("Creating window " + this.key);
 
       // Initialize size & position from preferences and current monitors
@@ -511,9 +514,28 @@ public class WindowEngine {
       registerCallbacks();
     }
 
+    public final boolean isMain() {
+      return this == mainWindow;
+    }
+
+    public final boolean isAlt() {
+      return this == altWindow;
+    }
+
+    public long getNativeHandle() {
+      return switch (Platform.get()) {
+        case LINUX, FREEBSD ->
+          (glfwGetPlatform() == GLFW.GLFW_PLATFORM_WAYLAND) ?
+            GLFWNativeWayland.glfwGetWaylandWindow(this.handle) :
+            GLFWNativeX11.glfwGetX11Window(this.handle);
+        case MACOSX -> GLFWNativeCocoa.glfwGetCocoaWindow(this.handle);
+        case WINDOWS -> GLFWNativeWin32.glfwGetWin32Window(this.handle);
+      };
+    }
+
     private void locate() {
       // Retrieve window size and position from preferences
-      DisplaySettings settings = preferences.getWindowSettings(this.key);
+      WindowSettings settings = preferences.getWindowSettings(this.key);
       if (settings == null) {
         GLX.error("Failed to load window settings for window " + this.key);
       } else {
@@ -531,14 +553,12 @@ public class WindowEngine {
         // Attempt to place window at last known position
 
         // Find monitor that contains our upper left corner
-        int i = 0;
         for (Monitor m : monitorConfig.monitors) {
           if (m.contains(getX(), getY())) {
             this.monitor = m;
             GLX.log("  Matched window position to " + this.monitor.label);
             break;
           }
-          ++i;
         }
 
         // If our position no longer falls on a monitor, find a monitor that closely matches the dimensions of our last monitor
@@ -555,17 +575,8 @@ public class WindowEngine {
 
         // Ensure initial window is fully contained within the monitor work area
         if (this.monitor != null) {
-          if (getXmax() > this.monitor.getXmax() ||
-            getYmax() > this.monitor.getYmax()) {
-
-            int width = LXUtils.min(getWidth(), this.monitor.getWidth());
-            int x = this.monitor.getXmax() - width;
-
-            int height = LXUtils.min(getHeight(), this.monitor.getHeight());
-            int y = this.monitor.getYmax() - height;
-
-            setPosition(x, y);
-            setSize(width, height);
+          if (exceeds(this.monitor)) {
+            constrain(this.monitor);
             GLX.log("    ..modified to fit on monitor: " + toString());
           }
         }
@@ -839,13 +850,9 @@ public class WindowEngine {
       return this.cursorScaleY;
     }
 
-    abstract public short getViewFrameBuffer();
+    public abstract short getFrameBuffer();
 
-    protected boolean isVisible() {
-      return glfwGetWindowAttrib(this.handle, GLFW_VISIBLE) == GLFW_TRUE;
-    }
-
-    void destroy() {
+    protected void destroy() {
       GLX.log("  destroying window " + this.key);
       glfwFreeCallbacks(this.handle);
       glfwDestroyWindow(this.handle);
@@ -854,13 +861,13 @@ public class WindowEngine {
   }
 
   // Base viewIds for each window
-  private static final short VIEWID_MAIN = (short) 0;
-  private static final short VIEWID_ALT = (short) 100;
+  private static final short BASE_VIEW_ID_MAIN = (short) 0;
+  private static final short BASE_VIEW_ID_ALT = (short) 100;
 
   public class MainWindow extends Window {
 
     private MainWindow() {
-      super(LXPreferences.KEY_WINDOW_MAIN, VIEWID_MAIN, flags.windowTitle);
+      super(LXPreferences.Window.MAIN, BASE_VIEW_ID_MAIN, flags.windowTitle);
     }
 
     @Override
@@ -874,7 +881,7 @@ public class WindowEngine {
     }
 
     @Override
-    public short getViewFrameBuffer() {
+    public short getFrameBuffer() {
       return BGFX_INVALID_HANDLE;
     }
 
@@ -883,7 +890,7 @@ public class WindowEngine {
   public class AltWindow extends Window {
 
     private AltWindow() {
-      super(LXPreferences.KEY_WINDOW_ALT, VIEWID_ALT, flags.windowTitle + " Timeline");
+      super(LXPreferences.Window.ALT, BASE_VIEW_ID_ALT, flags.windowTitle + " Timeline");
       // Hide until we are loaded and confirmed visible
       hide();
     }
@@ -899,30 +906,26 @@ public class WindowEngine {
     }
 
     private void show() {
-      if (!isVisible()) {
-        glfwShowWindow(this.handle);
-      }
+      assertMainThread();
+      glfwShowWindow(this.handle);
     }
 
     private void hide() {
-      if (isVisible()) {
-        glfwHideWindow(this.handle);
-      }
+      assertMainThread();
+      glfwHideWindow(this.handle);
     }
 
-    // TODO: Is this the right place to be storing the bgfx framebuffer handle?
-    // TODO: I think Atomic can be removed...
     // BGFX frame buffer for secondary window
-    private final AtomicReference<Short> viewFrameBuffer = new AtomicReference<>(BGFX_INVALID_HANDLE);
+    private short frameBufferHandle = BGFX_INVALID_HANDLE;
 
-    public AltWindow setViewFrameBuffer(short viewFrameBuffer) {
-      this.viewFrameBuffer.set(viewFrameBuffer);
+    public AltWindow setFrameBuffer(short framebuffer) {
+      this.frameBufferHandle = framebuffer;
       return this;
     }
 
     @Override
-    public short getViewFrameBuffer() {
-      return this.viewFrameBuffer.get();
+    public short getFrameBuffer() {
+      return this.frameBufferHandle;
     }
   }
 }
