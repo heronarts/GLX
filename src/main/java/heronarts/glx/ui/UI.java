@@ -394,7 +394,7 @@ public class UI {
   public final Profiler profiler = new Profiler();
 
   public final GLX lx;
-  protected final VGraphics vg;
+  public final VGraphics vg;
 
   protected final UIRoot root;
   protected final UIRoot rootAlt;
@@ -963,11 +963,17 @@ public class UI {
     return this;
   }
 
+  /**
+   * Remove a 3d context layer from the UI
+   *
+   * @param layer 3d layer
+   * @return this UI
+   */
   public UI removeLayer(UI3dContext layer) {
-    if (layer.parent != this.root) {
+    if (layer.parent != this.root && layer.parent != this.rootAlt) {
       throw new IllegalStateException("Cannot remove 3d layer which is not present");
     }
-    this.root.mutableChildren.remove(layer);
+    layer.parent.mutableChildren.remove(layer);
     layer.parent = null;
     return this;
   }
