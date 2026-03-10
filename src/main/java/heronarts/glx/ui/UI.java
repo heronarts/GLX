@@ -608,18 +608,10 @@ public class UI {
       @Override
       public void projectChanged(File file, Change change) {
         switch (change) {
-        case TRY:
-          statusMessageText.setValue("Loading project file: " + file.getName());
-          break;
-        case NEW:
-          statusMessageText.setValue("Created new project");
-          break;
-        case SAVE:
-          statusMessageText.setValue("Saved project file: " + file.getName());
-          break;
-        case OPEN:
-          statusMessageText.setValue("Opened project file: " + file.getName());
-          break;
+        case TRY -> statusMessageText.setValue("Loading project file: " + file.getName());
+        case NEW -> statusMessageText.setValue("Created new project");
+        case SAVE -> statusMessageText.setValue("Saved project file: " + file.getName());
+        case OPEN -> statusMessageText.setValue("Opened project file: " + file.getName());
         }
       }
     });
@@ -1314,42 +1306,26 @@ public class UI {
   }
 
   public void mouseEvent(MouseEvent mouseEvent) {
-    UIRoot root = getRoot(mouseEvent.window);
+    final UIRoot root = getRoot(mouseEvent.window);
     switch (mouseEvent.getAction()) {
-    case SCROLL:
-      root.mouseScroll(mouseEvent, mouseEvent.x, mouseEvent.y, mouseEvent.dx, mouseEvent.dy);
-      return;
-    case PRESS:
-      root.mousePressed(mouseEvent, mouseEvent.x, mouseEvent.y);
-      break;
-    case RELEASE:
-      root.mouseReleased(mouseEvent, mouseEvent.x, mouseEvent.y);
-      break;
-    case DRAG:
-      root.mouseDragged(mouseEvent, mouseEvent.x, mouseEvent.y, mouseEvent.dx, mouseEvent.dy);
-      break;
-    case MOVE:
-      root.mouseMoved(mouseEvent, mouseEvent.x, mouseEvent.y);
-      break;
+      case SCROLL -> root.mouseScroll(mouseEvent, mouseEvent.x, mouseEvent.y, mouseEvent.dx, mouseEvent.dy);
+      case PRESS -> root.mousePressed(mouseEvent, mouseEvent.x, mouseEvent.y);
+      case RELEASE -> root.mouseReleased(mouseEvent, mouseEvent.x, mouseEvent.y);
+      case DRAG -> root.mouseDragged(mouseEvent, mouseEvent.x, mouseEvent.y, mouseEvent.dx, mouseEvent.dy);
+      case MOVE -> root.mouseMoved(mouseEvent, mouseEvent.x, mouseEvent.y);
     }
   }
 
   public void keyEvent(KeyEvent keyEvent) {
     _engineThreadDefaultKeyEvent(keyEvent);
 
-    UIRoot root = getRoot(keyEvent.window);
-    char keyChar = keyEvent.getKeyChar();
-    int keyCode = keyEvent.getKeyCode();
+    final UIRoot root = getRoot(keyEvent.window);
+    final char keyChar = keyEvent.getKeyChar();
+    final int keyCode = keyEvent.getKeyCode();
     switch (keyEvent.getAction()) {
-    case RELEASE:
-      root.keyReleased(keyEvent, keyChar, keyCode);
-      break;
-    case PRESS:
-    case REPEAT:
-      root.keyPressed(keyEvent, keyChar, keyCode);
-      break;
-    default:
-      throw new RuntimeException("Invalid keyEvent type: " + keyEvent.getAction());
+      case RELEASE ->  root.keyReleased(keyEvent, keyChar, keyCode);
+      case PRESS, REPEAT ->  root.keyPressed(keyEvent, keyChar, keyCode);
+      default -> throw new RuntimeException("Invalid keyEvent type: " + keyEvent.getAction());
     }
   }
 
@@ -1358,35 +1334,29 @@ public class UI {
     KeyEvent.Action action = keyEvent.getAction();
     if (action == KeyEvent.Action.PRESS) {
       switch (keyCode) {
-      case KeyEvent.VK_S:
-        if (keyEvent.isCommand()) {
-          if (keyEvent.isShiftDown() || lx.getProject() == null) {
-            lx.showSaveProjectDialog();
-          } else {
-            lx.saveProject();
+        case KeyEvent.VK_S -> {
+          if (keyEvent.isCommand()) {
+            if (keyEvent.isShiftDown() || lx.getProject() == null) {
+              lx.showSaveProjectDialog();
+            } else {
+              lx.saveProject();
+            }
           }
         }
-        break;
-      case KeyEvent.VK_O:
-        if (keyEvent.isCommand()) {
-          lx.showOpenProjectDialog();
+        case KeyEvent.VK_O -> {
+          if (keyEvent.isCommand()) {
+            lx.showOpenProjectDialog();
+          }
         }
-        break;
       }
     }
   }
 
   public void gamepadEvent(GamepadEvent gamepadEvent) {
     switch (gamepadEvent.getAction()) {
-    case BUTTON_PRESS:
-      this.root.onGamepadButtonPressed(gamepadEvent, gamepadEvent.button);
-      break;
-    case BUTTON_RELEASE:
-      this.root.onGamepadButtonReleased(gamepadEvent, gamepadEvent.button);
-      break;
-    case AXIS_CHANGE:
-      this.root.onGamepadAxisChanged(gamepadEvent, gamepadEvent.axis, gamepadEvent.axisValue);
-      break;
+      case BUTTON_PRESS -> this.root.onGamepadButtonPressed(gamepadEvent, gamepadEvent.button);
+      case BUTTON_RELEASE -> this.root.onGamepadButtonReleased(gamepadEvent, gamepadEvent.button);
+      case AXIS_CHANGE -> this.root.onGamepadAxisChanged(gamepadEvent, gamepadEvent.axis, gamepadEvent.axisValue);
     }
   }
 
