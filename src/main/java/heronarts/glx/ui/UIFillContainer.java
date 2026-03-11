@@ -263,4 +263,10 @@ public class UIFillContainer extends UI2dContainer {
     }
   }
 
+  @Override
+  public void dispose() {
+    super.dispose();
+    this.fills.clear();
+  }
+
 }
