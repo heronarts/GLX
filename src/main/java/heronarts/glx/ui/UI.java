@@ -1229,9 +1229,13 @@ public class UI {
     // UI rendering thread to see that the 2d hierarchy needs to be checked
     // for items that need redraw
     component.redrawFlag.set(true);
-    // TODO: redraw only the root for this component, not both roots
-    this.root.redrawFlag.set(true);
-    this.rootAlt.redrawFlag.set(true);
+
+    UIRoot root = getRoot(component);
+    if (root == null) {
+      GLX.error("Cannot redraw component that is not in a UIRoot tree: " + component);
+    } else {
+      root.redrawFlag.set(true);
+    }
   }
 
   public float getContentScaleX() {
@@ -1309,6 +1313,17 @@ public class UI {
       return this.rootAlt;
     }
     throw new IllegalArgumentException("Unknown window handle: " + window);
+  }
+
+  private UIRoot getRoot(UI2dComponent component) {
+    UIObject candidate = component;
+    while (candidate != null) {
+      if (candidate instanceof UIRoot root) {
+        return root;
+      }
+      candidate = candidate.getParent();
+    }
+    return null;
   }
 
   public void mouseEvent(MouseEvent mouseEvent) {
