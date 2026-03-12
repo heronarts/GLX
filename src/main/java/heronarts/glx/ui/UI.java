@@ -60,11 +60,6 @@ import static org.lwjgl.bgfx.BGFX.*;
  */
 public class UI {
 
-  public enum CoordinateSystem {
-    LEFT_HANDED,
-    RIGHT_HANDED;
-  }
-
   public enum Window {
     MAIN,
     ALT;
@@ -411,8 +406,6 @@ public class UI {
   public final StringParameter statusMessageText =
     new StringParameter("Status Message")
     .setDescription("Parameter for status messages in the bottom bar");
-
-  protected CoordinateSystem coordinateSystem = CoordinateSystem.LEFT_HANDED;
 
   private static final long INIT_RUN = -1;
   private long lastMillis = INIT_RUN;
@@ -761,11 +754,6 @@ public class UI {
       this.highlightParameterModulation = highlightParameterModulation;
       this.root.redraw();
     }
-    return this;
-  }
-
-  public UI setCoordinateSystem(CoordinateSystem coordinateSystem) {
-    this.coordinateSystem = coordinateSystem;
     return this;
   }
 
