@@ -603,7 +603,6 @@ public class UI {
     this.rootAlt = new UIRoot(lx.windowEngine.altWindow);
     this.contextOverlay = new UIContextOverlay();
     this.dropMenuOverlay = new UIContextOverlay();
-    // TODO: Add contextOverlay & dropMenuOverlay for alt window
     LX.initProfiler.log("GLX: UI: Root");
 
     this.theme = new UITheme(this.vg);
