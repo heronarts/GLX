@@ -65,6 +65,11 @@ public class UI {
     RIGHT_HANDED;
   }
 
+  public enum Window {
+    MAIN,
+    ALT;
+  }
+
   private static UI instance = null;
 
   public class UIRoot extends UIObject implements UIContainer {
@@ -424,9 +429,8 @@ public class UI {
 
     private UIContextMenu contextMenu = null;
 
-    public UIContextOverlay(UIRoot root) {
+    public UIContextOverlay() {
       super(UI.this, 0, 0, 0, 0);
-      this.parent = root;
       setUI(UI.this);
       setBackgroundColor(0);
     }
@@ -439,11 +443,11 @@ public class UI {
 
     private void clearContent(UI2dComponent overlayContent) {
       if (this.overlayContent == overlayContent) {
-        setContent(null);
+        setContent(null, null);
       }
     }
 
-    private void setContent(UI2dComponent overlayContent) {
+    private void setContent(Window window, UI2dComponent overlayContent) {
       if (overlayContent == this.overlayContent) {
         // Don't re-show the same thing
         return;
@@ -451,7 +455,12 @@ public class UI {
       if (this.overlayContent != null) {
         this.overlayContent.setVisible(false);
         this.overlayContent.removeFromContainer();
-        root.mutableChildren.remove(this);
+
+        // Remove the OverlayContainer from whichever root it was in
+        if (this.parent != null) {
+          this.parent.mutableChildren.remove(this);
+          this.parent = null;
+        }
       }
       this.overlayContent = overlayContent;
       this.contextMenu = null;
@@ -478,7 +487,10 @@ public class UI {
         overlayContent.setVisible(true);
         overlayContent.setPosition(0, 0);
         overlayContent.addToContainer(this);
-        root.mutableChildren.add(this);
+
+        // Add to appropriate window root
+        this.parent = getRoot(window);
+        this.parent.mutableChildren.add(this);
       }
     }
 
@@ -596,8 +608,8 @@ public class UI {
 
     this.root = new UIRoot(lx.windowEngine.mainWindow);
     this.rootAlt = new UIRoot(lx.windowEngine.altWindow);
-    this.contextOverlay = new UIContextOverlay(this.root);
-    this.dropMenuOverlay = new UIContextOverlay(this.root);
+    this.contextOverlay = new UIContextOverlay();
+    this.dropMenuOverlay = new UIContextOverlay();
     // TODO: Add contextOverlay & dropMenuOverlay for alt window
     LX.initProfiler.log("GLX: UI: Root");
 
@@ -999,8 +1011,17 @@ public class UI {
     return showContextOverlay(new UIDialogBox(this, message));
   }
 
+  @Deprecated
   public UI showContextOverlay(UI2dComponent contextOverlay) {
-    this.contextOverlay.setContent(contextOverlay);
+    return showContextOverlay(Window.MAIN, contextOverlay);
+  }
+
+  public UI showContextOverlay(UIObject source, UI2dComponent contextOverlay) {
+    return showContextOverlay(getWindow(source), contextOverlay);
+  }
+
+  public UI showContextOverlay(Window window, UI2dComponent contextOverlay) {
+    this.contextOverlay.setContent(window, contextOverlay);
     return this;
   }
 
@@ -1215,12 +1236,21 @@ public class UI {
   }
 
   public UI hideDropMenu() {
-    showDropMenu(null);
+    showDropMenu((Window) null, null);
     return this;
   }
 
+  @Deprecated
   public UI showDropMenu(UIContextMenu dropMenu) {
-    this.dropMenuOverlay.setContent(dropMenu);
+    return showDropMenu(Window.MAIN, dropMenu);
+  }
+
+  public UI showDropMenu(UIObject source, UIContextMenu dropMenu) {
+    return showDropMenu(getWindow(source), dropMenu);
+  }
+
+  public UI showDropMenu(Window window, UIContextMenu dropMenu) {
+    this.dropMenuOverlay.setContent(window, dropMenu);
     return this;
   }
 
@@ -1315,7 +1345,14 @@ public class UI {
     throw new IllegalArgumentException("Unknown window handle: " + window);
   }
 
-  private UIRoot getRoot(UI2dComponent component) {
+  private UIRoot getRoot(Window window) {
+    return switch (window) {
+    case MAIN -> root;
+    case ALT -> rootAlt;
+    };
+  }
+
+  private UIRoot getRoot(UIObject component) {
     UIObject candidate = component;
     while (candidate != null) {
       if (candidate instanceof UIRoot root) {
@@ -1324,6 +1361,17 @@ public class UI {
       candidate = candidate.getParent();
     }
     return null;
+  }
+
+  private Window getWindow(UIObject component) {
+    final UIRoot root = getRoot(component);
+    if (root == this.root) {
+      return Window.MAIN;
+    } else if (root == this.rootAlt) {
+      return Window.ALT;
+    }
+    GLX.error("Component belongs to no UI window, defaulting to Window.MAIN: " + component);
+    return Window.MAIN;
   }
 
   public void mouseEvent(MouseEvent mouseEvent) {

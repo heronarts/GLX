@@ -680,8 +680,9 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       List<UIContextActions.Action> contextActions = contextParent.getContextActions();
       if (contextActions != null && contextActions.size() > 0) {
         mouseEvent.consumeDropMenu();
-        getUI().showDropMenu((UIContextMenu)
-          new UIContextMenu(mx, my, UIContextMenu.DEFAULT_WIDTH, 0)
+        getUI().showDropMenu(
+          this,
+          (UIContextMenu) new UIContextMenu(mx, my, UIContextMenu.DEFAULT_WIDTH, 0)
           .setActions(contextActions.toArray(new UIContextActions.Action[0]))
           .setPosition(this, (int) mx, (int) my)
         );

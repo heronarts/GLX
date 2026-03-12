@@ -595,7 +595,7 @@ public class GLX extends LX {
 
   @Override
   public void showConfirmDialog(String message, Runnable confirm) {
-    this.ui.showContextOverlay(new UIDialogBox(this.ui,
+    this.ui.showContextOverlay(UI.Window.MAIN, new UIDialogBox(this.ui,
       message,
       new String[] { "No", "Yes" },
       new Runnable[] { null, confirm }
