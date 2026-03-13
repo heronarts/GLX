@@ -125,7 +125,7 @@ public class UIMidiFilter extends UI2dComponent {
         this.overlay.setPosition(this, -this.overlay.getWidth() + this.width / 2, this.height / 2);
         break;
       }
-      getUI().showContextOverlay(this, this.overlay);
+      showContextOverlay(this.overlay);
     }
   }
 

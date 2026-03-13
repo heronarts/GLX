@@ -692,7 +692,7 @@ public class UI {
     lx.failure.addListener((p) -> {
       float width = getWidth() * .8f;
       float height = getHeight() * .8f;
-      showContextOverlay(
+      showContextOverlay(Window.MAIN,
         new UILabel(getWidth() * .1f, getHeight() * .1f, width, height)
         .setLabel(lx.failure.getString())
         .setBreakLines(true)
@@ -723,7 +723,7 @@ public class UI {
     final LX.Error error = lx.getError();
     if (error != null) {
       if (error.cause != null) {
-        showContextOverlay(new UIDialogBox(
+        showContextOverlay(Window.MAIN, new UIDialogBox(
           this,
           error.message,
           new String[] { "Copy Stack Trace", "Okay" },
@@ -1003,10 +1003,6 @@ public class UI {
     return showContextOverlay(Window.MAIN, contextOverlay);
   }
 
-  public UI showContextOverlay(UIObject source, UI2dComponent contextOverlay) {
-    return showContextOverlay(getWindow(source), contextOverlay);
-  }
-
   public UI showContextOverlay(Window window, UI2dComponent contextOverlay) {
     this.contextOverlay.setContent(window, contextOverlay);
     return this;
@@ -1202,13 +1198,17 @@ public class UI {
     return this;
   }
 
+  public UI showContextOverlay(UI2dComponent contextOverlay, UIObject source) {
+    return showContextOverlay(getWindow(source), contextOverlay);
+  }
+
   public UI showContextOverlay(UI2dComponent contextOverlay, UIObject source, Position ... positions) {
     return showContextOverlay(contextOverlay, true, source, positions);
   }
 
   public UI showContextOverlay(UI2dComponent contextOverlay, boolean clamp, UIObject source, Position ... positions) {
     setPositionRelative(contextOverlay, source, clamp, positions);
-    return showContextOverlay(contextOverlay);
+    return showContextOverlay(getWindow(source), contextOverlay);
   }
 
   public UI resizeContextOverlay(UI2dComponent contextOverlay) {

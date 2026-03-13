@@ -105,7 +105,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
         overlay.setPosition(this, this.width/2 - this.tipWidth, this.height/2);
         break;
       }
-      getUI().showContextOverlay(this, overlay);
+      showContextOverlay(overlay);
     }
   }
 

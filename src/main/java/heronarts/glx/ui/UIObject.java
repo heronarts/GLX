@@ -949,6 +949,13 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     }
   }
 
+  protected void showContextOverlay(UI2dComponent contextOverlay) {
+    if (this.ui == null) {
+      throw new IllegalStateException("Cannot UIObject.showContextOverlay for element not in UI tree");
+    }
+    this.ui.showContextOverlay(contextOverlay, this);
+  }
+
   /**
    * Subclasses override when element is focused
    *
