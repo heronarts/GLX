@@ -25,6 +25,7 @@ import heronarts.glx.event.Event;
 import heronarts.glx.ui.vg.VGraphics;
 import heronarts.lx.modulation.LXParameterModulation;
 import heronarts.lx.parameter.LXNormalizedParameter;
+import heronarts.lx.parameter.LXParameter;
 import heronarts.lx.parameter.LXParameterListener;
 import heronarts.lx.utils.LXUtils;
 
@@ -234,6 +235,7 @@ public abstract class UI2dComponent extends UIObject {
     this.y = y;
     this.width = width;
     this.height = height;
+    addListener(this.visible, this::onVisibleChanged);
   }
 
   public UI2dComponent setDebug(boolean debug) {
@@ -368,30 +370,31 @@ public abstract class UI2dComponent extends UIObject {
       (y >= this.y && y < (this.y + this.height));
   }
 
+  @Override
   /**
    * Set the visibility state of this component
    *
    * @param visible Whether this should be visible
    * @return this
    */
-  @Override
   public UI2dComponent setVisible(boolean visible) {
-    if (isVisible() != visible) {
-      super.setVisible(visible);
-      if (this.parent instanceof UI2dContainer) {
-        ((UI2dContainer) this.parent).reflow();
-      }
-      if (visible) {
-        // Redraw ourselves, in the space we take up
-        redraw();
-      } else {
-        // We're invisible now, the container needs to redraw so
-        // our background or whatever was underneath can
-        // be filled in
-        redrawContainer();
-      }
-    }
+    super.setVisible(visible);
     return this;
+  }
+
+  private void onVisibleChanged(LXParameter visible) {
+    if (this.parent instanceof UI2dContainer container) {
+      container.reflow();
+    }
+    if (this.visible.isOn()) {
+      // Redraw ourselves, in the space we take up
+      redraw();
+    } else {
+      // We're invisible now, the container needs to redraw so
+      // our background or whatever was underneath can
+      // be filled in
+      redrawContainer();
+    }
   }
 
   /**
