@@ -287,9 +287,10 @@ public class UIMultiLineTextBox extends UITextBox {
         return new Point2D.Float(x, row.y);
       }
 
-      // at/after row end => end of last glyph
+      // at/after row end => measure actual text width (includes trailing spaces)
       if (caretByte >= row.endByte) {
-        return new Point2D.Float(row.maxX[row.glyphCount - 1], row.y);
+        String sub = text.substring(row.startByte, Math.min(caretByte, lenBytes));
+        return new Point2D.Float(x + vg.textWidth(sub), row.y);
       }
 
       // caret at start of first glyph whose byteOffset >= caretByte
