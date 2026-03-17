@@ -222,31 +222,29 @@ public class GLX extends LX {
       }
     }
 
-    private static final List<String> AUDIO_EXTENSIONS = List.of("wav", "aiff", "aif", "au");
-
     @Override
     public void onDropFile(WindowEngine windowEngine, String fileName) {
       try {
         final File file = new File(fileName);
         if (file.exists() && file.isFile()) {
-          if (file.getName().endsWith(".lxp")) {
-            engine.addTask(() -> {
-              confirmChangesSaved("open project " + file.getName(), () -> openProject(file));
-            });
-          } else if (file.getName().endsWith(".jar")) {
-            engine.addTask(() -> {
-              importContentJar(file, true);
-            });
-          } else {
-            final String extension = file.getName().substring(file.getName().lastIndexOf('.') + 1).toLowerCase();
-            if (AUDIO_EXTENSIONS.contains(extension)) {
-              engine.addTask(() -> importAudioFile(file));
-            }
+          switch (getFileExtension(file)) {
+            case ".lxp" -> engine.addTask(() -> confirmChangesSaved("open project " + file.getName(), () -> openProject(file)));
+            case ".jar" -> engine.addTask(() -> importContentJar(file, true));
+            case ".wav", ".aiff", ".aif", ".au" -> engine.addTask(() -> importAudioFile(file));
+            default -> warning("Unknown file extension on dropped file: " + file.getName());
           }
         }
       } catch (Exception x) {
         error(x, "Exception in drop-file handler: " + x.getLocalizedMessage());
       }
+    }
+
+    private static String getFileExtension(File file) {
+      final int dotIndex = file.getName().lastIndexOf('.');
+      if (dotIndex >= 0) {
+        return file.getName().substring(dotIndex).toLowerCase();
+      }
+      return "";
     }
 
     @Override
