@@ -347,6 +347,19 @@ public class UIMultiLineTextBox extends UITextBox {
         layout.add(r);
         penY += lineHeight;
       }
+
+      // Add an empty row if last character is a newline, so caret can move to the next line
+      if (lenBytes > 0 && ascii.get(lenBytes - 1) == '\n') {
+        Row r = new Row();
+        r.startByte = lenBytes;
+        r.endByte = lenBytes;
+        r.y = penY;
+        r.glyphCount = 0;
+        r.byteOffset = new int[0];
+        r.x = new float[0];
+        r.maxX = new float[0];
+        layout.add(r);
+      }
     }
 
     private int breakLinesGrow(VGraphics vg, float breakWidth) {
