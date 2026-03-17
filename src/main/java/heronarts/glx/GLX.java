@@ -240,9 +240,7 @@ public class GLX extends LX {
           } else {
             final String extension = file.getName().substring(file.getName().lastIndexOf('.') + 1).toLowerCase();
             if (AUDIO_EXTENSIONS.contains(extension)) {
-              engine.addTask(() -> {
-                importAudioFile(file);
-              });
+              engine.addTask(() -> importAudioFile(file));
             }
           }
         }
