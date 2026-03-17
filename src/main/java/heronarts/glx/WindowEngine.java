@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
+
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.glfw.GLFW;
 import org.lwjgl.glfw.GLFWDropCallback;
@@ -51,6 +52,7 @@ import org.lwjgl.system.Platform;
 import heronarts.lx.LXPreferences;
 import heronarts.lx.LXPreferences.WindowSettings;
 import heronarts.lx.utils.LXUtils;
+import heronarts.glx.ui.UI;
 
 /**
  * The WindowEngine class takes care of running a windowed application using GLFW.
@@ -169,6 +171,9 @@ public class WindowEngine {
 
   private volatile MouseCursor mouseCursor = null;
   private final AtomicBoolean needsCursorUpdate = new AtomicBoolean(false);
+
+  private volatile MouseCursor mouseCursorAlt = null;
+  private final AtomicBoolean needsCursorUpdateAlt = new AtomicBoolean(false);
 
   private float uiZoom = 1;
 
@@ -344,10 +349,20 @@ public class WindowEngine {
     glfwSetWindowSize(this.mainWindow.handle, windowWidth, windowHeight);
   }
 
-  public void setMouseCursor(MouseCursor mouseCursor) {
-    if (this.mouseCursor != mouseCursor) {
-      this.mouseCursor = mouseCursor;
-      this.needsCursorUpdate.set(true);
+  public void setMouseCursor(UI.Window window, MouseCursor mouseCursor) {
+    switch (window) {
+      case MAIN -> {
+        if (this.mouseCursor != mouseCursor) {
+          this.mouseCursor = mouseCursor;
+          this.needsCursorUpdate.set(true);
+        }
+      }
+      case ALT -> {
+        if (this.mouseCursorAlt != mouseCursor) {
+          this.mouseCursorAlt = mouseCursor;
+          this.needsCursorUpdateAlt.set(true);
+        }
+      }
     }
   }
 
@@ -411,6 +426,10 @@ public class WindowEngine {
       // Update mouse cursor if needed
       if (this.needsCursorUpdate.compareAndSet(true, false)) {
         final MouseCursor mc = this.mouseCursor;
+        glfwSetCursor(this.mainWindow.handle, (mc != null) ? mc.handle : 0);
+      }
+      if (this.needsCursorUpdateAlt.compareAndSet(true, false)) {
+        final MouseCursor mc = this.mouseCursorAlt;
         glfwSetCursor(this.altWindow.handle, (mc != null) ? mc.handle : 0);
       }
 

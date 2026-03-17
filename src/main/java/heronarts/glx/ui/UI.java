@@ -798,8 +798,8 @@ public class UI {
     }
   }
 
-  public MouseCursor getMouseCursor() {
-    return this.rootAlt._getMouseCursor();
+  public MouseCursor getMouseCursor(Window window) {
+    return getRoot(window)._getMouseCursor();
   }
 
   /**
