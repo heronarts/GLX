@@ -18,7 +18,6 @@
 
 package heronarts.glx.ui;
 
-import heronarts.lx.parameter.LXParameterListener;
 import heronarts.lx.utils.LXUtils;
 
 import java.util.HashMap;
@@ -66,21 +65,6 @@ public class UIFillContainer extends UI2dContainer {
     setFill(child, fillPercent);
     return this;
   }
-
-  @Override
-  protected void childAdded(UI2dComponent child) {
-    child.visible.addListener(this.childVisibleChanged);
-  }
-
-  @Override
-  protected void childRemoved(UI2dComponent child) {
-    child.visible.removeListener(this.childVisibleChanged);
-    removeFill(child);
-  }
-
-  private final LXParameterListener childVisibleChanged = p -> {
-    reflow();
-  };
 
   public UIFillContainer setFill(UI2dComponent child, float fillPercent) {
     if (child.getParent() != this) {

@@ -35,6 +35,7 @@ import heronarts.glx.event.Event;
 import heronarts.glx.event.GamepadEvent;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
+import heronarts.glx.ui.UI;
 import heronarts.lx.LXEngine;
 
 public class InputDispatch implements LXEngine.Dispatch {
@@ -298,9 +299,9 @@ public class InputDispatch implements LXEngine.Dispatch {
       };
     }
 
-    // Set the cursor if any mouse events may have changed it
     if (updateMouseCursor) {
-      this.windowEngine.setMouseCursor(this.glx.ui.getMouseCursor());
+      this.windowEngine.setMouseCursor(UI.Window.MAIN, this.glx.ui.getMouseCursor(UI.Window.MAIN));
+      this.windowEngine.setMouseCursor(UI.Window.ALT, this.glx.ui.getMouseCursor(UI.Window.ALT));
     }
   }
 

@@ -27,8 +27,10 @@ import java.nio.IntBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import org.lwjgl.nanovg.NVGColor;
+import org.lwjgl.nanovg.NVGGlyphPosition;
 import org.lwjgl.nanovg.NVGLUFramebufferBGFX;
 import org.lwjgl.nanovg.NVGPaint;
+import org.lwjgl.nanovg.NVGTextRow;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.MemoryUtil;
 
@@ -51,6 +53,7 @@ import static org.lwjgl.nanovg.NanoVGBGFX.*;
  * handle or prefix everything with nvg. Also makes for simpler method chaining calls.
  */
 public class VGraphics implements BGFXEngine.Resource {
+
 
   public static enum Winding {
     CCW(NVG_CCW),
@@ -761,6 +764,24 @@ public class VGraphics implements BGFXEngine.Resource {
 
   public float textWidth(String str) {
     return nvgTextBounds(this.vg, 0, 0, str, (FloatBuffer) null);
+  }
+
+  public float[] textMetrics() {
+    try (MemoryStack stack = MemoryStack.stackPush()) {
+      FloatBuffer ascender = stack.mallocFloat(1);
+      FloatBuffer descender = stack.mallocFloat(1);
+      FloatBuffer lineHeight = stack.mallocFloat(1);
+      nvgTextMetrics(vg, ascender, descender, lineHeight);
+      return new float[] {ascender.get(0), descender.get(0), lineHeight.get(0)};
+    }
+  }
+
+  public int textBreakLines(ByteBuffer ascii, float breakWidth, NVGTextRow.Buffer rows) {
+    return nvgTextBreakLines(this.vg, ascii, breakWidth, rows);
+  }
+
+  public int textGlyphPositions(float x, float y, ByteBuffer slice, NVGGlyphPosition.Buffer glyphs) {
+    return nvgTextGlyphPositions(this.vg, x, y, slice, glyphs);
   }
 
   public VGraphics translate(float tx, float ty) {

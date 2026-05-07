@@ -22,6 +22,9 @@ import static org.lwjgl.util.tinyfd.TinyFileDialogs.*;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.List;
+
+import heronarts.lx.clip.Composition;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.Platform;
@@ -224,19 +227,24 @@ public class GLX extends LX {
       try {
         final File file = new File(fileName);
         if (file.exists() && file.isFile()) {
-          if (file.getName().endsWith(".lxp")) {
-            engine.addTask(() -> {
-              confirmChangesSaved("open project " + file.getName(), () -> openProject(file));
-            });
-          } else if (file.getName().endsWith(".jar")) {
-            engine.addTask(() -> {
-              importContentJar(file, true);
-            });
+          switch (getFileExtension(file)) {
+            case ".lxp" -> engine.addTask(() -> confirmChangesSaved("open project " + file.getName(), () -> openProject(file)));
+            case ".jar" -> engine.addTask(() -> importContentJar(file, true));
+            case ".wav", ".aiff", ".aif", ".au" -> engine.addTask(() -> importAudioFile(file));
+            default -> warning("Unknown file extension on dropped file: " + file.getName());
           }
         }
       } catch (Exception x) {
         error(x, "Exception in drop-file handler: " + x.getLocalizedMessage());
       }
+    }
+
+    private static String getFileExtension(File file) {
+      final int dotIndex = file.getName().lastIndexOf('.');
+      if (dotIndex >= 0) {
+        return file.getName().substring(dotIndex).toLowerCase();
+      }
+      return "";
     }
 
     @Override
@@ -399,6 +407,13 @@ public class GLX extends LX {
         this.ui.showContextDialogMessage(message);
       });
     };
+  }
+
+  protected void importAudioFile(File file) {
+    Composition composition = this.engine.composition.getComposition();
+    if (composition != null) {
+      composition.addAudioLane(file);
+    }
   }
 
   public void reloadContent() {
