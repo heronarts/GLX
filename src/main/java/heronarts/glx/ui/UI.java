@@ -1248,9 +1248,7 @@ public class UI {
     component.redrawFlag.set(true);
 
     UIRoot root = getRoot(component);
-    if (root == null) {
-      GLX.error("Cannot redraw component that is not in a UIRoot tree: " + component);
-    } else {
+    if (root != null) {
       root.redrawFlag.set(true);
     }
   }
