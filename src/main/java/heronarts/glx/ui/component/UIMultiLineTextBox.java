@@ -80,7 +80,7 @@ public class UIMultiLineTextBox extends UITextBox {
     // Text is drawn from baseline so we will offset Y by the ascender
     float[] textMetrics = vg.textMetrics();
     float ascender = textMetrics[0];
-    float descender = textMetrics[1];
+    // float descender = textMetrics[1];
     float lineHeight = textMetrics[2];
     this.lineHeight = lineHeight;
 

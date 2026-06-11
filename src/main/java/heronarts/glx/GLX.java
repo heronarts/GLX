@@ -22,9 +22,8 @@ import static org.lwjgl.util.tinyfd.TinyFileDialogs.*;
 
 import java.io.File;
 import java.io.IOException;
-import java.util.List;
 
-import heronarts.lx.clip.Composition;
+import heronarts.lx.clip.LXComposition;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.Platform;
@@ -410,7 +409,7 @@ public class GLX extends LX {
   }
 
   protected void importAudioFile(File file) {
-    Composition composition = this.engine.composition.getComposition();
+    LXComposition composition = this.engine.composition.getComposition();
     if (composition != null) {
       composition.addAudioLane(file);
     }
