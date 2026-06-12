@@ -403,6 +403,10 @@ public class UI {
     new StringParameter("Contextual Help")
     .setDescription("Parameter for contextual help messages in the bottom bar");
 
+  public final StringParameter contextualHelpTextAlt =
+    new StringParameter("Contextual Help")
+    .setDescription("Parameter for contextual help messages in the bottom bar");
+
   public final StringParameter statusMessageText =
     new StringParameter("Status Message")
     .setDescription("Parameter for status messages in the bottom bar");
@@ -786,9 +790,22 @@ public class UI {
     return this.midiMapping || this.modulationSourceMapping || this.modulationTargetMapping || this.triggerSourceMapping || this.triggerTargetMapping;
   }
 
+  public void setMouseoverHelpText(UIObject object, String helpText) {
+    setMouseoverHelpText(helpText, getRoot(object) == this.rootAlt);
+  }
+
   public void setMouseoverHelpText(String helpText) {
+    setMouseoverHelpText(helpText, false);
+  }
+
+  public void setMouseoverHelpText(String helpText, boolean alt) {
     if (!isMapping()) {
-      this.contextualHelpText.setValue(helpText);
+      if (alt) {
+        this.contextualHelpTextAlt.setValue(helpText);
+      } else {
+        this.contextualHelpText.setValue(helpText);
+      }
+
     }
   }
 

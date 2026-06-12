@@ -861,7 +861,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
   private void showHelpText() {
     this.setDescription = getDescription();
     if (this.setDescription != null) {
-      getUI().setMouseoverHelpText(this.setDescription);
+      getUI().setMouseoverHelpText(this, this.setDescription);
     }
   }
 
