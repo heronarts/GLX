@@ -625,7 +625,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     return this;
   }
 
-  private UIColor _getIconColor(UI ui) {
+  protected UIColor _getIconColor(UI ui) {
     if (this.active || this.momentaryPressEngaged) {
       return this.hasActiveFontColor ? this.activeFontColor : ui.theme.controlActiveTextColor;
     } else {
