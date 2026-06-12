@@ -183,7 +183,11 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     }
 
     public Expander(float x, float y) {
-      super(x, y, 12, 12);
+      this(x, y, 12, 12);
+    }
+
+    public Expander(float x, float y, float w, float h) {
+      super(x, y, w, h);
     }
 
     public Expander setDirection(Direction direction) {
@@ -249,30 +253,30 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
 
     protected void drawBottomLeft(UI ui, VGraphics vg) {
       final float x = 1, y = getHeight()-1;
-      vg.moveTo(x, y-10);
+      vg.moveTo(x, y);
+      vg.lineTo(x, y-10);
       vg.lineTo(x+10, y);
-      vg.lineTo(x, y);
     }
 
     protected void drawTopRight(UI ui, VGraphics vg) {
-      final float x = 1, y = getHeight()-1;
-      vg.moveTo(x, y-10);
-      vg.lineTo(x+10, y-10);
-      vg.lineTo(x+10, y);
+      final float x = getWidth() - 1, y = 1;
+      vg.moveTo(x, y);
+      vg.lineTo(x, y+10);
+      vg.lineTo(x-10, y);
     }
 
     protected void drawBottomRight(UI ui, VGraphics vg) {
-      final float x = 1, y = getHeight()-1;
+      final float x = getWidth()-1, y = getHeight()-1;
       vg.moveTo(x, y);
-      vg.lineTo(x+10, y-10);
-      vg.lineTo(x+10, y);
+      vg.lineTo(x-10, y);
+      vg.lineTo(x, y-10);
     }
 
     protected void drawTopLeft(UI ui, VGraphics vg) {
-      final float x = 1, y = getHeight()-1;
-      vg.moveTo(x, y-10);
-      vg.lineTo(x+10, y-10);
-      vg.lineTo(x, y);
+      final float x = 1, y = 1;
+      vg.moveTo(x, y);
+      vg.lineTo(x+10, y);
+      vg.lineTo(x, y+10);
     }
   }
 
