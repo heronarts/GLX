@@ -40,6 +40,7 @@ import heronarts.lx.LX;
 import heronarts.lx.LXClassLoader;
 import heronarts.lx.LXEngine;
 import heronarts.lx.clipboard.LXTextValue;
+import heronarts.lx.command.LXCommand;
 import heronarts.lx.model.LXModel;
 import heronarts.lx.parameter.LXParameterListener;
 
@@ -411,7 +412,7 @@ public class GLX extends LX {
   protected void importAudioFile(File file) {
     LXComposition composition = this.engine.composition.getComposition();
     if (composition != null) {
-      composition.addAudioLane(file);
+      this.command.perform(new LXCommand.Composition.AddAudioLane(composition, file));
     }
   }
 
