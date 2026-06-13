@@ -71,6 +71,10 @@ public class UI {
 
     private final WindowEngine.Window window;
 
+    public final StringParameter contextualHelpText =
+      new StringParameter("Contextual Help")
+      .setDescription("Parameter for contextual help messages in the bottom bar");
+
     private final View viewClear;
     private final View view2d;
 
@@ -398,14 +402,6 @@ public class UI {
 
   protected final UIRoot root;
   protected final UIRoot rootAlt;
-
-  public final StringParameter contextualHelpText =
-    new StringParameter("Contextual Help")
-    .setDescription("Parameter for contextual help messages in the bottom bar");
-
-  public final StringParameter contextualHelpTextAlt =
-    new StringParameter("Contextual Help")
-    .setDescription("Parameter for contextual help messages in the bottom bar");
 
   public final StringParameter statusMessageText =
     new StringParameter("Status Message")
@@ -791,27 +787,23 @@ public class UI {
   }
 
   public void setMouseoverHelpText(UIObject object, String helpText) {
-    setMouseoverHelpText(helpText, getRoot(object) == this.rootAlt);
+    setMouseoverHelpText(helpText, getRoot(object));
   }
 
   public void setMouseoverHelpText(String helpText) {
-    setMouseoverHelpText(helpText, false);
+    setMouseoverHelpText(helpText, this.root);
   }
 
-  public void setMouseoverHelpText(String helpText, boolean alt) {
+  public void setMouseoverHelpText(String helpText, UIRoot root) {
     if (!isMapping()) {
-      if (alt) {
-        this.contextualHelpTextAlt.setValue(helpText);
-      } else {
-        this.contextualHelpText.setValue(helpText);
-      }
-
+      root.contextualHelpText.setValue(helpText);
     }
   }
 
   void clearMouseoverHelpText() {
     if (!isMapping()) {
-      this.contextualHelpText.setValue("");
+      this.root.contextualHelpText.setValue("");
+      this.rootAlt.contextualHelpText.setValue("");
     }
   }
 
@@ -1347,10 +1339,10 @@ public class UI {
     throw new IllegalArgumentException("Unknown window handle: " + window);
   }
 
-  private UIRoot getRoot(Window window) {
+  public UIRoot getRoot(Window window) {
     return switch (window) {
-    case MAIN -> root;
-    case ALT -> rootAlt;
+    case MAIN -> this.root;
+    case ALT -> this.rootAlt;
     };
   }
 

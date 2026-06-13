@@ -403,7 +403,7 @@ public class GLX extends LX {
         if (this.registry.getClassLoader().hasDuplicateClasses()) {
           message += "\n\nDuplicate classes were found. See log for details.";
         }
-        this.ui.contextualHelpText.setValue("New package imported into " + destination.getName());
+        this.ui.setMouseoverHelpText("New package imported into " + destination.getName());
         this.ui.showContextDialogMessage(message);
       });
     };
