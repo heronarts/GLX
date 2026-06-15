@@ -35,7 +35,14 @@ public class UIFillContainer extends UI2dContainer {
     TOP_DOWN,
     BOTTOM_UP,
     LEFT_TO_RIGHT,
-    RIGHT_TO_LEFT
+    RIGHT_TO_LEFT;
+
+    private boolean isVertical() {
+      return switch (this) {
+      case TOP_DOWN, BOTTOM_UP -> true;
+      default -> false;
+      };
+    }
   }
 
   private Direction direction = Direction.TOP_DOWN;
@@ -104,7 +111,7 @@ public class UIFillContainer extends UI2dContainer {
     // Calculate size available for fill children
     float fillSize;
     float childSpacing;
-    if (this.direction == Direction.TOP_DOWN || this.direction == Direction.BOTTOM_UP) {
+    if (this.direction.isVertical()) {
       // Vertical
       fillSize = getContentHeight() - getTopPadding() - getBottomPadding();
       childSpacing  = getChildSpacingY();
