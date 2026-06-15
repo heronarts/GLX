@@ -165,6 +165,7 @@ public class WindowEngine {
   // Current windows
   public final MainWindow mainWindow;
   public final AltWindow altWindow;
+  private Window focusedWindow;
 
   private volatile boolean showAltWindow;
   private final AtomicBoolean needsAltVisibilityUpdate = new AtomicBoolean(true);
@@ -244,7 +245,7 @@ public class WindowEngine {
     refreshMonitors();
 
     // Create windows
-    this.mainWindow = new MainWindow();
+    this.focusedWindow = this.mainWindow = new MainWindow();
     this.altWindow = new AltWindow();
 
     // Set UI Zoom bounds based upon content scaling
@@ -265,6 +266,10 @@ public class WindowEngine {
     }
     GLX.error("No GLX Window exists for handle: " + handle);
     return null;
+  }
+
+  public Window getFocusedWindow() {
+    return this.focusedWindow;
   }
 
   private void refreshMonitors() {
@@ -717,6 +722,9 @@ public class WindowEngine {
     private void registerCallbacks() {
       glfwSetWindowFocusCallback(this.handle, (window, focused) -> {
         if (focused) {
+          // Store the most recently focused window handle
+          focusedWindow = getWindow(handle);
+
           // Update the cursor position callback... if the window wasn't focused
           // and the user re-focused it with a click followed by mouse drag, then
           // the CursorPosCallback won't have had a chance to fire yet. So

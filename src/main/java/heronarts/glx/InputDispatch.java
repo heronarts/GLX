@@ -83,7 +83,6 @@ public class InputDispatch implements LXEngine.Dispatch {
   }
 
   void onFocus(WindowEngine.Window window, double cursorX, double cursorY) {
-    // TODO: store focused window for inclusion in gamepad events or other?
     this.cursorX = cursorX;
     this.cursorY = cursorY;
   }

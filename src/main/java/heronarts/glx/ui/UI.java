@@ -22,7 +22,6 @@ import heronarts.glx.GLX;
 import heronarts.glx.WindowEngine;
 import heronarts.glx.WindowEngine.MouseCursor;
 import heronarts.glx.View;
-import heronarts.glx.event.Event;
 import heronarts.glx.event.GamepadEvent;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
@@ -66,6 +65,8 @@ public class UI {
   }
 
   private static UI instance = null;
+
+  Window focusedWindow = Window.MAIN;
 
   public class UIRoot extends UIObject implements UIContainer {
 
@@ -768,15 +769,15 @@ public class UI {
     return UI.instance;
   }
 
-  public void focusPrev(Event event) {
-    UIObject focusTarget = this.root.findPrevFocusable();
+  public void focusPrev(KeyEvent event) {
+    UIObject focusTarget = getRoot(event.window).findPrevFocusable();
     if (focusTarget != null) {
       focusTarget.focus(event);
     }
   }
 
-  public void focusNext(Event event) {
-    UIObject focusTarget = this.root.findNextFocusable();
+  public void focusNext(KeyEvent event) {
+    UIObject focusTarget = getRoot(event.window).findNextFocusable();
     if (focusTarget != null) {
       focusTarget.focus(event);
     }
