@@ -999,25 +999,6 @@ public class UI {
     return this;
   }
 
-  public UI hideContextOverlay() {
-    showContextOverlay(null);
-    return this;
-  }
-
-  public UI showContextDialogMessage(String message) {
-    return showContextOverlay(new UIDialogBox(this, message));
-  }
-
-  @Deprecated
-  public UI showContextOverlay(UI2dComponent contextOverlay) {
-    return showContextOverlay(Window.MAIN, contextOverlay);
-  }
-
-  public UI showContextOverlay(Window window, UI2dComponent contextOverlay) {
-    this.contextOverlay.setContent(window, contextOverlay);
-    return this;
-  }
-
   /**
    * Specification of a relative position from one element to another
    */
@@ -1205,6 +1186,25 @@ public class UI {
     if (applyPosition != null) {
       applyPosition.apply(this, target, clamp);
     }
+    return this;
+  }
+
+  public UI hideContextOverlay() {
+    showContextOverlay(Window.MAIN, null);
+    return this;
+  }
+
+  public UI showContextDialogMessage(String message) {
+    return showContextOverlay(Window.MAIN, new UIDialogBox(this, message));
+  }
+
+  @Deprecated
+  public UI showContextOverlay(UI2dComponent contextOverlay) {
+    return showContextOverlay(Window.MAIN, contextOverlay);
+  }
+
+  public UI showContextOverlay(Window window, UI2dComponent contextOverlay) {
+    this.contextOverlay.setContent(window, contextOverlay);
     return this;
   }
 
