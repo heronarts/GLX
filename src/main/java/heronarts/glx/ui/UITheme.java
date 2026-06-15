@@ -159,7 +159,8 @@ public class UITheme {
 
       "markerActive", "777777",
       "markerInactive", "333333",
-      "markerSelected", "669966"
+      "markerSelected", "669966",
+      "markerInsert", "ff9330"
     ),
 
     LIGHT("Light", 8,
@@ -265,7 +266,8 @@ public class UITheme {
 
       "markerActive", "999999",
       "markerInactive", "606060",
-      "markerSelected", "8cd867"
+      "markerSelected", "8cd867",
+      "markerInsert", "ff3060"
     );
 
     public final String name;
@@ -401,6 +403,7 @@ public class UITheme {
   public final Color markerSelectedColor = new Color("markerSelected");
   public final Color markerActiveColor = new Color("markerActive");
   public final Color markerInactiveColor = new Color("markerInactive");
+  public final Color markerInsertColor = new Color("markerInsert");
 
   public final VGraphics.Image iconNote;
   public final VGraphics.Image iconTempo;
