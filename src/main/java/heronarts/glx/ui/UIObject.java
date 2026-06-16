@@ -597,7 +597,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    */
   protected void onUIResize(UI ui) {}
 
-  protected void setMouseCursor(MouseCursor mouseCursor) {
+  public void setMouseCursor(MouseCursor mouseCursor) {
     this.mouseCursor = mouseCursor;
   }
 
