@@ -137,7 +137,7 @@ public class GLX extends LX {
 
   boolean flagUIDebug = false;
 
-  private final LXParameterListener timelineWindowListener;
+  private final LXParameterListener compositionWindowListener;
 
   protected GLX(WindowEngine windowEngine) throws IOException {
     this(windowEngine, windowEngine.flags);
@@ -170,8 +170,8 @@ public class GLX extends LX {
     this.engine.getFrameNonThreadSafe(this.uiFrame);
 
     // Toggle visibility of timeline window
-    this.engine.showTimelineWindow.addListener(this.timelineWindowListener = p -> {
-      windowEngine.showAltWindow(this.engine.showTimelineWindow.isOn());
+    this.engine.showCompositionWindow.addListener(this.compositionWindowListener = p -> {
+      windowEngine.showAltWindow(this.engine.showCompositionWindow.isOn());
     });
   }
 
@@ -192,7 +192,7 @@ public class GLX extends LX {
             confirmChangesSaved("quit", () -> windowEngine.setShouldClose(true));
           }
         } else if (window.isAlt()) {
-          engine.addTask(() -> engine.showTimelineWindow.setValue(false));
+          engine.addTask(() -> engine.showCompositionWindow.setValue(false));
         }
       }
     }
@@ -341,7 +341,7 @@ public class GLX extends LX {
 
   @Override
   public void dispose() {
-    this.engine.showTimelineWindow.removeListener(this.timelineWindowListener);
+    this.engine.showCompositionWindow.removeListener(this.compositionWindowListener);
 
     // NOTE: destroy the whole UI first, rip down all the listeners
     // before disposing of the engine itself. Done on the BGFX thread
