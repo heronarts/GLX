@@ -410,7 +410,7 @@ public class GLX extends LX {
   }
 
   protected void importAudioFile(File file) {
-    LXComposition composition = this.engine.composition.getComposition();
+    LXComposition composition = this.engine.timeline.getComposition();
     if (composition != null) {
       this.command.perform(new LXCommand.Composition.AddAudioLane(composition, file));
     }

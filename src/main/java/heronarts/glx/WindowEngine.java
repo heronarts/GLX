@@ -917,7 +917,7 @@ public class WindowEngine {
   public class AltWindow extends Window {
 
     private AltWindow() {
-      super(LXPreferences.Window.ALT, BASE_VIEW_ID_ALT, "Timeline");
+      super(LXPreferences.Window.ALT, BASE_VIEW_ID_ALT, "Composition");
       // Hide until we are loaded and confirmed visible
       hide();
     }
