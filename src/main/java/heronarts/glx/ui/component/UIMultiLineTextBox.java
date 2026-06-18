@@ -198,6 +198,10 @@ public class UIMultiLineTextBox extends UITextBox {
 
   @Override
   public void dispose() {
+    // TODO: this doesn't work, this stuff got allocated on the UI thread by
+    // nanoVG, disposing it from the LX thread can cause a crash when the
+    // memory goes away before the UI thread is done with it.
+
     if (this.textBoxMap != null) {
       this.textBoxMap.dispose();
     }
