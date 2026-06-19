@@ -232,7 +232,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     protected void onDraw(UI ui, VGraphics vg) {
       switch (this.style) {
       case CORNER_TOGGLE -> onDrawCornerToggle(ui, vg);
-      case TRIANGLE_BOX -> onDrawTriangle(ui, vg);
+      case TRIANGLE_BOX -> onDrawTriangleBox(ui, vg);
       }
     }
 
@@ -269,7 +269,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
       vg.fill();
     }
 
-    private void onDrawTriangle(UI ui, VGraphics vg) {
+    private void onDrawTriangleBox(UI ui, VGraphics vg) {
       final float cx = this.width * .5f;
       final float cy = this.height * .5f;
       final float tw = 3.5f;
@@ -278,7 +278,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
 
       vg.fillColor(ui.theme.controlBackgroundColor);
       vg.beginPath();
-      vg.rect(0, 0, this.width, this.height);
+      vg.roundedRect(0, 0, this.width, this.height, 2);
       vg.fill();
 
       vg.fillColor(ui.theme.labelColor);
