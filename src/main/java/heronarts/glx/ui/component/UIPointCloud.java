@@ -476,7 +476,10 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       this.indexBuffer.dispose();
     }
     if (this.modelBuffer != null) {
-      this.modelBuffer.dispose();
+      // NOTE(mcslee): can cause a crash on exit on some Windows machines if
+      // the last frame rebuilt the model buffer, just let this leak off as
+      // it only occurs on system exit...
+      // this.modelBuffer.dispose();
     }
     if (this.colorBuffer != null) {
       this.colorBuffer.dispose();
@@ -486,9 +489,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     }
     this.program.dispose();
 
-    // NOTE(mcslee): maybe still causing crash on exit on some Windows machines...
-    // we'll just let this memory leak off at close
-    // disposeStaleResources();
+    disposeStaleResources();
 
     super.dispose();
   }
