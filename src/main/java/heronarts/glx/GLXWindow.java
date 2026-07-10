@@ -191,7 +191,7 @@ public class GLXWindow {
     this.flags = flags;
     this.preferences = new LXPreferences(flags);
 
-    this.clipboardStringMemory = MemoryUtil.memAlloc(1024*1024); // 1MB max clipboard string
+    this.clipboardStringMemory = MemoryUtil.memAlloc(1024 * 1024); // 1MB max clipboard string
 
     // Get initial window size from preferences
     if (flags.loadPreferences) {
@@ -616,7 +616,7 @@ public class GLXWindow {
           MemoryUtil.memUTF8(copyToClipboard, true, this.clipboardStringMemory);
           nglfwSetClipboardString(this.handle, MemoryUtil.memAddress(this.clipboardStringMemory));
         } catch (Throwable x) {
-          GLX.error(x, "Could not set clipboard string, likely too large: " + x.getMessage());
+          GLX.error(x, "Could not set clipboard string, likely too large (" + this.clipboardStringMemory.capacity() + " avail): " + MemoryUtil.memLengthASCII(copyToClipboard, true));
         }
         this._getSystemClipboardString = copyToClipboard;
         this._setSystemClipboardString = null;
