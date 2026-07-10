@@ -485,7 +485,11 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       this.normalBuffer.dispose();
     }
     this.program.dispose();
-    disposeStaleResources();
+
+    // NOTE(mcslee): maybe still causing crash on exit on some Windows machines...
+    // we'll just let this memory leak off at close
+    // disposeStaleResources();
+
     super.dispose();
   }
 
