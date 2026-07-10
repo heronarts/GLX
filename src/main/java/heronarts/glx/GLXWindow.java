@@ -184,10 +184,14 @@ public class GLXWindow {
   public final GLX.Flags flags;
   public final LXPreferences preferences;
 
+  private final ByteBuffer clipboardStringMemory;
+
   public GLXWindow(GLX.Flags flags) {
     this.thread = Thread.currentThread();
     this.flags = flags;
     this.preferences = new LXPreferences(flags);
+
+    this.clipboardStringMemory = MemoryUtil.memAlloc(1024*1024); // 1MB max clipboard string
 
     // Get initial window size from preferences
     if (flags.loadPreferences) {
@@ -604,7 +608,16 @@ public class GLXWindow {
       // Copy something to the clipboard
       final String copyToClipboard = this._setSystemClipboardString;
       if (copyToClipboard != null) {
-        glfwSetClipboardString(this.handle, copyToClipboard);
+        try {
+          // Can't just use this, has a limit of 64K which LX object JSON can exceed
+          // glfwSetClipboardString(this.handle, copyToClipboard);
+
+          // So do this instead...
+          MemoryUtil.memUTF8(copyToClipboard, true, this.clipboardStringMemory);
+          nglfwSetClipboardString(this.handle, MemoryUtil.memAddress(this.clipboardStringMemory));
+        } catch (Throwable x) {
+          GLX.error(x, "Could not set clipboard string, likely too large: " + x.getMessage());
+        }
         this._getSystemClipboardString = copyToClipboard;
         this._setSystemClipboardString = null;
       } else {
@@ -638,6 +651,9 @@ public class GLXWindow {
     // Terminate GLFW and free the error callback
     glfwTerminate();
     glfwSetErrorCallback(null).free();
+
+    // Free clipboard memory
+    MemoryUtil.memFree(this.clipboardStringMemory);
 
     // The program *should* end now, if not it means we hung a thread somewhere...
     GLX.log("Done with main thread, GLX shutdown complete. Thanks for playing. <3");
