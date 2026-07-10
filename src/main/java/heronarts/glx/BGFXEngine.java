@@ -120,7 +120,7 @@ public class BGFXEngine {
       if (!bgfx_init(init)) {
         throw new RuntimeException("Error initializing bgfx renderer");
       }
-      this.format = init.resolution().format();
+      this.format = init.resolution().formatColor();
     }
 
     this.renderer = bgfx_get_renderer_type();
