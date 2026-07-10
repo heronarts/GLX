@@ -21,8 +21,11 @@ package heronarts.glx.ui.component;
 import static org.lwjgl.bgfx.BGFX.*;
 
 import java.nio.ByteBuffer;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
+import java.util.List;
+
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
@@ -287,6 +290,10 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     }
   }
 
+  // BGFX buffer resources need to persist for 2 bgfx_draw() calls, so keep a list of destroyed
+  // things to dispose on the next pass
+  private final List<BGFXEngine.Resource> staleResources = new ArrayList<>();
+
   public final BoundedParameter pointSize =
     new BoundedParameter("Point Size", 3, .1, 100000)
     .setDescription("Size of points rendered in the preview display");
@@ -451,6 +458,11 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     return this;
   }
 
+  private void disposeStaleResources() {
+    this.staleResources.forEach(resource -> resource.dispose());
+    this.staleResources.clear();
+  }
+
   @Override
   public void dispose() {
     for (Texture texture : this.textures) {
@@ -472,51 +484,46 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       this.normalBuffer.dispose();
     }
     this.program.dispose();
+    disposeStaleResources();
     super.dispose();
   }
 
   private void buildModelBuffer() {
     if (this.modelBuffer != null) {
-      this.modelBuffer.dispose();
+      this.staleResources.add(this.modelBuffer);
     }
     this.modelBuffer = new ModelBuffer(lx);
   }
 
-  // Need to keep the normal buffer around for at least
-  // 2 frames for bgfx to not get given garbage...
-  private boolean flagBuildNormalBuffer = true;
-
   private boolean flagNormalBufferDirty = true;
 
   private void buildNormalBuffer() {
-    if (this.flagBuildNormalBuffer) {
-      if (this.normalBuffer != null) {
-        this.normalBuffer.dispose();
-      }
-      this.normalBuffer = new NormalBuffer(lx);
-      this.flagBuildNormalBuffer = false;
-      this.flagNormalBufferDirty = false;
-    } else {
-      this.flagBuildNormalBuffer = true;
+    if (this.normalBuffer != null) {
+      this.staleResources.add(this.normalBuffer);
     }
+    this.normalBuffer = new NormalBuffer(lx);
   }
 
   private void buildColorBuffer() {
     if (this.colorBuffer != null) {
-      this.colorBuffer.dispose();
+      this.staleResources.add(this.colorBuffer);
     }
     this.colorBuffer = new DynamicVertexBuffer(lx, this.model.size * ModelBuffer.VERTICES_PER_POINT, VertexDeclaration.Attribute.COLOR0);
   }
 
   private void buildIndexBuffer() {
     if (this.indexBuffer != null) {
-      this.indexBuffer.dispose();
+      this.staleResources.add(this.indexBuffer);
     }
     this.indexBuffer = new IndexBuffer(lx);
   }
 
   @Override
   public void onDraw(UI ui, View view) {
+
+    // Clear up resources that couldn't be freed on the previous frame
+    disposeStaleResources();
+
     LXEngine.Frame frame = this.lx.uiFrame;
     LXModel frameModel = frame.getModel();
     int frameModelGeneration = frameModel.getGeneration();
@@ -616,8 +623,8 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
         this.flagNormalBufferDirty = true;
       }
 
-      // Try to rebuild the normal buffer if we need to on this pass or flagged on a prev pass
-      if (this.flagBuildNormalBuffer || this.flagNormalBufferDirty) {
+      // Rebuild the normal buffer if needed
+      if (this.flagNormalBufferDirty) {
         buildNormalBuffer();
       }
 
