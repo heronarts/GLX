@@ -22,15 +22,9 @@ import static org.lwjgl.bgfx.BGFX.*;
 
 import java.nio.ByteBuffer;
 
-import org.lwjgl.system.MemoryUtil;
+import org.lwjgl.bgfx.BGFXMemory;
 
 public abstract class VertexBuffer implements BGFXEngine.Resource, BGFXEngine.Buffer.Vertex {
-
-  private final GLX glx;
-  private final VertexDeclaration vertexDeclaration;
-  private final ByteBuffer vertexData;
-  private final short vbh;
-  private final int numVertices;
 
   public static class UnitCube extends VertexBuffer {
     UnitCube(GLX glx) {
@@ -166,6 +160,11 @@ public abstract class VertexBuffer implements BGFXEngine.Resource, BGFXEngine.Bu
     }
   }
 
+  private final GLX glx;
+  private final ByteBuffer vertexData;
+  private final short vbh;
+  private final int numVertices;
+
   @Deprecated
   public VertexBuffer(GLX glx, int numVertices) {
     this(glx, numVertices, VertexDeclaration.Attribute.POSITION, VertexDeclaration.Attribute.TEXCOORD0);
@@ -183,15 +182,18 @@ public abstract class VertexBuffer implements BGFXEngine.Resource, BGFXEngine.Bu
   private VertexBuffer(GLX glx, int numVertices, VertexDeclaration vertexDeclaration) {
     glx.assertBgfxThreadAllocation(this);
     this.glx = glx;
-    this.vertexDeclaration = vertexDeclaration;
-    this.vertexData = MemoryUtil.memAlloc(this.vertexDeclaration.getStride() * numVertices);
+
+    final BGFXMemory vertexMemory = bgfx_alloc(vertexDeclaration.getStride() * numVertices);
+    this.vertexData = vertexMemory.data();
     bufferData(this.vertexData);
-    this.vertexData.flip();
-    this.vbh = bgfx_create_vertex_buffer(bgfx_make_ref(this.vertexData), this.vertexDeclaration.getHandle(), BGFX_BUFFER_NONE);
+    this.vbh = bgfx_create_vertex_buffer(vertexMemory, vertexDeclaration.getHandle(), BGFX_BUFFER_NONE);
     if (this.vbh == BGFX_INVALID_HANDLE) {
       throw new BGFXEngine.ResourceException("Could not create VertexBuffer");
     }
     this.numVertices = numVertices;
+
+    // Declaration now copied into bgfx, dispose ours
+    vertexDeclaration.dispose();
   }
 
   protected abstract void bufferData(ByteBuffer buffer);
@@ -258,8 +260,6 @@ public abstract class VertexBuffer implements BGFXEngine.Resource, BGFXEngine.Bu
   public void dispose() {
     if (this.glx.bgfxThreadDispose(this)) {
       bgfx_destroy_vertex_buffer(this.vbh);
-      MemoryUtil.memFree(this.vertexData);
-      this.vertexDeclaration.dispose();
     }
   }
 }

@@ -27,7 +27,6 @@ import org.lwjgl.system.MemoryUtil;
 public class DynamicVertexBuffer implements BGFXEngine.Resource, BGFXEngine.Buffer.Vertex {
 
   private final GLX glx;
-  private final VertexDeclaration vertexDeclaration;
   private final ByteBuffer vertexData;
 
   private final short vertexBufferHandle;
@@ -45,13 +44,14 @@ public class DynamicVertexBuffer implements BGFXEngine.Resource, BGFXEngine.Buff
   public DynamicVertexBuffer(GLX glx, int numVertices, VertexDeclaration.Attribute ... attributes) {
     glx.assertBgfxThreadAllocation(this);
     this.glx = glx;
-    this.vertexDeclaration = new VertexDeclaration(glx, attributes);
-    this.vertexData = MemoryUtil.memAlloc(this.vertexDeclaration.getStride() * numVertices);
-    this.vertexBufferHandle = bgfx_create_dynamic_vertex_buffer(numVertices, this.vertexDeclaration.getHandle(), BGFX_BUFFER_NONE);
+    final VertexDeclaration vertexDeclaration = new VertexDeclaration(glx, attributes);
+    this.vertexData = MemoryUtil.memAlloc(vertexDeclaration.getStride() * numVertices);
+    this.vertexBufferHandle = bgfx_create_dynamic_vertex_buffer(numVertices, vertexDeclaration.getHandle(), BGFX_BUFFER_NONE);
     if (this.vertexBufferHandle == BGFX_INVALID_HANDLE) {
       throw new BGFXEngine.ResourceException("Could not create DynamicVertexBuffer");
     }
     this.numVertices = numVertices;
+    vertexDeclaration.dispose();
   }
 
   public short getHandle() {
@@ -80,7 +80,6 @@ public class DynamicVertexBuffer implements BGFXEngine.Resource, BGFXEngine.Buff
     if (this.glx.bgfxThreadDispose(this)) {
       bgfx_destroy_dynamic_vertex_buffer(this.vertexBufferHandle);
       MemoryUtil.memFree(this.vertexData);
-      this.vertexDeclaration.dispose();
     }
   }
 }

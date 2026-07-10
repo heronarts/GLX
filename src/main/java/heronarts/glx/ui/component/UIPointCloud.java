@@ -21,17 +21,13 @@ package heronarts.glx.ui.component;
 import static org.lwjgl.bgfx.BGFX.*;
 
 import java.nio.ByteBuffer;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Comparator;
-import java.util.List;
-
 import org.joml.Matrix4f;
 import org.joml.Vector3f;
 
 import com.google.gson.JsonObject;
 
-import heronarts.glx.BGFXEngine;
 import heronarts.glx.DynamicIndexBuffer;
 import heronarts.glx.DynamicVertexBuffer;
 import heronarts.glx.GLX;
@@ -291,10 +287,6 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     }
   }
 
-  // BGFX buffer resources need to persist for 2 bgfx_draw() calls, so keep a list of destroyed
-  // things to dispose on the next pass
-  private final List<BGFXEngine.Resource> staleResources = new ArrayList<>();
-
   public final BoundedParameter pointSize =
     new BoundedParameter("Point Size", 3, .1, 100000)
     .setDescription("Size of points rendered in the preview display");
@@ -459,11 +451,6 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     return this;
   }
 
-  private void disposeStaleResources() {
-    this.staleResources.forEach(resource -> resource.dispose());
-    this.staleResources.clear();
-  }
-
   @Override
   public void dispose() {
     for (Texture texture : this.textures) {
@@ -476,10 +463,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       this.indexBuffer.dispose();
     }
     if (this.modelBuffer != null) {
-      // NOTE(mcslee): can cause a crash on exit on some Windows machines if
-      // the last frame rebuilt the model buffer, just let this leak off as
-      // it only occurs on system exit...
-      // this.modelBuffer.dispose();
+      this.modelBuffer.dispose();
     }
     if (this.colorBuffer != null) {
       this.colorBuffer.dispose();
@@ -488,15 +472,12 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
       this.normalBuffer.dispose();
     }
     this.program.dispose();
-
-    disposeStaleResources();
-
     super.dispose();
   }
 
   private void buildModelBuffer() {
     if (this.modelBuffer != null) {
-      this.staleResources.add(this.modelBuffer);
+      this.modelBuffer.dispose();
     }
     this.modelBuffer = new ModelBuffer(lx);
   }
@@ -505,30 +486,27 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
 
   private void buildNormalBuffer() {
     if (this.normalBuffer != null) {
-      this.staleResources.add(this.normalBuffer);
+      this.normalBuffer.dispose();
     }
     this.normalBuffer = new NormalBuffer(lx);
   }
 
   private void buildColorBuffer() {
     if (this.colorBuffer != null) {
-      this.staleResources.add(this.colorBuffer);
+      this.colorBuffer.dispose();
     }
     this.colorBuffer = new DynamicVertexBuffer(lx, this.model.size * ModelBuffer.VERTICES_PER_POINT, VertexDeclaration.Attribute.COLOR0);
   }
 
   private void buildIndexBuffer() {
     if (this.indexBuffer != null) {
-      this.staleResources.add(this.indexBuffer);
+      this.indexBuffer.dispose();
     }
     this.indexBuffer = new IndexBuffer(lx);
   }
 
   @Override
   public void onDraw(UI ui, View view) {
-
-    // Clear up resources that couldn't be freed on the previous frame
-    disposeStaleResources();
 
     LXEngine.Frame frame = this.lx.uiFrame;
     LXModel frameModel = frame.getModel();
