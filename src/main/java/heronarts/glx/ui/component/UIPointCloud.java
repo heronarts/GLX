@@ -31,6 +31,7 @@ import org.joml.Vector3f;
 
 import com.google.gson.JsonObject;
 
+import heronarts.glx.BGFXEngine;
 import heronarts.glx.DynamicIndexBuffer;
 import heronarts.glx.DynamicVertexBuffer;
 import heronarts.glx.GLX;
