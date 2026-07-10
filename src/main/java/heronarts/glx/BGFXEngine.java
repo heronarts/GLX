@@ -212,6 +212,10 @@ public class BGFXEngine {
         drawNanos = 0;
       }
     }
+
+    // Dummy frames on exit to ensure bgfx memory validity
+    bgfx_frame(false);
+    bgfx_frame(false);
   }
 
   final List<BGFXEngine.Resource> threadSafeDisposeQueue = Collections.synchronizedList(new ArrayList<>());
