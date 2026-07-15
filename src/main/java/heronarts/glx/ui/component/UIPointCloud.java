@@ -482,23 +482,13 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
     this.modelBuffer = new ModelBuffer(lx);
   }
 
-  // Need to keep the normal buffer around for at least
-  // 2 frames for bgfx to not get given garbage...
-  private boolean flagBuildNormalBuffer = true;
-
   private boolean flagNormalBufferDirty = true;
 
   private void buildNormalBuffer() {
-    if (this.flagBuildNormalBuffer) {
-      if (this.normalBuffer != null) {
-        this.normalBuffer.dispose();
-      }
-      this.normalBuffer = new NormalBuffer(lx);
-      this.flagBuildNormalBuffer = false;
-      this.flagNormalBufferDirty = false;
-    } else {
-      this.flagBuildNormalBuffer = true;
+    if (this.normalBuffer != null) {
+      this.normalBuffer.dispose();
     }
+    this.normalBuffer = new NormalBuffer(lx);
   }
 
   private void buildColorBuffer() {
@@ -517,6 +507,7 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
 
   @Override
   public void onDraw(UI ui, View view) {
+
     LXEngine.Frame frame = this.lx.uiFrame;
     LXModel frameModel = frame.getModel();
     int frameModelGeneration = frameModel.getGeneration();
@@ -616,8 +607,8 @@ public class UIPointCloud extends UI3dComponent implements LXSerializable {
         this.flagNormalBufferDirty = true;
       }
 
-      // Try to rebuild the normal buffer if we need to on this pass or flagged on a prev pass
-      if (this.flagBuildNormalBuffer || this.flagNormalBufferDirty) {
+      // Rebuild the normal buffer if needed
+      if (this.flagNormalBufferDirty) {
         buildNormalBuffer();
       }
 

@@ -123,7 +123,7 @@ public class BGFXEngine {
       if (!bgfx_init(init)) {
         throw new RuntimeException("Error initializing bgfx renderer");
       }
-      this.format = init.resolution().format();
+      this.format = init.resolution().formatColor();
 
       // Create a framebuffer for the Alt window
       createFrameBufferAlt();
@@ -255,6 +255,10 @@ public class BGFXEngine {
         drawNanos = 0;
       }
     }
+
+    // Dummy frames on exit to ensure bgfx memory validity
+    bgfx_frame(false);
+    bgfx_frame(false);
   }
 
   final List<BGFXEngine.Resource> threadSafeDisposeQueue = Collections.synchronizedList(new ArrayList<>());

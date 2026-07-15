@@ -44,8 +44,8 @@
 		<maven-source-plugin.version>3.3.0</maven-source-plugin.version>
 		<maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
         
-        <lwjgl.version>3.3.6</lwjgl.version>
-        <joml.version>1.10.7</joml.version>
+        <lwjgl.version>3.4.1</lwjgl.version>
+        <joml.version>1.10.9</joml.version>
 	
     </properties>
     
@@ -269,7 +269,7 @@
                     </execution>
                 </executions>
                 <configuration>
-                    <bottom>GLX library by Mark C. Slee. (C) 2012-2025</bottom>
+                    <bottom>GLX library by Mark C. Slee. &#169; 2012-2026</bottom>
                     <verbose>false</verbose>
                     <doclint>all,-missing</doclint>
                     <stylesheetfile>build/stylesheet.css</stylesheetfile>
