@@ -278,6 +278,12 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       new BoundedParameter("Z", 0, -RANGE_LIMIT, RANGE_LIMIT)
       .setDescription("Camera Z position");
 
+    public final BoundedParameter perspective =
+      new BoundedParameter("Perspective", 60, 15, 150)
+      .setExponent(2)
+      .setUnits(BoundedParameter.Units.DEGREES)
+      .setDescription("Camera perspective in degrees");
+
     private final LXParameter.Collection parameters = new LXParameter.Collection();
 
     private Camera() {
@@ -288,6 +294,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       this.parameters.add("x", this.x);
       this.parameters.add("y", this.y);
       this.parameters.add("z", this.z);
+      this.parameters.add("perspective", this.perspective);
     }
 
     public boolean matches(Camera that) {
@@ -297,7 +304,8 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
         (this.phi.getValue() == that.phi.getValue()) &&
         (this.x.getValue() == that.x.getValue()) &&
         (this.y.getValue() == that.y.getValue()) &&
-        (this.z.getValue() == that.z.getValue());
+        (this.z.getValue() == that.z.getValue()) &&
+        (this.perspective.getValue() == that.perspective.getValue());
     }
 
     public boolean hasFocus() {
@@ -330,6 +338,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       this.x.setValue(that.x.getValue());
       this.y.setValue(that.y.getValue());
       this.z.setValue(that.z.getValue());
+      this.perspective.setValue(that.perspective.getValue());
       this.stale.setValue(false);
       if (active) {
         this.active.setValue(true);
@@ -358,6 +367,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       this.x.setValue(LXUtils.lerp(one.x.getValue(), two.x.getValue(), amt));
       this.y.setValue(LXUtils.lerp(one.y.getValue(), two.y.getValue(), amt));
       this.z.setValue(LXUtils.lerp(one.z.getValue(), two.z.getValue(), amt));
+      this.perspective.setValue(LXUtils.lerp(one.perspective.getValue(), two.perspective.getValue(), amt));
 
       if (animationClampY.isOn()) {
         final float minY = animationMinY.getValuef();
@@ -678,6 +688,8 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
       this.cue[i] = new Camera();
     }
 
+    addListener(this.perspective, p -> this.camera.perspective.setValue(this.perspective.getValue()));
+
     this.focusCamera = new ObjectParameter<Camera>("Camera", this.cue);
     addListener(this.focusCamera, p -> {
       if (this.inLoad ) {
@@ -707,6 +719,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
           this.xDamped.setValue(this.camera.x.getValue());
           this.yDamped.setValue(this.camera.y.getValue());
           this.zDamped.setValue(this.camera.z.getValue());
+          this.perspective.setValue(this.camera.perspective.getValue());
           computeCamera(true);
         }
       }
@@ -1041,6 +1054,7 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   private void computeCamera(boolean initialize) {
     if (this.animating.isRunning() || this.animating.finished()) {
       this.camera.lerp(this.cameraFrom, this.cameraTo, this.animating.getBasis());
+      this.perspective.setValue(this.camera.perspective.getValue());
     }
 
     if (this.autopilot.enabled.isOn()) {
