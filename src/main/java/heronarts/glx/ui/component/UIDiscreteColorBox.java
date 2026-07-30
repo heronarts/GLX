@@ -98,7 +98,7 @@ public class UIDiscreteColorBox extends UI2dComponent implements UIFocus {
     if (this.colorMenu.isVisible() != expanded) {
       if (expanded) {
         this.colorMenu.setPosition(this, -this.colorMenu.getWidth() + UIDiscreteColorMenu.BOX_SIZE + UIDiscreteColorMenu.SPACING, -UIDiscreteColorMenu.SPACING);
-        getUI().showContextOverlay(this.colorMenu);
+        showContextOverlay(this.colorMenu);
       } else {
         getUI().clearContextOverlay(this.colorMenu);
       }

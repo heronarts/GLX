@@ -19,7 +19,7 @@
 package heronarts.glx.ui;
 
 import heronarts.glx.GLX;
-import heronarts.glx.GLXWindow.MouseCursor;
+import heronarts.glx.WindowEngine.MouseCursor;
 import heronarts.glx.event.Event;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
@@ -597,7 +597,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
    */
   protected void onUIResize(UI ui) {}
 
-  protected void setMouseCursor(MouseCursor mouseCursor) {
+  public void setMouseCursor(MouseCursor mouseCursor) {
     this.mouseCursor = mouseCursor;
   }
 
@@ -680,8 +680,9 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
       List<UIContextActions.Action> contextActions = contextParent.getContextActions();
       if (contextActions != null && contextActions.size() > 0) {
         mouseEvent.consumeDropMenu();
-        getUI().showDropMenu((UIContextMenu)
-          new UIContextMenu(mx, my, UIContextMenu.DEFAULT_WIDTH, 0)
+        getUI().showDropMenu(
+          this,
+          (UIContextMenu) new UIContextMenu(mx, my, UIContextMenu.DEFAULT_WIDTH, 0)
           .setActions(contextActions.toArray(new UIContextActions.Action[0]))
           .setPosition(this, (int) mx, (int) my)
         );
@@ -860,7 +861,7 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
   private void showHelpText() {
     this.setDescription = getDescription();
     if (this.setDescription != null) {
-      getUI().setMouseoverHelpText(this.setDescription);
+      getUI().setMouseoverHelpText(this, this.setDescription);
     }
   }
 
@@ -946,6 +947,13 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     if (!keyEvent.isConsumed()) {
       onKeyReleased(keyEvent, keyChar, keyCode);
     }
+  }
+
+  protected void showContextOverlay(UI2dComponent contextOverlay) {
+    if (this.ui == null) {
+      throw new IllegalStateException("Cannot UIObject.showContextOverlay for element not in UI tree");
+    }
+    this.ui.showContextOverlay(contextOverlay, this);
   }
 
   /**

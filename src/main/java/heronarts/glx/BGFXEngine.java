@@ -28,9 +28,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 
 import org.lwjgl.bgfx.BGFXInit;
 import org.lwjgl.glfw.GLFW;
-import org.lwjgl.glfw.GLFWNativeCocoa;
 import org.lwjgl.glfw.GLFWNativeWayland;
-import org.lwjgl.glfw.GLFWNativeWin32;
 import org.lwjgl.glfw.GLFWNativeX11;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.Platform;
@@ -70,7 +68,9 @@ public class BGFXEngine {
   final Thread thread;
 
   final AtomicBoolean resizeFramebuffer = new AtomicBoolean(false);
+  final AtomicBoolean resizeFramebufferAlt = new AtomicBoolean(false);
   final AtomicBoolean resizeUI = new AtomicBoolean(false);
+  final AtomicBoolean resizeUIAlt = new AtomicBoolean(false);
 
   volatile boolean hasFailed = false;
   volatile boolean shutdown = false;
@@ -79,7 +79,7 @@ public class BGFXEngine {
   final int renderer;
   final int format;
 
-  BGFXEngine(GLX glx) {
+  BGFXEngine(GLX glx, WindowEngine windowEngine) {
     this.glx = glx;
 
     // Note the purpose of this thread
@@ -91,6 +91,7 @@ public class BGFXEngine {
         org.lwjgl.bgfx.BGFX.BGFX_RENDERER_TYPE_OPENGL :
         org.lwjgl.bgfx.BGFX.BGFX_RENDERER_TYPE_COUNT;
 
+      // Set BGFX initialization parameters
       final BGFXInit init = BGFXInit.malloc(stack);
       bgfx_init_ctor(init);
       init
@@ -98,29 +99,34 @@ public class BGFXEngine {
         .vendorId(BGFX_PCI_ID_NONE)
         .deviceId((short) 0)
         .resolution(res -> res
-          .width(this.glx.window.getFrameBufferWidth())
-          .height(this.glx.window.getFrameBufferHeight())
+          .width(glx.windowEngine.mainWindow.getFrameBufferWidth())
+          .height(glx.windowEngine.mainWindow.getFrameBufferHeight())
           .reset(BGFX_RESET_VSYNC));
+
+      // Set BGFX platform-specific parameters
       switch (Platform.get()) {
         case LINUX, FREEBSD -> {
           if (glfwGetPlatform() == GLFW.GLFW_PLATFORM_WAYLAND) {
             init.platformData()
               .ndt(GLFWNativeWayland.glfwGetWaylandDisplay())
-              .nwh(GLFWNativeWayland.glfwGetWaylandWindow(this.glx.window.handle))
               .type(BGFX_NATIVE_WINDOW_HANDLE_TYPE_WAYLAND);
           } else {
             init.platformData()
-              .ndt(GLFWNativeX11.glfwGetX11Display())
-              .nwh(GLFWNativeX11.glfwGetX11Window(this.glx.window.handle));
+              .ndt(GLFWNativeX11.glfwGetX11Display());
           }
         }
-        case MACOSX -> init.platformData().nwh(GLFWNativeCocoa.glfwGetCocoaWindow(this.glx.window.handle));
-        case WINDOWS -> init.platformData().nwh(GLFWNativeWin32.glfwGetWin32Window(this.glx.window.handle));
+        default -> {}
       }
+      init.platformData().nwh(glx.windowEngine.mainWindow.getNativeHandle());
+
+      // Initialize BGFX
       if (!bgfx_init(init)) {
         throw new RuntimeException("Error initializing bgfx renderer");
       }
       this.format = init.resolution().formatColor();
+
+      // Create a framebuffer for the Alt window
+      createFrameBufferAlt();
     }
 
     this.renderer = bgfx_get_renderer_type();
@@ -131,6 +137,30 @@ public class BGFXEngine {
     GLX.log("BGFX renderer: " + rendererName);
 
     this.zZeroToOne = !bgfx_get_caps().homogeneousDepth();
+  }
+
+  private void destroyFrameBufferAlt() {
+    final short handle = this.glx.windowEngine.altWindow.getFrameBuffer();
+    if (handle != BGFX_INVALID_HANDLE) {
+      bgfx_destroy_frame_buffer(handle);
+      this.glx.windowEngine.altWindow.setFrameBuffer(BGFX_INVALID_HANDLE);
+    }
+  }
+
+  private void createFrameBufferAlt() {
+    destroyFrameBufferAlt();
+    final WindowEngine.Window window = this.glx.windowEngine.altWindow;
+    final short framebuffer = bgfx_create_frame_buffer_from_nwh(
+      window.getNativeHandle(),
+      window.getFrameBufferWidth(),
+      window.getFrameBufferHeight(),
+      BGFX_TEXTURE_FORMAT_RGBA8,
+      BGFX_TEXTURE_FORMAT_COUNT // No depth buffer
+    );
+    if (framebuffer == BGFX_INVALID_HANDLE) {
+      throw new RuntimeException("Could not create framebuffer for window: " + window);
+    }
+    this.glx.windowEngine.altWindow.setFrameBuffer(framebuffer);
   }
 
   public int getRenderer() {
@@ -165,11 +195,11 @@ public class BGFXEngine {
       // Dispose of queued graphics resources
       _disposeQueue();
 
-      // Window size changed, reset backing framebuffer
+      // Main window size changed, reset backing framebuffer
       if (this.resizeFramebuffer.getAndSet(false)) {
         bgfx_reset(
-          this.glx.window.getFrameBufferWidth(),
-          this.glx.window.getFrameBufferHeight(),
+          this.glx.windowEngine.mainWindow.getFrameBufferWidth(),
+          this.glx.windowEngine.mainWindow.getFrameBufferHeight(),
           BGFX_RESET_VSYNC,
           this.format
         );
@@ -177,10 +207,23 @@ public class BGFXEngine {
         this.glx.ui.redraw();
       }
 
-      // Resize the UI if it changed
+      // Alt window size changed, dispose and re-create backing framebuffer
+      if (this.resizeFramebufferAlt.getAndSet(false)) {
+        createFrameBufferAlt();
+        this.glx.ui.resizeAlt();
+        this.glx.ui.redrawAlt();
+      }
+
+      // Resize the UI if it changed (Main window)
       if (this.resizeUI.getAndSet(false)) {
         this.glx.ui.resize();
         this.glx.ui.redraw();
+      }
+
+      // Resize the UI if it changed (Alt window)
+      if (this.resizeUIAlt.getAndSet(false)) {
+        this.glx.ui.resizeAlt();
+        this.glx.ui.redrawAlt();
       }
 
       long drawStart = System.nanoTime();
@@ -239,6 +282,7 @@ public class BGFXEngine {
 
   void dispose() {
     GLX.log("Disposing BGFXEngine...");
+    destroyFrameBufferAlt();
     _disposeQueue();
     bgfx_shutdown();
   }

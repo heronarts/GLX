@@ -35,6 +35,7 @@ import heronarts.glx.event.Event;
 import heronarts.glx.event.GamepadEvent;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
+import heronarts.glx.ui.UI;
 import heronarts.lx.LXEngine;
 
 public class InputDispatch implements LXEngine.Dispatch {
@@ -44,7 +45,7 @@ public class InputDispatch implements LXEngine.Dispatch {
   private static final int NUM_GAMEPAD_BUTTONS = GLFW_GAMEPAD_BUTTON_LAST + 1;
   private static final float GAMEPAD_AXIS_CHANGE_THRESHOLD = 0.001f;
 
-  private final GLXWindow window;
+  private final WindowEngine windowEngine;
   private GLX glx;
 
   private int modifiers = 0;
@@ -62,8 +63,8 @@ public class InputDispatch implements LXEngine.Dispatch {
   private final List<Event> lxThreadEventQueue = new ArrayList<Event>();
   private final List<Event> glfwThreadEventQueue = Collections.synchronizedList(new ArrayList<Event>());
 
-  InputDispatch(GLXWindow window) {
-    this.window = window;
+  InputDispatch(WindowEngine windowEngine) {
+    this.windowEngine = windowEngine;
   }
 
   void setGLX(GLX glx) {
@@ -81,14 +82,14 @@ public class InputDispatch implements LXEngine.Dispatch {
     this.hasInputEvents.set(true);
   }
 
-  void onFocus(double cursorX, double cursorY) {
+  void onFocus(WindowEngine.Window window, double cursorX, double cursorY) {
     this.cursorX = cursorX;
     this.cursorY = cursorY;
   }
 
   void glfwKeyCallback(long window, int key, int scancode, int action, int mods) {
     this.modifiers = mods;
-    queueEvent(this.keyEvent = new KeyEvent(key, scancode, action, mods));
+    queueEvent(this.keyEvent = new KeyEvent(window, key, scancode, action, mods));
 
     // Hack-toggle to UI perf logging on the UI thread
     if ((key == KeyEvent.VK_U) && (action == GLFW_PRESS) && keyEvent.isCommand() && keyEvent.isShiftDown()) {
@@ -106,12 +107,13 @@ public class InputDispatch implements LXEngine.Dispatch {
 
   void glfwCursorPosCallback(long window, double x, double y) {
     // Apply cursor position scaling, to go from window-space into ui-space
-    x *= this.window.getCursorScaleX();
-    y *= this.window.getCursorScaleY();
+    final WindowEngine.Window w = this.windowEngine.getWindow(window);
+    x *= w.getCursorScaleX();
+    y *= w.getCursorScaleY();
     double dx = x - this.cursorX;
     double dy = y - this.cursorY;
     MouseEvent.Action action = this.mouseDragging ? MouseEvent.Action.DRAG : MouseEvent.Action.MOVE;
-    queueEvent(new MouseEvent(action, (float) x, (float) y, (float) dx, (float) dy, this.modifiers));
+    queueEvent(new MouseEvent(window, action, (float) x, (float) y, (float) dx, (float) dy, this.modifiers));
     this.cursorX = x;
     this.cursorY = y;
   };
@@ -141,7 +143,7 @@ public class InputDispatch implements LXEngine.Dispatch {
     }
 
     // Create the mouse event
-    MouseEvent mouseEvent = new MouseEvent(action, button, (float) this.cursorX, (float) this.cursorY, mods);
+    MouseEvent mouseEvent = new MouseEvent(window, action, button, (float) this.cursorX, (float) this.cursorY, mods);
 
     // Detect double-presses
     if (action == GLFW_PRESS) {
@@ -162,25 +164,25 @@ public class InputDispatch implements LXEngine.Dispatch {
     dy *= this.glx.flags.scrollMultiplier;
 
     switch (Platform.get()) {
-      case MACOSX:
-        dx *= this.window.getSystemContentScaleX();
-        dy *= this.window.getSystemContentScaleY();
-        break;
-      case WINDOWS:
+      case MACOSX -> {
+        final WindowEngine.Window w = this.windowEngine.getWindow(window);
+        dx *= w.getSystemContentScaleX();
+        dy *= w.getSystemContentScaleY();
+      }
+      case WINDOWS -> {
         dx *= WINDOWS_SCROLL_MULTIPLIER;
         dy *= WINDOWS_SCROLL_MULTIPLIER;
-        break;
-      default:
-        break;
+      }
+      default -> {}
     }
-    queueEvent(new MouseEvent(MouseEvent.Action.SCROLL, (float) this.cursorX, (float) this.cursorY, (float) dx, (float) dy, this.modifiers));
+    queueEvent(new MouseEvent(window, MouseEvent.Action.SCROLL, (float) this.cursorX, (float) this.cursorY, (float) dx, (float) dy, this.modifiers));
   }
 
   public static final double POLL_TIMEOUT = 1/60.;
 
   void poll() {
     // Wait with a timeout so that we don't block other operations like
-    // clipboard checks from the main GLXWindow loop, even if there's no
+    // clipboard checks from the main WindowEngine loop, even if there's no
     // user input
     glfwWaitEventsTimeout(POLL_TIMEOUT);
     pollGamepad();
@@ -213,16 +215,13 @@ public class InputDispatch implements LXEngine.Dispatch {
   }
 
   private Event coalesceEvents(Event thisEvent, Event prevEvent) {
-    if ((thisEvent instanceof MouseEvent) && (prevEvent instanceof MouseEvent)) {
-      MouseEvent mouseEvent = (MouseEvent) thisEvent;
-      MouseEvent prevMouseEvent = (MouseEvent) prevEvent;
-      if (mouseEvent.action == prevMouseEvent.action) {
-        switch (mouseEvent.action) {
-        case SCROLL:
-        case MOVE:
-        case DRAG:
-          return new MouseEvent(
+    if ((thisEvent instanceof MouseEvent mouseEvent) && (prevEvent instanceof MouseEvent prevMouseEvent)) {
+      if ((mouseEvent.action == prevMouseEvent.action) && (mouseEvent.window == prevMouseEvent.window)) {
+        return switch (mouseEvent.action) {
+        case SCROLL, MOVE, DRAG ->
+          new MouseEvent(
             mouseEvent,
+            mouseEvent.window,
             mouseEvent.action,
             mouseEvent.x,
             mouseEvent.y,
@@ -230,9 +229,8 @@ public class InputDispatch implements LXEngine.Dispatch {
             mouseEvent.dy + prevMouseEvent.dy,
             mouseEvent.modifiers
           );
-        default:
-          return null;
-        }
+        default -> null;
+        };
       }
     }
     return null;
@@ -300,9 +298,9 @@ public class InputDispatch implements LXEngine.Dispatch {
       };
     }
 
-    // Set the cursor if any mouse events may have changed it
     if (updateMouseCursor) {
-      this.window.setMouseCursor(this.glx.ui.getMouseCursor());
+      this.windowEngine.setMouseCursor(UI.Window.MAIN, this.glx.ui.getMouseCursor(UI.Window.MAIN));
+      this.windowEngine.setMouseCursor(UI.Window.ALT, this.glx.ui.getMouseCursor(UI.Window.ALT));
     }
   }
 

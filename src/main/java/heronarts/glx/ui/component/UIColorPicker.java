@@ -196,7 +196,7 @@ public class UIColorPicker extends UI2dComponent {
       break;
     }
 
-    getUI().showContextOverlay(this.uiColorOverlay);
+    showContextOverlay(this.uiColorOverlay);
   }
 
   @Override

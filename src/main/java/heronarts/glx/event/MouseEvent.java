@@ -56,6 +56,7 @@ public class MouseEvent extends Event {
     }
   }
 
+  public final long window;
   public final Action action;
   public final int button;
   private int count = 1;
@@ -68,8 +69,9 @@ public class MouseEvent extends Event {
   private boolean consumeScrollX = false;
   private boolean consumeScrollY = false;
 
-  public MouseEvent(int glfwAction, int button, float x, float y, int modifiers) {
+  public MouseEvent(long window, int glfwAction, int button, float x, float y, int modifiers) {
     super(modifiers);
+    this.window = window;
     this.action = glfwAction(glfwAction);
     this.button = button;
     this.x = x;
@@ -78,8 +80,9 @@ public class MouseEvent extends Event {
     this.dy = 0;
   }
 
-  public MouseEvent(Action action, float x, float y, float dx, float dy, int modifiers) {
+  public MouseEvent(long window, Action action, float x, float y, float dx, float dy, int modifiers) {
     super(modifiers);
+    this.window = window;
     this.action = action;
     this.button = BUTTON_NONE;
     this.x = x;
@@ -88,8 +91,9 @@ public class MouseEvent extends Event {
     this.dy = dy;
   }
 
-  public MouseEvent(MouseEvent source, Action action, float x, float y, float dx, float dy, int modifiers) {
+  public MouseEvent(MouseEvent source, long window, Action action, float x, float y, float dx, float dy, int modifiers) {
     super(modifiers, source.glfwTime, source.nanoTime);
+    this.window = window;
     this.action = action;
     this.button = BUTTON_NONE;
     this.x = x;

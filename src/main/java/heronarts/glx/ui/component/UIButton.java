@@ -105,7 +105,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
         overlay.setPosition(this, this.width/2 - this.tipWidth, this.height/2);
         break;
       }
-      getUI().showContextOverlay(overlay);
+      showContextOverlay(overlay);
     }
   }
 
@@ -164,6 +164,11 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
 
   public static class Expander extends Action {
 
+    public enum Style {
+      CORNER_TOGGLE,
+      TRIANGLE_BOX
+    }
+
     public enum Direction {
       BOTTOM_LEFT,
       BOTTOM_RIGHT,
@@ -171,6 +176,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
       TOP_RIGHT;
     }
 
+    private Style style = Style.CORNER_TOGGLE;
     private Direction direction = Direction.BOTTOM_LEFT;
 
     public Expander(BooleanParameter param) {
@@ -183,11 +189,20 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     }
 
     public Expander(float x, float y) {
-      super(x, y, 12, 12);
+      this(x, y, 12, 12);
+    }
+
+    public Expander(float x, float y, float w, float h) {
+      super(x, y, w, h);
     }
 
     public Expander setDirection(Direction direction) {
       this.direction = direction;
+      return this;
+    }
+
+    public Expander setStyle(Style style) {
+      this.style = style;
       return this;
     }
 
@@ -214,8 +229,15 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     }
 
     @Override
-    @SuppressWarnings("fallthrough")
     protected void onDraw(UI ui, VGraphics vg) {
+      switch (this.style) {
+      case CORNER_TOGGLE -> onDrawCornerToggle(ui, vg);
+      case TRIANGLE_BOX -> onDrawTriangleBox(ui, vg);
+      }
+    }
+
+    @SuppressWarnings("fallthrough")
+    private void onDrawCornerToggle(UI ui, VGraphics vg) {
       vg.beginPath();
       vg.fillColor(ui.theme.sectionExpanderBackgroundColor);
 
@@ -247,32 +269,58 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
       vg.fill();
     }
 
+    private void onDrawTriangleBox(UI ui, VGraphics vg) {
+      final float cx = this.width * .5f;
+      final float cy = this.height * .5f;
+      final float tw = 3.5f;
+      final float th = 2.5f;
+      final float ao = .5f;
+
+      vg.fillColor(ui.theme.controlBackgroundColor);
+      vg.beginPath();
+      vg.roundedRect(0, 0, this.width, this.height, 2);
+      vg.fill();
+
+      vg.fillColor(ui.theme.labelColor);
+      vg.beginPath();
+      if (isExpanded()) {
+        vg.moveTo(cx-tw, ao+cy-th);
+        vg.lineTo(cx+tw, ao+cy-th);
+        vg.lineTo(cx, ao+cy+th);
+      } else {
+        vg.moveTo(ao+cx-th, cy+tw);
+        vg.lineTo(ao+cx-th, cy-tw);
+        vg.lineTo(ao+cx+th, cy);
+      }
+      vg.fill();
+    }
+
     protected void drawBottomLeft(UI ui, VGraphics vg) {
       final float x = 1, y = getHeight()-1;
-      vg.moveTo(x, y-10);
+      vg.moveTo(x, y);
+      vg.lineTo(x, y-10);
       vg.lineTo(x+10, y);
-      vg.lineTo(x, y);
     }
 
     protected void drawTopRight(UI ui, VGraphics vg) {
-      final float x = 1, y = getHeight()-1;
-      vg.moveTo(x, y-10);
-      vg.lineTo(x+10, y-10);
-      vg.lineTo(x+10, y);
+      final float x = getWidth() - 1, y = 1;
+      vg.moveTo(x, y);
+      vg.lineTo(x, y+10);
+      vg.lineTo(x-10, y);
     }
 
     protected void drawBottomRight(UI ui, VGraphics vg) {
-      final float x = 1, y = getHeight()-1;
+      final float x = getWidth()-1, y = getHeight()-1;
       vg.moveTo(x, y);
-      vg.lineTo(x+10, y-10);
-      vg.lineTo(x+10, y);
+      vg.lineTo(x-10, y);
+      vg.lineTo(x, y-10);
     }
 
     protected void drawTopLeft(UI ui, VGraphics vg) {
-      final float x = 1, y = getHeight()-1;
-      vg.moveTo(x, y-10);
-      vg.lineTo(x+10, y-10);
-      vg.lineTo(x, y);
+      final float x = 1, y = 1;
+      vg.moveTo(x, y);
+      vg.lineTo(x+10, y);
+      vg.lineTo(x, y+10);
     }
   }
 
@@ -621,7 +669,7 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     return this;
   }
 
-  private UIColor _getIconColor(UI ui) {
+  protected UIColor _getIconColor(UI ui) {
     if (this.active || this.momentaryPressEngaged) {
       return this.hasActiveFontColor ? this.activeFontColor : ui.theme.controlActiveTextColor;
     } else {

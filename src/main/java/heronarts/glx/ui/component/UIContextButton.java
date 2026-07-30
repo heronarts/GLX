@@ -239,7 +239,7 @@ public class UIContextButton extends UI2dComponent implements UIFocus {
     if (this.contextMenu instanceof UIContextMenu) {
       ((UIContextMenu) this.contextMenu).setHighlight(0);
     }
-    getUI().showContextOverlay(this.contextMenu);
+    showContextOverlay(this.contextMenu);
   }
 
   @Override

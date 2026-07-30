@@ -22,6 +22,8 @@ import static org.lwjgl.util.tinyfd.TinyFileDialogs.*;
 
 import java.io.File;
 import java.io.IOException;
+
+import heronarts.lx.clip.LXComposition;
 import org.lwjgl.PointerBuffer;
 import org.lwjgl.system.MemoryStack;
 import org.lwjgl.system.Platform;
@@ -38,7 +40,9 @@ import heronarts.lx.LX;
 import heronarts.lx.LXClassLoader;
 import heronarts.lx.LXEngine;
 import heronarts.lx.clipboard.LXTextValue;
+import heronarts.lx.command.LXCommand;
 import heronarts.lx.model.LXModel;
+import heronarts.lx.parameter.LXParameterListener;
 
 public class GLX extends LX {
 
@@ -102,7 +106,7 @@ public class GLX extends LX {
   /**
    * The window that runs this application
    */
-  public final GLXWindow window;
+  public final WindowEngine windowEngine;
 
   /**
    * BGFX rendering engine
@@ -133,25 +137,27 @@ public class GLX extends LX {
 
   boolean flagUIDebug = false;
 
-  protected GLX(GLXWindow window) throws IOException {
-    this(window, window.flags);
+  private final LXParameterListener compositionWindowListener;
+
+  protected GLX(WindowEngine windowEngine) throws IOException {
+    this(windowEngine, windowEngine.flags);
   }
 
-  protected GLX(GLXWindow window, Flags flags) throws IOException {
-    this(window, flags, null);
+  protected GLX(WindowEngine windowEngine, Flags flags) throws IOException {
+    this(windowEngine, flags, null);
   }
 
-  protected GLX(GLXWindow window, Flags flags, LXModel model) throws IOException {
-    super(window.preferences, flags, model);
-    this.window = window;
+  protected GLX(WindowEngine windowEngine, Flags flags, LXModel model) throws IOException {
+    super(windowEngine.preferences, flags, model);
+    this.windowEngine = windowEngine;
     this.flags = flags;
 
     // Register ourselves as delegate for window events
-    this.window.setDelegate(new WindowDelegate());
-    this.window.inputDispatch.setGLX(this);
+    this.windowEngine.setDelegate(new WindowDelegate());
+    this.windowEngine.inputDispatch.setGLX(this);
 
     // Construct the BGFX instance
-    this.bgfx = new BGFXEngine(this);
+    this.bgfx = new BGFXEngine(this, this.windowEngine);
     this.program = new Programs();
     this.vertexBuffer = new VertexBuffers();
     this.vg = new VGraphics(this);
@@ -162,55 +168,70 @@ public class GLX extends LX {
     // Initialize LED frame buffer for the UI
     this.uiFrame = new LXEngine.Frame(this);
     this.engine.getFrameNonThreadSafe(this.uiFrame);
+
+    // Toggle visibility of timeline window
+    this.engine.showCompositionWindow.addListener(this.compositionWindowListener = p -> {
+      windowEngine.showAltWindow(this.engine.showCompositionWindow.isOn());
+    });
   }
 
-  private class WindowDelegate implements GLXWindow.Delegate {
+  private class WindowDelegate implements WindowEngine.Delegate {
 
     @Override
-    public void setClipboardText(GLXWindow window, String clipboardText) {
+    public void setClipboardText(WindowEngine windowEngine, String clipboardText) {
       clipboard.setItem(new LXTextValue(clipboardText), false);
     }
 
     @Override
-    public void onWindowClose(GLXWindow window) {
+    public void onWindowClose(WindowEngine windowEngine, WindowEngine.Window window) {
       if (!bgfx.hasFailed) {
-        if (flags.confirmChangesOnQuit) {
-          window.setShouldClose(false);
-          // Confirm that we really want to do it
-          confirmChangesSaved("quit", () -> window.setShouldClose(true));
+        if (window.isMain()) {
+          if (flags.confirmChangesOnQuit) {
+            windowEngine.setShouldClose(false);
+            // Confirm that we really want to do it
+            confirmChangesSaved("quit", () -> windowEngine.setShouldClose(true));
+          }
+        } else if (window.isAlt()) {
+          engine.addTask(() -> engine.showCompositionWindow.setValue(false));
         }
       }
     }
 
     @Override
-    public void onZoomChanged(GLXWindow window, float uiZoom) {
+    public void onZoomChanged(WindowEngine windowEngine, float uiZoom) {
       vg.notifyContentScaleChanged();
       bgfx.resizeUI.set(true);
+      bgfx.resizeUIAlt.set(true);
     }
 
     @Override
-    public void onContentScaleChanged(GLXWindow window, float contentScaleX, float contentScaleY) {
-      bgfx.resizeUI.set(true);
+    public void onContentScaleChanged(WindowEngine windowEngine, WindowEngine.Window window, float contentScaleX, float contentScaleY) {
+      if (window.isMain()) {
+        bgfx.resizeUI.set(true);
+      } else if (window.isAlt()) {
+        bgfx.resizeUIAlt.set(true);
+      }
     }
 
     @Override
-    public void onFramebufferSizeChanged(GLXWindow window, float framebufferWidth, float framebufferHeight) {
-      bgfx.resizeFramebuffer.set(true);
+    public void onFramebufferSizeChanged(WindowEngine windowEngine, WindowEngine.Window window, float framebufferWidth, float framebufferHeight) {
+      if (window.isMain()) {
+        bgfx.resizeFramebuffer.set(true);
+      } else if (window.isAlt()) {
+        bgfx.resizeFramebufferAlt.set(true);
+      }
     }
 
     @Override
-    public void onDropFile(GLXWindow window, String fileName) {
+    public void onDropFile(WindowEngine windowEngine, String fileName) {
       try {
         final File file = new File(fileName);
         if (file.exists() && file.isFile()) {
-          if (file.getName().endsWith(".lxp")) {
-            engine.addTask(() -> {
-              confirmChangesSaved("open project " + file.getName(), () -> openProject(file));
-            });
-          } else if (file.getName().endsWith(".jar")) {
-            engine.addTask(() -> {
-              importContentJar(file, true);
-            });
+          switch (getFileExtension(file)) {
+            case ".lxp" -> engine.addTask(() -> confirmChangesSaved("open project " + file.getName(), () -> openProject(file)));
+            case ".jar" -> engine.addTask(() -> importContentJar(file, true));
+            case ".wav", ".aiff", ".aif", ".au" -> engine.addTask(() -> importAudioFile(file));
+            default -> warning("Unknown file extension on dropped file: " + file.getName());
           }
         }
       } catch (Exception x) {
@@ -218,10 +239,18 @@ public class GLX extends LX {
       }
     }
 
+    private static String getFileExtension(File file) {
+      final int dotIndex = file.getName().lastIndexOf('.');
+      if (dotIndex >= 0) {
+        return file.getName().substring(dotIndex).toLowerCase();
+      }
+      return "";
+    }
+
     @Override
-    public void onShutdown(GLXWindow window) {
+    public void onShutdown(WindowEngine windowEngine) {
       if (Thread.currentThread() == bgfx.thread) {
-        throw new IllegalThreadStateException("BGFX thread may not shutdown itself, shutdown should come from GLXWindow");
+        throw new IllegalThreadStateException("BGFX thread may not shutdown itself, shutdown should come from WindowEngine");
       }
 
       // Signal to the BGFX thread that it should shutdown
@@ -283,11 +312,11 @@ public class GLX extends LX {
 
     // Start the LX engine thread
     log("Starting LX Engine...");
-    this.engine.setInputDispatch(this.window.inputDispatch);
+    this.engine.setInputDispatch(this.windowEngine.inputDispatch);
     this.engine.start();
 
     // Start the GLFW window main event polling loop
-    this.window.start();
+    this.windowEngine.start();
 
     // Enter the core event loop
     log("Running main BGFX loop...");
@@ -312,6 +341,8 @@ public class GLX extends LX {
 
   @Override
   public void dispose() {
+    this.engine.showCompositionWindow.removeListener(this.compositionWindowListener);
+
     // NOTE: destroy the whole UI first, rip down all the listeners
     // before disposing of the engine itself. Done on the BGFX thread
     // to properly dispose of BGFX resources.
@@ -372,10 +403,17 @@ public class GLX extends LX {
         if (this.registry.getClassLoader().hasDuplicateClasses()) {
           message += "\n\nDuplicate classes were found. See log for details.";
         }
-        this.ui.contextualHelpText.setValue("New package imported into " + destination.getName());
+        this.ui.setMouseoverHelpText("New package imported into " + destination.getName());
         this.ui.showContextDialogMessage(message);
       });
     };
+  }
+
+  protected void importAudioFile(File file) {
+    LXComposition composition = this.engine.timeline.getComposition();
+    if (composition != null) {
+      this.command.perform(new LXCommand.Composition.AddAudioLane(composition, file));
+    }
   }
 
   public void reloadContent() {
@@ -572,7 +610,7 @@ public class GLX extends LX {
 
   @Override
   public void showConfirmDialog(String message, Runnable confirm) {
-    this.ui.showContextOverlay(new UIDialogBox(this.ui,
+    this.ui.showContextOverlay(UI.Window.MAIN, new UIDialogBox(this.ui,
       message,
       new String[] { "No", "Yes" },
       new Runnable[] { null, confirm }
@@ -581,7 +619,7 @@ public class GLX extends LX {
 
   @Override
   public void setSystemClipboardString(String str) {
-    this.window.setSystemClipboardString(str);
+    this.windowEngine.setSystemClipboardString(str);
   }
 
   public static void openDesktop(String url) {

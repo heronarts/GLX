@@ -19,9 +19,9 @@
 package heronarts.glx.ui;
 
 import heronarts.glx.GLX;
-import heronarts.glx.GLXWindow.MouseCursor;
+import heronarts.glx.WindowEngine;
+import heronarts.glx.WindowEngine.MouseCursor;
 import heronarts.glx.View;
-import heronarts.glx.event.Event;
 import heronarts.glx.event.GamepadEvent;
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
@@ -59,26 +59,38 @@ import static org.lwjgl.bgfx.BGFX.*;
  */
 public class UI {
 
-  public enum CoordinateSystem {
-    LEFT_HANDED,
-    RIGHT_HANDED;
+  public enum Window {
+    MAIN,
+    ALT;
   }
 
   private static UI instance = null;
 
-  private class UIRoot extends UIObject implements UIContainer {
+  Window focusedWindow = Window.MAIN;
+
+  public class UIRoot extends UIObject implements UIContainer {
+
+    private final WindowEngine.Window window;
+
+    public final StringParameter contextualHelpText =
+      new StringParameter("Contextual Help")
+      .setDescription("Parameter for contextual help messages in the bottom bar");
 
     private final View viewClear;
     private final View view2d;
 
-    private UIRoot() {
-      this.ui = UI.this;
+    // Redraw may be called from any thread
+    private final AtomicBoolean redrawFlag = new AtomicBoolean(true);
 
-      this.viewClear = new View(this.ui.lx);
+    private UIRoot(WindowEngine.Window window) {
+      this.ui = UI.this;
+      this.window = window;
+
+      this.viewClear = new View(this.ui.lx, this.window);
       this.viewClear.setClearColor(0x000000ff);
       this.viewClear.setScreenOrtho();
 
-      this.view2d = new View(this.ui.lx);
+      this.view2d = new View(this.ui.lx, this.window);
       this.view2d.setClearFlags(BGFX_CLEAR_DEPTH | BGFX_CLEAR_STENCIL);
       this.view2d.setClearColor(0);
       this.view2d.setScreenOrtho();
@@ -88,16 +100,16 @@ public class UI {
       this.viewClear.setRect(
         0,
         0,
-        lx.window.getFrameBufferWidth(),
-        lx.window.getFrameBufferHeight()
+        this.window.getFrameBufferWidth(),
+        this.window.getFrameBufferHeight()
       );
       this.viewClear.setScreenOrtho();
 
       this.view2d.setRect(
         0,
         0,
-        lx.window.getFrameBufferWidth(),
-        lx.window.getFrameBufferHeight()
+        this.window.getFrameBufferWidth(),
+        this.window.getFrameBufferHeight()
       );
       this.view2d.setScreenOrtho();
 
@@ -110,7 +122,7 @@ public class UI {
      */
     @Override
     public float getWidth() {
-      return this.ui.lx.window.getUIWidth();
+      return this.window.getUIWidth();
     }
 
     /**
@@ -120,7 +132,7 @@ public class UI {
      */
     @Override
     public float getHeight() {
-      return this.ui.lx.window.getUIHeight();
+      return this.window.getUIHeight();
     }
 
     @Override
@@ -327,19 +339,20 @@ public class UI {
       this.glfwThreadChildren.clear();
       this.glfwThreadChildren.addAll(this.children);
 
-      short viewId = 1;
+      // Make sure view IDs for different window root objects to not conflict/collide
+      short viewId = this.window.baseViewId;
 
       // Clear the whole window background to avoid edge-flicker
-      this.viewClear.bind(viewId++).touch();
+      this.viewClear.bind(this.window, viewId++).touch();
 
       // If the redraw flag is set, we need to walk all 2d hierarchies and
       // see which contexts need to be redrawn with the vg layer
-      if (redrawFlag.compareAndSet(true, false)) {
+      if (this.redrawFlag.compareAndSet(true, false)) {
         // Pre-pass over all 2d objects, set redraw flags on the UI2dComponent
         // objects and append to the list of 2d contexts that need rendering
         for (UIObject child : this.glfwThreadChildren) {
-          if (child instanceof UI2dComponent) {
-            ((UI2dComponent) child).predraw(this.renderQueue, false);
+          if (child instanceof UI2dComponent child2d) {
+            child2d.predraw(this.renderQueue, false);
           }
         }
 
@@ -349,8 +362,8 @@ public class UI {
         // texture framebuffer owned by the UI2dContext
         UI2dContext context;
         while ((context = this.renderQueue.poll()) != null) {
-          context.render(vg, viewId++);
-          if (viewId > MAX_NVG_VIEWS_PER_PASS) {
+          context.render(vg, this.window, viewId++);
+          if ((viewId - this.window.baseViewId) > MAX_NVG_VIEWS_PER_PASS) {
             // We're going to have to get to the rest on the next pass..
             break;
           }
@@ -364,26 +377,20 @@ public class UI {
       // re-binding views as needed
       boolean bind2d = true;
       for (UIObject child : this.glfwThreadChildren) {
-        if (child instanceof UI2dContext) {
+        if (child instanceof UI2dContext child2d) {
           if (bind2d) {
-            this.view2d.bind(viewId++);
+            this.view2d.bind(this.window, viewId++);
             bind2d = false;
           }
-          ((UI2dContext) child).draw(this.ui, this.view2d);
-        } else if (child instanceof UI3dContext) {
-          UI3dContext context3d = (UI3dContext) child;
-          context3d.view.setId(viewId++);
+          child2d.draw(this.ui, this.view2d);
+        } else if (child instanceof UI3dContext context3d) {
+          context3d.view.setId(this.window, viewId++);
           context3d.draw(this.ui, context3d.view);
           bind2d = true;
         }
       }
     }
   }
-
-  /**
-   * Redraw may be called from any thread
-   */
-  private final AtomicBoolean redrawFlag = new AtomicBoolean(true);
 
   public class Profiler {
     public long drawNanos = 0;
@@ -394,17 +401,12 @@ public class UI {
   public final GLX lx;
   public final VGraphics vg;
 
-  private UIRoot root;
-
-  public final StringParameter contextualHelpText =
-    new StringParameter("Contextual Help")
-    .setDescription("Parameter for contextual help messages in the bottom bar");
+  protected final UIRoot root;
+  protected final UIRoot rootAlt;
 
   public final StringParameter statusMessageText =
     new StringParameter("Status Message")
     .setDescription("Parameter for status messages in the bottom bar");
-
-  protected CoordinateSystem coordinateSystem = CoordinateSystem.LEFT_HANDED;
 
   private static final long INIT_RUN = -1;
   private long lastMillis = INIT_RUN;
@@ -423,7 +425,6 @@ public class UI {
 
     public UIContextOverlay() {
       super(UI.this, 0, 0, 0, 0);
-      this.parent = root;
       setUI(UI.this);
       setBackgroundColor(0);
     }
@@ -436,11 +437,11 @@ public class UI {
 
     private void clearContent(UI2dComponent overlayContent) {
       if (this.overlayContent == overlayContent) {
-        setContent(null);
+        setContent(null, null);
       }
     }
 
-    private void setContent(UI2dComponent overlayContent) {
+    private void setContent(Window window, UI2dComponent overlayContent) {
       if (overlayContent == this.overlayContent) {
         // Don't re-show the same thing
         return;
@@ -448,7 +449,12 @@ public class UI {
       if (this.overlayContent != null) {
         this.overlayContent.setVisible(false);
         this.overlayContent.removeFromContainer();
-        root.mutableChildren.remove(this);
+
+        // Remove the OverlayContainer from whichever root it was in
+        if (this.parent != null) {
+          this.parent.mutableChildren.remove(this);
+          this.parent = null;
+        }
       }
       this.overlayContent = overlayContent;
       this.contextMenu = null;
@@ -475,7 +481,10 @@ public class UI {
         overlayContent.setVisible(true);
         overlayContent.setPosition(0, 0);
         overlayContent.addToContainer(this);
-        root.mutableChildren.add(this);
+
+        // Add to appropriate window root
+        this.parent = getRoot(window);
+        this.parent.mutableChildren.add(this);
       }
     }
 
@@ -591,30 +600,23 @@ public class UI {
     this.lx = lx;
     this.vg = lx.vg;
 
-    this.theme = new UITheme(this.vg);
-    LX.initProfiler.log("GLX: UI: Theme");
-
-    this.root = new UIRoot();
+    this.root = new UIRoot(lx.windowEngine.mainWindow);
+    this.rootAlt = new UIRoot(lx.windowEngine.altWindow);
     this.contextOverlay = new UIContextOverlay();
     this.dropMenuOverlay = new UIContextOverlay();
     LX.initProfiler.log("GLX: UI: Root");
+
+    this.theme = new UITheme(this.vg);
+    LX.initProfiler.log("GLX: UI: Theme");
 
     lx.addProjectListener(new LX.ProjectListener() {
       @Override
       public void projectChanged(File file, Change change) {
         switch (change) {
-        case TRY:
-          statusMessageText.setValue("Loading project file: " + file.getName());
-          break;
-        case NEW:
-          statusMessageText.setValue("Created new project");
-          break;
-        case SAVE:
-          statusMessageText.setValue("Saved project file: " + file.getName());
-          break;
-        case OPEN:
-          statusMessageText.setValue("Opened project file: " + file.getName());
-          break;
+        case TRY -> statusMessageText.setValue("Loading project file: " + file.getName());
+        case NEW -> statusMessageText.setValue("Created new project");
+        case SAVE -> statusMessageText.setValue("Saved project file: " + file.getName());
+        case OPEN -> statusMessageText.setValue("Opened project file: " + file.getName());
         }
       }
     });
@@ -663,6 +665,7 @@ public class UI {
       }
 
       this.root.redraw();
+      this.rootAlt.redraw();
     });
 
     lx.engine.midi.addMappingListener(new LXMidiEngine.MappingListener() {
@@ -690,7 +693,7 @@ public class UI {
     lx.failure.addListener((p) -> {
       float width = getWidth() * .8f;
       float height = getHeight() * .8f;
-      showContextOverlay(
+      showContextOverlay(Window.MAIN,
         new UILabel(getWidth() * .1f, getHeight() * .1f, width, height)
         .setLabel(lx.failure.getString())
         .setBreakLines(true)
@@ -712,6 +715,7 @@ public class UI {
       if (theme != null) {
         this.theme.setTheme(theme);
         redraw();
+        redrawAlt();
       }
     }, true);
   }
@@ -720,7 +724,7 @@ public class UI {
     final LX.Error error = lx.getError();
     if (error != null) {
       if (error.cause != null) {
-        showContextOverlay(new UIDialogBox(
+        showContextOverlay(Window.MAIN, new UIDialogBox(
           this,
           error.message,
           new String[] { "Copy Stack Trace", "Okay" },
@@ -753,28 +757,27 @@ public class UI {
     return this;
   }
 
-  public UI setCoordinateSystem(CoordinateSystem coordinateSystem) {
-    this.coordinateSystem = coordinateSystem;
-    return this;
-  }
-
   public void redraw() {
     this.root.redraw();
+  }
+
+  public void redrawAlt() {
+    this.rootAlt.redraw();
   }
 
   public static UI get() {
     return UI.instance;
   }
 
-  public void focusPrev(Event event) {
-    UIObject focusTarget = this.root.findPrevFocusable();
+  public void focusPrev(KeyEvent event) {
+    UIObject focusTarget = getRoot(event.window).findPrevFocusable();
     if (focusTarget != null) {
       focusTarget.focus(event);
     }
   }
 
-  public void focusNext(Event event) {
-    UIObject focusTarget = this.root.findNextFocusable();
+  public void focusNext(KeyEvent event) {
+    UIObject focusTarget = getRoot(event.window).findNextFocusable();
     if (focusTarget != null) {
       focusTarget.focus(event);
     }
@@ -784,20 +787,29 @@ public class UI {
     return this.midiMapping || this.modulationSourceMapping || this.modulationTargetMapping || this.triggerSourceMapping || this.triggerTargetMapping;
   }
 
+  public void setMouseoverHelpText(UIObject object, String helpText) {
+    setMouseoverHelpText(helpText, getRoot(object));
+  }
+
   public void setMouseoverHelpText(String helpText) {
+    setMouseoverHelpText(helpText, this.root);
+  }
+
+  public void setMouseoverHelpText(String helpText, UIRoot root) {
     if (!isMapping()) {
-      this.contextualHelpText.setValue(helpText);
+      root.contextualHelpText.setValue(helpText);
     }
   }
 
   void clearMouseoverHelpText() {
     if (!isMapping()) {
-      this.contextualHelpText.setValue("");
+      this.root.contextualHelpText.setValue("");
+      this.rootAlt.contextualHelpText.setValue("");
     }
   }
 
-  public MouseCursor getMouseCursor() {
-    return this.root._getMouseCursor();
+  public MouseCursor getMouseCursor(Window window) {
+    return getRoot(window)._getMouseCursor();
   }
 
   /**
@@ -926,6 +938,17 @@ public class UI {
   }
 
   /**
+   * Add a 2d context to the second window
+   *
+   * @param layer UI layer
+   * @return this
+   */
+  public UI addLayerAlt(UI2dContext layer) {
+    layer.addToContainer(this.rootAlt);
+    return this;
+  }
+
+  /**
    * Remove a 2d context from this UI
    *
    * @param layer UI layer
@@ -949,11 +972,17 @@ public class UI {
     return this;
   }
 
+  /**
+   * Remove a 3d context layer from the UI
+   *
+   * @param layer 3d layer
+   * @return this UI
+   */
   public UI removeLayer(UI3dContext layer) {
-    if (layer.parent != this.root) {
+    if (layer.parent != this.root && layer.parent != this.rootAlt) {
       throw new IllegalStateException("Cannot remove 3d layer which is not present");
     }
-    this.root.mutableChildren.remove(layer);
+    layer.parent.mutableChildren.remove(layer);
     layer.parent = null;
     return this;
   }
@@ -967,20 +996,6 @@ public class UI {
   public UI bringToTop(UI2dContext layer) {
     this.root.mutableChildren.remove(layer);
     this.root.mutableChildren.add(layer);
-    return this;
-  }
-
-  public UI hideContextOverlay() {
-    showContextOverlay(null);
-    return this;
-  }
-
-  public UI showContextDialogMessage(String message) {
-    return showContextOverlay(new UIDialogBox(this, message));
-  }
-
-  public UI showContextOverlay(UI2dComponent contextOverlay) {
-    this.contextOverlay.setContent(contextOverlay);
     return this;
   }
 
@@ -1174,13 +1189,36 @@ public class UI {
     return this;
   }
 
+  public UI hideContextOverlay() {
+    showContextOverlay(Window.MAIN, null);
+    return this;
+  }
+
+  public UI showContextDialogMessage(String message) {
+    return showContextOverlay(Window.MAIN, new UIDialogBox(this, message));
+  }
+
+  @Deprecated
+  public UI showContextOverlay(UI2dComponent contextOverlay) {
+    return showContextOverlay(Window.MAIN, contextOverlay);
+  }
+
+  public UI showContextOverlay(Window window, UI2dComponent contextOverlay) {
+    this.contextOverlay.setContent(window, contextOverlay);
+    return this;
+  }
+
+  public UI showContextOverlay(UI2dComponent contextOverlay, UIObject source) {
+    return showContextOverlay(getWindow(source), contextOverlay);
+  }
+
   public UI showContextOverlay(UI2dComponent contextOverlay, UIObject source, Position ... positions) {
     return showContextOverlay(contextOverlay, true, source, positions);
   }
 
   public UI showContextOverlay(UI2dComponent contextOverlay, boolean clamp, UIObject source, Position ... positions) {
     setPositionRelative(contextOverlay, source, clamp, positions);
-    return showContextOverlay(contextOverlay);
+    return showContextOverlay(getWindow(source), contextOverlay);
   }
 
   public UI resizeContextOverlay(UI2dComponent contextOverlay) {
@@ -1195,12 +1233,21 @@ public class UI {
   }
 
   public UI hideDropMenu() {
-    showDropMenu(null);
+    showDropMenu((Window) null, null);
     return this;
   }
 
+  @Deprecated
   public UI showDropMenu(UIContextMenu dropMenu) {
-    this.dropMenuOverlay.setContent(dropMenu);
+    return showDropMenu(Window.MAIN, dropMenu);
+  }
+
+  public UI showDropMenu(UIObject source, UIContextMenu dropMenu) {
+    return showDropMenu(getWindow(source), dropMenu);
+  }
+
+  public UI showDropMenu(Window window, UIContextMenu dropMenu) {
+    this.dropMenuOverlay.setContent(window, dropMenu);
     return this;
   }
 
@@ -1209,27 +1256,36 @@ public class UI {
     // UI rendering thread to see that the 2d hierarchy needs to be checked
     // for items that need redraw
     component.redrawFlag.set(true);
-    this.redrawFlag.set(true);
+
+    UIRoot root = getRoot(component);
+    if (root != null) {
+      root.redrawFlag.set(true);
+    }
   }
 
   public float getContentScaleX() {
-    return this.lx.window.getUIContentScaleX();
+    return this.lx.windowEngine.mainWindow.getUIContentScaleX();
   }
 
   public float getContentScaleY() {
-    return this.lx.window.getUIContentScaleY();
+    return this.lx.windowEngine.mainWindow.getUIContentScaleY();
   }
 
   public float getWidth() {
-    return this.lx.window.getUIWidth();
+    return this.lx.windowEngine.mainWindow.getUIWidth();
   }
 
   public float getHeight() {
-    return this.lx.window.getUIHeight();
+    return this.lx.windowEngine.mainWindow.getUIHeight();
   }
 
   public void resize() {
     this.root.resize();
+    onResize();
+  }
+
+  public void resizeAlt() {
+    this.rootAlt.resize();
     onResize();
   }
 
@@ -1252,9 +1308,11 @@ public class UI {
 
     // Run loop tasks through the UI tree
     this.root.loop(deltaMs);
+    this.rootAlt.loop(deltaMs);
 
     // Draw UIRoot object
     this.root.draw();
+    this.rootAlt.draw();
 
     endDraw();
 
@@ -1273,41 +1331,65 @@ public class UI {
     // Subclasses may override
   }
 
+  private UIRoot getRoot(long window) {
+    if (window == lx.windowEngine.mainWindow.getHandle()) {
+      return this.root;
+    } else if (window == lx.windowEngine.altWindow.getHandle()) {
+      return this.rootAlt;
+    }
+    throw new IllegalArgumentException("Unknown window handle: " + window);
+  }
+
+  public UIRoot getRoot(Window window) {
+    return switch (window) {
+    case MAIN -> this.root;
+    case ALT -> this.rootAlt;
+    };
+  }
+
+  private UIRoot getRoot(UIObject component) {
+    UIObject candidate = component;
+    while (candidate != null) {
+      if (candidate instanceof UIRoot root) {
+        return root;
+      }
+      candidate = candidate.getParent();
+    }
+    return null;
+  }
+
+  private Window getWindow(UIObject component) {
+    final UIRoot root = getRoot(component);
+    if (root == this.root) {
+      return Window.MAIN;
+    } else if (root == this.rootAlt) {
+      return Window.ALT;
+    }
+    GLX.error("Component belongs to no UI window, defaulting to Window.MAIN: " + component);
+    return Window.MAIN;
+  }
+
   public void mouseEvent(MouseEvent mouseEvent) {
+    final UIRoot root = getRoot(mouseEvent.window);
     switch (mouseEvent.getAction()) {
-    case SCROLL:
-      this.root.mouseScroll(mouseEvent, mouseEvent.x, mouseEvent.y, mouseEvent.dx, mouseEvent.dy);
-      return;
-    case PRESS:
-      this.root.mousePressed(mouseEvent, mouseEvent.x, mouseEvent.y);
-      break;
-    case RELEASE:
-      this.root.mouseReleased(mouseEvent, mouseEvent.x, mouseEvent.y);
-      break;
-    case DRAG:
-      this.root.mouseDragged(mouseEvent, mouseEvent.x, mouseEvent.y, mouseEvent.dx, mouseEvent.dy);
-      break;
-    case MOVE:
-      this.root.mouseMoved(mouseEvent, mouseEvent.x, mouseEvent.y);
-      break;
+      case SCROLL -> root.mouseScroll(mouseEvent, mouseEvent.x, mouseEvent.y, mouseEvent.dx, mouseEvent.dy);
+      case PRESS -> root.mousePressed(mouseEvent, mouseEvent.x, mouseEvent.y);
+      case RELEASE -> root.mouseReleased(mouseEvent, mouseEvent.x, mouseEvent.y);
+      case DRAG -> root.mouseDragged(mouseEvent, mouseEvent.x, mouseEvent.y, mouseEvent.dx, mouseEvent.dy);
+      case MOVE -> root.mouseMoved(mouseEvent, mouseEvent.x, mouseEvent.y);
     }
   }
 
   public void keyEvent(KeyEvent keyEvent) {
     _engineThreadDefaultKeyEvent(keyEvent);
 
-    char keyChar = keyEvent.getKeyChar();
-    int keyCode = keyEvent.getKeyCode();
+    final UIRoot root = getRoot(keyEvent.window);
+    final char keyChar = keyEvent.getKeyChar();
+    final int keyCode = keyEvent.getKeyCode();
     switch (keyEvent.getAction()) {
-    case RELEASE:
-      this.root.keyReleased(keyEvent, keyChar, keyCode);
-      break;
-    case PRESS:
-    case REPEAT:
-      this.root.keyPressed(keyEvent, keyChar, keyCode);
-      break;
-    default:
-      throw new RuntimeException("Invalid keyEvent type: " + keyEvent.getAction());
+      case RELEASE ->  root.keyReleased(keyEvent, keyChar, keyCode);
+      case PRESS, REPEAT ->  root.keyPressed(keyEvent, keyChar, keyCode);
+      default -> throw new RuntimeException("Invalid keyEvent type: " + keyEvent.getAction());
     }
   }
 
@@ -1316,35 +1398,29 @@ public class UI {
     KeyEvent.Action action = keyEvent.getAction();
     if (action == KeyEvent.Action.PRESS) {
       switch (keyCode) {
-      case KeyEvent.VK_S:
-        if (keyEvent.isCommand()) {
-          if (keyEvent.isShiftDown() || lx.getProject() == null) {
-            lx.showSaveProjectDialog();
-          } else {
-            lx.saveProject();
+        case KeyEvent.VK_S -> {
+          if (keyEvent.isCommand()) {
+            if (keyEvent.isShiftDown() || lx.getProject() == null) {
+              lx.showSaveProjectDialog();
+            } else {
+              lx.saveProject();
+            }
           }
         }
-        break;
-      case KeyEvent.VK_O:
-        if (keyEvent.isCommand()) {
-          lx.showOpenProjectDialog();
+        case KeyEvent.VK_O -> {
+          if (keyEvent.isCommand()) {
+            lx.showOpenProjectDialog();
+          }
         }
-        break;
       }
     }
   }
 
   public void gamepadEvent(GamepadEvent gamepadEvent) {
     switch (gamepadEvent.getAction()) {
-    case BUTTON_PRESS:
-      this.root.onGamepadButtonPressed(gamepadEvent, gamepadEvent.button);
-      break;
-    case BUTTON_RELEASE:
-      this.root.onGamepadButtonReleased(gamepadEvent, gamepadEvent.button);
-      break;
-    case AXIS_CHANGE:
-      this.root.onGamepadAxisChanged(gamepadEvent, gamepadEvent.axis, gamepadEvent.axisValue);
-      break;
+      case BUTTON_PRESS -> this.root.onGamepadButtonPressed(gamepadEvent, gamepadEvent.button);
+      case BUTTON_RELEASE -> this.root.onGamepadButtonReleased(gamepadEvent, gamepadEvent.button);
+      case AXIS_CHANGE -> this.root.onGamepadAxisChanged(gamepadEvent, gamepadEvent.axis, gamepadEvent.axisValue);
     }
   }
 
@@ -1354,6 +1430,7 @@ public class UI {
     this.contextOverlay.dispose();
     this.dropMenuOverlay.dispose();
     this.root.dispose();
+    this.rootAlt.dispose();
     this.theme.dispose();
   }
 }

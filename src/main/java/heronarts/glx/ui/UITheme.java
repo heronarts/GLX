@@ -159,7 +159,12 @@ public class UITheme {
 
       "markerActive", "777777",
       "markerInactive", "333333",
-      "markerSelected", "669966"
+      "markerSelected", "669966",
+      "markerInsert", "ff9330",
+
+      "noteBackground", "bcb63d",
+      "noteBackgroundSelected", "dcd63d",
+      "noteText", "333333"
     ),
 
     LIGHT("Light", 8,
@@ -265,7 +270,12 @@ public class UITheme {
 
       "markerActive", "999999",
       "markerInactive", "606060",
-      "markerSelected", "8cd867"
+      "markerSelected", "8cd867",
+      "markerInsert", "ff3060",
+
+      "noteBackground", "bcb63d",
+      "noteBackgroundSelected", "dcd63d",
+      "noteText", "333333"
     );
 
     public final String name;
@@ -401,6 +411,11 @@ public class UITheme {
   public final Color markerSelectedColor = new Color("markerSelected");
   public final Color markerActiveColor = new Color("markerActive");
   public final Color markerInactiveColor = new Color("markerInactive");
+  public final Color markerInsertColor = new Color("markerInsert");
+
+  public final Color noteBackgroundColor = new Color("noteBackground");
+  public final Color noteBackgroundSelectedColor = new Color("noteBackgroundSelected");
+  public final Color noteTextColor = new Color("noteText");
 
   public final VGraphics.Image iconNote;
   public final VGraphics.Image iconTempo;
@@ -444,6 +459,7 @@ public class UITheme {
   public final VGraphics.Image iconNext;
   public final VGraphics.Image iconPrev;
   public final VGraphics.Image iconReset;
+  public final VGraphics.Image iconTimeline;
 
   UITheme(VGraphics vg) throws IOException {
     this.controlFont = loadFont(vg, "Inter-SemiBold", "Inter-SemiBold.otf");
@@ -498,6 +514,7 @@ public class UITheme {
     this.iconNext = loadIcon(vg, "icon-next@2x.png");
     this.iconPrev = loadIcon(vg, "icon-prev@2x.png");
     this.iconReset = loadIcon(vg, "icon-reset@2x.png");
+    this.iconTimeline = loadIcon(vg, "icon-timeline@2x.png");
     LX.initProfiler.log("GLX: UI: Theme: Icons");
   }
 

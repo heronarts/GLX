@@ -74,7 +74,7 @@ public abstract class UIInputBox extends UIParameterComponent implements UIFocus
     }
   }
 
-  private static final int TEXT_MARGIN = 2;
+  protected static final int TEXT_MARGIN = 2;
 
   protected boolean enabled = true;
 
@@ -525,6 +525,10 @@ public abstract class UIInputBox extends UIParameterComponent implements UIFocus
     final float availableWidth = this.width - TEXT_MARGIN - 1;
     final String rawString = this.editing ? this.editState.buffer : getValueString();
 
+    drawText(ui, vg, this.editState, rawString, this.editing, this.textAlignHorizontal, 0, 0, this.width, this.height, availableWidth);
+  }
+
+  protected void drawText(UI ui, VGraphics vg, EditState editState, String rawString, boolean cursor, VGraphics.Align textAlignHorizontal, float x, float y, float width, float height, float availableWidth) {
     onDrawText(ui, vg, this.editState, rawString, this.editing, this.textAlignHorizontal, 0, 0, this.width, this.height, availableWidth);
   }
 
