@@ -339,8 +339,8 @@ public class VGraphics implements BGFXEngine.Resource {
       // extra sub-pixel is okay, see the nvgBeginFrame() call where
       // the actual frame size is passed as a float.
       this.buffer = nvgluCreateFramebuffer(vg,
-        (int) Math.ceil(this.width * this.window.getUIContentScaleX()),
-        (int) Math.ceil(this.height * this.window.getUIContentScaleY()),
+        (int) (this.width * this.window.getUIContentScaleX()),
+        (int) (this.height * this.window.getUIContentScaleY()),
         this.imageFlags
       );
 
