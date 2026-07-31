@@ -257,8 +257,8 @@ public class BGFXEngine {
     }
 
     // Dummy frames on exit to ensure bgfx memory validity
-    bgfx_frame(false);
-    bgfx_frame(false);
+    bgfx_frame(BGFX_FRAME_NONE);
+    bgfx_frame(BGFX_FRAME_NONE);
   }
 
   final List<BGFXEngine.Resource> threadSafeDisposeQueue = Collections.synchronizedList(new ArrayList<>());
@@ -268,7 +268,7 @@ public class BGFXEngine {
     // Copy the latest engine-rendered LED frame
     this.glx.engine.copyFrameThreadSafe(this.glx.uiFrame);
     this.glx.ui.draw();
-    bgfx_frame(false);
+    bgfx_frame(BGFX_FRAME_NONE);
   }
 
   private void _disposeQueue() {

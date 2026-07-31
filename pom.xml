@@ -34,7 +34,7 @@
 	</scm>
 
     <properties>
-        <maven.compiler.release>21</maven.compiler.release>
+        <maven.compiler.release>25</maven.compiler.release>
 
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
 
@@ -44,7 +44,7 @@
 		<maven-source-plugin.version>3.3.0</maven-source-plugin.version>
 		<maven-compiler-plugin.version>3.12.1</maven-compiler-plugin.version>
         
-        <lwjgl.version>3.4.1</lwjgl.version>
+        <lwjgl.version>3.4.2</lwjgl.version>
         <joml.version>1.10.9</joml.version>
 	
     </properties>

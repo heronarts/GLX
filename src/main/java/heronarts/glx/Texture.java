@@ -67,7 +67,7 @@ public class Texture implements BGFXEngine.Resource {
     this.glx = glx;
     this.stbiData = null;
     this.textureData = MemoryUtil.memAlloc(width * height).put(textureData).flip();
-    this.th = bgfx_create_texture_2d(width, height, false, 1, textureFormat, BGFX_TEXTURE_NONE, bgfx_make_ref(this.textureData));
+    this.th = bgfx_create_texture_2d(width, height, false, 1, textureFormat, BGFX_TEXTURE_NONE, bgfx_make_ref(this.textureData), 0);
   }
 
   private Texture(GLX glx, String path, boolean is2d) throws IOException {
@@ -82,7 +82,7 @@ public class Texture implements BGFXEngine.Resource {
       if (this.stbiData == null) {
         throw new IOException("STBI failed to load STBI image: " + path);
       }
-      this.th = bgfx_create_texture_2d(width.get(), height.get(), false, 1, BGFX_TEXTURE_FORMAT_RGBA8, BGFX_TEXTURE_NONE, bgfx_make_ref(this.stbiData));
+      this.th = bgfx_create_texture_2d(width.get(), height.get(), false, 1, BGFX_TEXTURE_FORMAT_RGBA8, BGFX_TEXTURE_NONE, bgfx_make_ref(this.stbiData), 0);
     }
   }
 
