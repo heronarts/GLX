@@ -126,7 +126,11 @@ public class UIButton extends UIParameterComponent implements UIControlTarget, U
     }
 
     public Action(float w, float h, VGraphics.Image icon, Runnable onClick) {
-      this(0, 0, w, h, "", onClick);
+      this(0, 0, w, h, icon, onClick);
+    }
+
+    public Action(float x, float y, float w, float h, VGraphics.Image icon, Runnable onClick) {
+      this(x, y, w, h, onClick);
       setIcon(icon);
     }
 
