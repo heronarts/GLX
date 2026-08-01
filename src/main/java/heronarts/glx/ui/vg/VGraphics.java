@@ -333,11 +333,12 @@ public class VGraphics implements BGFXEngine.Resource {
       }
 
       // NOTE: the framebuffer needs to be in framebuffer pixel space!
-      // So we multiply our floating-point ui pixel dimensions by the
-      // scaling factor and we round up to the next integer to make sure
-      // we've got enough framebuffer pixels to cover it! Note that this
-      // extra sub-pixel is okay, see the nvgBeginFrame() call where
-      // the actual frame size is passed as a float.
+      // We multiply our floating-point UI pixel dimensions by the
+      // scaling factor and we truncate to an integer to ensure we
+      // match the view rect nanoVG will create. See the nvgBeginFrame()
+      // call where the frame size is specified in logical pixels with
+      // content scaling separately. No clue what will happen if X and
+      // Y scaling are different (never actually encountered afaik)
       this.buffer = nvgluCreateFramebuffer(vg,
         (int) (this.width * this.window.getUIContentScaleX()),
         (int) (this.height * this.window.getUIContentScaleY()),
@@ -394,6 +395,10 @@ public class VGraphics implements BGFXEngine.Resource {
 
   public long getHandle() {
     return this.vg;
+  }
+
+  public Framebuffer createFramebuffer(UI2dContext context, float w, float h) {
+    return createFramebuffer(context, w, h, 0);
   }
 
   public Framebuffer createFramebuffer(UI2dContext context, float w, float h, int imageFlags) {
@@ -503,10 +508,9 @@ public class VGraphics implements BGFXEngine.Resource {
     framebuffer.bind(window, viewId);
 
     // NOTE: The nvgBeginFrame call wants width and height in
-    // post-scaled framebuffer space, and it also needs
-    // to know what the content scaling factor is. It only
-    // takes one scaling factor so let's just hope for the
-    // best if X/Y scaling are unequal on some weird system...
+    // logical pixel space, it only takes one content scaling
+    // factor, so let's just hope for the best if X/Y scaling
+    // are unequal on some weird system...
     nvgBeginFrame(
       this.vg,
       width, // * framebuffer.window.getUIContentScaleX(),
