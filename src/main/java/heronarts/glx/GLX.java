@@ -43,6 +43,7 @@ import heronarts.lx.clipboard.LXTextValue;
 import heronarts.lx.command.LXCommand;
 import heronarts.lx.model.LXModel;
 import heronarts.lx.parameter.LXParameterListener;
+import heronarts.lx.parameter.MediaPathParameter;
 
 public class GLX extends LX {
 
@@ -413,6 +414,32 @@ public class GLX extends LX {
     LXComposition composition = this.engine.timeline.getComposition();
     if (composition != null) {
       this.command.perform(new LXCommand.Composition.AddAudioLane(composition, file));
+    }
+  }
+
+  public void consolidateProjectMedia() {
+    final File project = getProject();
+    if (project == null) {
+      pushError("Cannot consolidate project media, no project file found.", true);
+      return;
+    }
+    MediaPathParameter.ConsolidateProjectMedia consolidate = MediaPathParameter.consolidateProjectMedia(this, project);
+    String error = consolidate.getError();
+    if (error != null) {
+      pushError(error, true);
+    } else {
+      final int copied = consolidate.getCopiedFiles();
+      final int missing = consolidate.getMissingFiles();
+      final String copiedFiles = (copied == 1) ? "file" : "files";
+      String message = (copied == 0) ?
+        "No project media found." :
+        "Media copied to: " + consolidate.mediaFolder.getName() + "\nCopied " + copied + " media " + copiedFiles + ".";
+      if (missing > 0) {
+        final String missingFiles = (missing == 1) ? "file" : "files";
+        message += "\nProject referenced " + missing + " missing " + missingFiles + ".";
+      }
+      this.ui.showContextDialogMessage(message);
+      pushStatusMessage("Consolidated project media");
     }
   }
 
