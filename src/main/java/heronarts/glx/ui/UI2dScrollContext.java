@@ -327,7 +327,7 @@ public class UI2dScrollContext extends UI2dContext implements UI2dScrollInterfac
         // separate wheels, so check that whether dy exceeds dx
         if (mouseEvent.isShiftDown() && (Math.abs(dy) > Math.abs(dx)) && !mouseEvent.isScrollYConsumed()) {
           mouseEvent.consumeScrollY();
-          setScrollX(this.scrollX + dy);
+          setScrollX(this.scrollX - dy);
         } else if (!mouseEvent.isScrollXConsumed() && (dx != 0)) {
           mouseEvent.consumeScrollX();
           setScrollX(this.scrollX - dx);
