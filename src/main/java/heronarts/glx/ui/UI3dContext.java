@@ -1019,6 +1019,19 @@ public class UI3dContext extends UIObject implements LXSerializable, UILayer, UI
   }
 
   /**
+   * Set camera position of this context to match another
+   *
+   * @param that Other UI3dContext
+   * @return this
+   */
+  public UI3dContext setCamera(UI3dContext that) {
+    this.camera.set(that.camera);
+    this.projection.setValue(that.projection.getValue());
+    this.perspective.setValue(that.perspective.getValue());
+    return this;
+  }
+
+  /**
    * Gets the center position of the scene
    *
    * @return center of scene
