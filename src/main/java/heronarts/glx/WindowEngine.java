@@ -251,6 +251,8 @@ public class WindowEngine {
     // Create windows
     this.focusedWindow = this.mainWindow = new MainWindow();
     this.altWindow = new AltWindow();
+    // Hide until we are loaded and confirmed visible
+    this.altWindow.hide();
 
     // Set UI Zoom bounds based upon content scaling
     _updateUIZoomRange();
@@ -934,8 +936,6 @@ public class WindowEngine {
 
     private AltWindow() {
       super(LXPreferences.Window.ALT, BASE_VIEW_ID_ALT, "Composition");
-      // Hide until we are loaded and confirmed visible
-      hide();
     }
 
     @Override
