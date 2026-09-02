@@ -108,6 +108,7 @@ public class UITheme {
       "busB", "a66812",
       "surface", "e5b242",
       "recording", "a00044",
+      "automation", "d84b44",
       "cursor", "555555",
       "selection", "333333",
       "error", "ff0000",
@@ -220,6 +221,7 @@ public class UITheme {
       "busB", "d88c67",
       "surface", "e5b242",
       "recording", "ec624a",
+      "automation", "d84b44",
       "cursor", "555555",
       "selection", "cccccc",
       "error", "cc0000",
@@ -360,6 +362,7 @@ public class UITheme {
   public final Color busBColor = new Color("busB");
   public final Color surfaceColor = new Color("surface");
   public final Color recordingColor = new Color("recording");
+  public final Color automationColor = new Color("automation");
   public final Color cursorColor = new Color("cursor");
   public final Color selectionColor = new Color("selection");
   public final Color errorColor = new Color("error");
