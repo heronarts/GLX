@@ -34,7 +34,6 @@ import heronarts.lx.parameter.LXListenableParameter;
 import heronarts.lx.parameter.LXNormalizedParameter;
 import heronarts.lx.parameter.LXParameter;
 import heronarts.lx.parameter.LXParameterListener;
-
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -675,17 +674,18 @@ public abstract class UIObject extends UIEventHandler implements LXLoopTask {
     }
 
     // Show a right-click context menu, if no child has, and if we're eligible
-    if (!mouseEvent.isDropMenuConsumed() && this instanceof UIContextActions && (mouseEvent.getButton() == MouseEvent.BUTTON_RIGHT)) {
-      UIContextActions contextParent = (UIContextActions) this;
-      List<UIContextActions.Action> contextActions = contextParent.getContextActions();
+    if (!mouseEvent.isDropMenuConsumed() &&
+        (this instanceof UIContextActions contextParent) &&
+        (mouseEvent.getButton() == MouseEvent.BUTTON_RIGHT)) {
+      final List<UIContextActions.Action> contextActions = contextParent.getContextActions();
       if (contextActions != null && contextActions.size() > 0) {
         mouseEvent.consumeDropMenu();
-        getUI().showDropMenu(
-          this,
-          (UIContextMenu) new UIContextMenu(mx, my, UIContextMenu.DEFAULT_WIDTH, 0)
-          .setActions(contextActions.toArray(new UIContextActions.Action[0]))
-          .setPosition(this, (int) mx, (int) my)
-        );
+
+        final UIContextMenu contextMenu = (UIContextMenu)
+          new UIContextMenu(UIContextMenu.DEFAULT_WIDTH, contextActions)
+          .setPosition(this, (int) mx, (int) my, true);
+
+        getUI().showDropMenu(this, contextMenu);
       }
     }
 

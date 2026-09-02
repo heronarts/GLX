@@ -18,6 +18,8 @@
 
 package heronarts.glx.ui.component;
 
+import java.util.List;
+
 import heronarts.glx.event.KeyEvent;
 import heronarts.glx.event.MouseEvent;
 import heronarts.glx.ui.UI;
@@ -44,6 +46,11 @@ public class UIContextMenu extends UI2dContainer {
     setVisible(false);
     setBackgroundColor(UI.get().theme.contextBackgroundColor);
     setBorderColor(UI.get().theme.contextBorderColor);
+  }
+
+  public UIContextMenu(float w, List<UIContextActions.Action> actions) {
+    this(0, 0, w, 0);
+    setActions(actions.toArray(new UIContextActions.Action[0]));
   }
 
   public float getPadding() {

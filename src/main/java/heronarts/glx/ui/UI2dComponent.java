@@ -503,7 +503,22 @@ public abstract class UI2dComponent extends UIObject {
    * @return this
    */
   public UI2dComponent setPosition(UIObject parent, float offsetX, float offsetY) {
+    return setPosition(parent, offsetX, offsetY, false);
+  }
+
+  /**
+   * Sets the position of this object in the global space, relative to a parent object
+   * with a defined offset
+   *
+   * @param parent Parent object
+   * @param offsetX X offset
+   * @param offsetY Y offset
+   * @param constrain Constrain to window bounds
+   * @return this
+   */
+  public UI2dComponent setPosition(UIObject parent, float offsetX, float offsetY, boolean constrain) {
     float x = offsetX, y = offsetY;
+    UIObject root = null;
     while (parent != null) {
       x += parent.getX();
       y += parent.getY();
@@ -511,7 +526,12 @@ public abstract class UI2dComponent extends UIObject {
         x += scrollInterface.getScrollX();
         y += scrollInterface.getScrollY();
       }
+      root = parent;
       parent = parent.getParent();
+    }
+    if (constrain && (root != null)) {
+      x = LXUtils.constrainf(x, 0, root.getWidth() - this.width);
+      y = LXUtils.constrainf(y, 0, root.getHeight() - this.height);
     }
     setPosition(x, y);
     return this;
